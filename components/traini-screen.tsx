@@ -42,9 +42,10 @@ function Splash() {
 
 function Login() {
   const router = useRouter();
+  const [appleNotice, setAppleNotice] = useState(false);
   return <div className="app-frame"><main className="page flex min-h-dvh flex-col pt-0">
     <div className="login-hero text-center"><div className="login-logo-window mx-auto"><img alt="Traini AI Running Coach" src="/images/brand/traini-logo.png" /></div><h1 className="mt-8 text-[16px] font-semibold leading-[1.3] tracking-[-.04em]">반가워요,<br />트레이니와 함께 달려볼까요?</h1><div className="mx-auto mt-7 h-[238px] w-[238px] overflow-hidden rounded-full shadow-[0_12px_25px_rgba(91,63,112,.14)]"><img alt="Runner shoes" className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmWV8-nCJHFZHBBrk3xBtaIVmlWYIXLp5sXXYBOdzz0DETK6ONT6tCkcOFMbIS2nvMtyM9lc5CzD6QJ1MciCk7xjMAQ82wbIix0xAOuz0oSevdr0K5f9-Odlw5AsJ11ZapkJ7Pj6iTEjDDSuC9hHTex-UYidBZJvvm7wn5XZtXIouk8bacDIN6xlHnQTUg7gMIE5A62Fg4Gba0xijQVs3qFAdxiUG_SUa1KJZ3m7NSg60TW7e5KQNkpg" /></div></div>
-    <div className="mt-auto space-y-[10px]"><button className="auth-button auth-button-apple" onClick={() => router.push("/garmin-connect")}><span className="auth-button-content"><span className="apple-mark"></span><span>Apple로 로그인</span></span></button><button className="auth-button auth-button-google" onClick={() => router.push("/garmin-connect")}><span className="auth-button-content"><img src="/icons/google.svg" alt="" aria-hidden="true" /><span>Google 계정으로 계속하기</span></span></button><p className="pt-8 text-center text-[10px] leading-5 text-[#756e7c]">이용약관&nbsp;&nbsp; · &nbsp;&nbsp;개인정보 처리방침</p></div>
+    <div className="mt-auto space-y-[10px]"><button className="auth-button auth-button-apple" onClick={() => setAppleNotice(true)}><span className="auth-button-content"><span className="apple-mark"></span><span>Apple로 로그인</span></span></button>{appleNotice && <p className="apple-login-notice" role="status">Apple 로그인은 준비 중이에요.<br />Google 계정으로 계속해 주세요.</p>}<button className="auth-button auth-button-google" onClick={() => router.push("/garmin-connect")}><span className="auth-button-content"><img src="/icons/google.svg" alt="" aria-hidden="true" /><span>Google 계정으로 계속하기</span></span></button><p className="pt-8 text-center text-[10px] leading-5 text-[#756e7c]">이용약관&nbsp;&nbsp; · &nbsp;&nbsp;개인정보 처리방침</p></div>
   </main></div>;
 }
 
