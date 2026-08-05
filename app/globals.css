@@ -29,6 +29,8 @@ button, input { font:inherit; }
 .auth-button-google img { display:block; width:18px; height:18px; flex:none; }
 .apple-mark { display:block; font-family:Arial, sans-serif; font-size:22px; line-height:1; transform:translateY(1px); }
 .apple-login-notice { margin:-2px 0 2px; color:#756e7c; font-size:11px; line-height:16px; text-align:center; }
+.auth-error { margin:0; color:#c24155; font-size:11px; line-height:16px; text-align:center; }
+.auth-loading { width:100%; min-height:100dvh; background:#fff; }
 .garmin-page { position:relative; min-height:calc(100dvh - 56px); padding:20px 12px 28px; display:flex; flex-direction:column; }
 .garmin-page h1 { margin:0 0 20px; font-size:20px; line-height:1.28; letter-spacing:-.05em; font-weight:600; }
 .garmin-data-card { position:relative; isolation:isolate; overflow:hidden; height:302px; border:1px solid #eee9f0; border-radius:18px; padding:18px; background:#fff; }

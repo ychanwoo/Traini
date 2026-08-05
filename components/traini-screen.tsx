@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Activity, ArrowLeft, ArrowLeftRight, BarChart3, BedDouble, CalendarDays, ChevronLeft, ChevronRight, Circle, Footprints, Gauge, Heart, HeartPulse, Info, Moon, PersonStanding, Route, Settings, ShieldCheck, Sun, TrendingUp, UserRound, type LucideIcon } from "lucide-react";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Screen = "splash" | "login" | "garmin" | "analysis" | "goal" | "schedule" | "today" | "my" | "roadmap";
 type Props = { screen: Screen };
@@ -43,9 +44,18 @@ function Splash() {
 function Login() {
   const router = useRouter();
   const [appleNotice, setAppleNotice] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  useEffect(() => {
+    void getSupabaseBrowserClient().auth.getSession().then(({ data: { session } }) => { if (session) router.replace("/today"); });
+  }, [router]);
+  const signInWithGoogle = async () => {
+    setAuthError(null);
+    const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/auth/callback` } });
+    if (error) setAuthError("Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  };
   return <div className="app-frame"><main className="page flex min-h-dvh flex-col pt-0">
     <div className="login-hero text-center"><div className="login-logo-window mx-auto"><img alt="Traini AI Running Coach" src="/images/brand/traini-logo.png" /></div><h1 className="mt-8 text-[16px] font-semibold leading-[1.3] tracking-[-.04em]">반가워요,<br />트레이니와 함께 달려볼까요?</h1><div className="mx-auto mt-7 h-[238px] w-[238px] overflow-hidden rounded-full shadow-[0_12px_25px_rgba(91,63,112,.14)]"><img alt="Runner shoes" className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmWV8-nCJHFZHBBrk3xBtaIVmlWYIXLp5sXXYBOdzz0DETK6ONT6tCkcOFMbIS2nvMtyM9lc5CzD6QJ1MciCk7xjMAQ82wbIix0xAOuz0oSevdr0K5f9-Odlw5AsJ11ZapkJ7Pj6iTEjDDSuC9hHTex-UYidBZJvvm7wn5XZtXIouk8bacDIN6xlHnQTUg7gMIE5A62Fg4Gba0xijQVs3qFAdxiUG_SUa1KJZ3m7NSg60TW7e5KQNkpg" /></div></div>
-    <div className="mt-auto space-y-[10px]"><button className="auth-button auth-button-apple" onClick={() => setAppleNotice(true)}><span className="auth-button-content"><span className="apple-mark"></span><span>Apple로 로그인</span></span></button>{appleNotice && <p className="apple-login-notice" role="status">Apple 로그인은 준비 중이에요.<br />Google 계정으로 계속해 주세요.</p>}<button className="auth-button auth-button-google" onClick={() => router.push("/garmin-connect")}><span className="auth-button-content"><img src="/icons/google.svg" alt="" aria-hidden="true" /><span>Google 계정으로 계속하기</span></span></button><p className="pt-8 text-center text-[10px] leading-5 text-[#756e7c]">이용약관&nbsp;&nbsp; · &nbsp;&nbsp;개인정보 처리방침</p></div>
+    <div className="mt-auto space-y-[10px]"><button className="auth-button auth-button-apple" onClick={() => setAppleNotice(true)}><span className="auth-button-content"><span className="apple-mark"></span><span>Apple로 로그인</span></span></button>{appleNotice && <p className="apple-login-notice" role="status">Apple 로그인은 준비 중이에요.<br />Google 계정으로 계속해 주세요.</p>}<button className="auth-button auth-button-google" onClick={() => void signInWithGoogle()}><span className="auth-button-content"><img src="/icons/google.svg" alt="" aria-hidden="true" /><span>Google 계정으로 계속하기</span></span></button>{authError && <p className="auth-error" role="alert">{authError}</p>}<p className="pt-8 text-center text-[10px] leading-5 text-[#756e7c]">이용약관&nbsp;&nbsp; · &nbsp;&nbsp;개인정보 처리방침</p></div>
   </main></div>;
 }
 
@@ -131,7 +141,7 @@ function MyPage() {
     reader.onload = () => setProfileImage(String(reader.result));
     reader.readAsDataURL(file);
   };
-  const logout = () => { localStorage.removeItem("traini-garmin-connected"); localStorage.removeItem("traini-plan"); router.push("/login"); };
+  const logout = async () => { await getSupabaseBrowserClient().auth.signOut(); localStorage.removeItem("traini-garmin-connected"); localStorage.removeItem("traini-plan"); router.replace("/login"); };
   return <div className="page app-frame"><header className="flex h-10 items-center justify-between"><Brand /><Icon>settings</Icon></header><section className="mt-5 text-center"><input ref={uploadRef} className="sr-only" type="file" accept="image/*" onChange={(event) => updateProfileImage(event.target.files?.[0])} /><button type="button" className="profile-upload" aria-label="프로필 사진 업로드" onClick={() => uploadRef.current?.click()}><span className="profile-image-clip">{profileImage ? <img src={profileImage} alt="영찬 프로필" /> : <Icon>person</Icon>}</span><span>+</span></button><h1 className="mt-3 text-xl font-semibold">영찬</h1><p className="mt-1 text-sm text-[#756e7c]">풀코스 3시간 30분 목표</p><span className="mt-2 inline-block rounded-full bg-[#eaf7ff] px-2 py-1 text-[10px] font-semibold text-[#147eaf]">Garmin 연결됨</span></section><section className="mt-6 grid grid-cols-3 divide-x divide-[#ece8ef] rounded-xl border border-[#ece8ef] py-3 text-center"><Metric label="VDOT" value="44"/><Metric label="훈련 연속" value="6" sub="weeks"/><Metric label="평균 거리" value="38.4" sub="km"/></section><section className="my-insight-card"><div className="my-insight-title"><div><p>최근 4주 훈련 인사이트</p><small>꾸준함이 페이스 향상으로 이어지고 있어요</small></div><Icon>insights</Icon></div><div className="my-insight-metrics"><div><small>평균 페이스</small><strong className="mono">5&apos;42&quot; <i>→</i> <b>5&apos;34&quot;</b></strong><p>km당 8초 향상</p></div><div><small>훈련 완료율</small><strong className="mono"><b>89%</b></strong><p>목표 18회 중 16회</p></div></div><div className="my-insight-weeks" aria-label="최근 4주 훈련 완료율"><div><i style={{height:"66%"}}/><span>1주</span></div><div><i style={{height:"74%"}}/><span>2주</span></div><div><i style={{height:"82%"}}/><span>3주</span></div><div><i className="is-current" style={{height:"92%"}}/><span>이번 주</span></div></div></section><section className="mt-5 divide-y divide-[#ece8ef] border-y border-[#ece8ef]">{rows.map((row)=><button className="flex w-full items-center justify-between py-4 text-sm" key={row}>{row}<Icon>chevron_right</Icon></button>)}</section><button type="button" className="logout-button" onClick={() => setShowLogoutModal(true)}>로그아웃</button>{showLogoutModal && <div className="logout-modal-backdrop" role="presentation" onClick={() => setShowLogoutModal(false)}><section className="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-title" onClick={(event) => event.stopPropagation()}><h2 id="logout-title">로그아웃 하시겠습니까?</h2><p>현재 기기에서 Traini를 로그아웃합니다.</p><div><button type="button" onClick={() => setShowLogoutModal(false)}>아니오</button><button type="button" onClick={logout}>예, 로그아웃</button></div></section></div>}<Navigation active="my" /></div>;
 }
 
