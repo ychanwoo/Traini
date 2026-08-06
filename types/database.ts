@@ -6,6 +6,7 @@ export type Database = {
           id: string;
           display_name: string;
           avatar_url: string | null;
+          race_name: string | null;
           target_distance: string | null;
           target_time_seconds: number | null;
           target_date: string | null;
@@ -16,6 +17,7 @@ export type Database = {
           id: string;
           display_name?: string;
           avatar_url?: string | null;
+          race_name?: string | null;
           target_distance?: string | null;
           target_time_seconds?: number | null;
           target_date?: string | null;
@@ -23,6 +25,7 @@ export type Database = {
         Update: {
           display_name?: string;
           avatar_url?: string | null;
+          race_name?: string | null;
           target_distance?: string | null;
           target_time_seconds?: number | null;
           target_date?: string | null;

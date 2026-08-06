@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Activity, ArrowLeft, ArrowLeftRight, BarChart3, BedDouble, CalendarDays, ChevronLeft, ChevronRight, Circle, Footprints, Gauge, Heart, HeartPulse, Info, Moon, PersonStanding, Route, Settings, ShieldCheck, Sun, TrendingUp, UserRound, type LucideIcon } from "lucide-react";
+import { Activity, ArrowLeft, ArrowLeftRight, BarChart3, BedDouble, CalendarDays, ChevronLeft, ChevronRight, Circle, Footprints, Gauge, Heart, HeartPulse, Info, Mail, Moon, PersonStanding, Route, Settings, ShieldCheck, Sun, TrendingUp, UserRound, type LucideIcon } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { applyWeatherPaceAdjustment } from "@/lib/algorithms/pace";
 
-type Screen = "splash" | "login" | "garmin" | "analysis" | "goal" | "schedule" | "today" | "my" | "roadmap";
+type Screen = "splash" | "login" | "garmin" | "analysis" | "goal" | "schedule" | "today" | "my" | "roadmap" | "my-goals" | "privacy" | "support";
 type Props = { screen: Screen };
 
-const iconMap: Record<string, LucideIcon> = { arrow_back:ArrowLeft, chevron_left:ChevronLeft, chevron_right:ChevronRight, settings:Settings, footprints:Footprints, today:CalendarDays, calendar_month:CalendarDays, calendar_today:CalendarDays, route:Route, person:UserRound, directions_run:PersonStanding, bar_chart:BarChart3, favorite:HeartPulse, bedtime:BedDouble, dark_mode:Moon, swap_horiz:ArrowLeftRight, shield:ShieldCheck, info:Info, trending_up:TrendingUp, speed:Gauge, light_mode:Sun, ecg_heart:Activity, block:Circle, check_circle:Circle, bolt:Footprints, event_repeat:CalendarDays, rebase_edit:Activity, insights:BarChart3 };
+const iconMap: Record<string, LucideIcon> = { arrow_back:ArrowLeft, chevron_left:ChevronLeft, chevron_right:ChevronRight, settings:Settings, footprints:Footprints, today:CalendarDays, calendar_month:CalendarDays, calendar_today:CalendarDays, route:Route, person:UserRound, directions_run:PersonStanding, bar_chart:BarChart3, favorite:HeartPulse, bedtime:BedDouble, dark_mode:Moon, swap_horiz:ArrowLeftRight, shield:ShieldCheck, info:Info, trending_up:TrendingUp, speed:Gauge, light_mode:Sun, ecg_heart:Activity, block:Circle, check_circle:Circle, bolt:Footprints, event_repeat:CalendarDays, rebase_edit:Activity, insights:BarChart3, mail:Mail };
 const Icon = ({ children, filled = false }: { children: string; filled?: boolean }) => { const Glyph = iconMap[children] ?? Circle; return <Glyph aria-hidden="true" strokeWidth={filled ? 2.4 : 1.65} />; };
 
 const Brand = () => <span className="brand-mini"><img src="/images/brand/traini-logo.png" alt="Traini" /></span>;
@@ -31,6 +31,19 @@ function Navigation({ active }: { active: "today" | "schedule" | "roadmap" | "my
 
 const Label = ({ children }: { children: React.ReactNode }) => <p className="eyebrow">{children}</p>;
 const Metric = ({ label, value, sub }: { label: string; value: string; sub?: string }) => <div><p className="text-[10px] font-semibold tracking-[.08em] text-[#8a8290]">{label}</p><p className="mono mt-1 text-lg font-semibold tracking-[-.06em]">{value}{sub && <span className="ml-1 font-sans text-xs font-medium text-[#756e7c]">{sub}</span>}</p></div>;
+const mySettingRoutes: Record<string, string> = { "내 목표 및 대회": "/my/goals", "Garmin 연결 관리": "/garmin-connect", "데이터 및 개인정보": "/my/privacy", "고객 지원": "/my/support" };
+const formatGoalTime = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 6);
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 6)].filter(Boolean).join(":");
+};
+const getGoalTimeLimitError = (distance: string, value: string) => {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length !== 6) return null;
+  const seconds = Number(digits.slice(0, 2)) * 3600 + Number(digits.slice(2, 4)) * 60 + Number(digits.slice(4, 6));
+  const limits: Record<string, number> = { "5K": 1, "10K": 2, HALF: 3, FULL: 6 };
+  const limit = limits[distance];
+  return seconds >= limit * 3600 ? `${distance} 목표 기록은 ${limit}시간 미만으로 입력해 주세요.` : null;
+};
 
 function Splash() {
   const router = useRouter();
@@ -90,22 +103,22 @@ function Goal() {
   const [targetTimes, setTargetTimes] = useState<Record<string, string>>({ "5K":"00:25:00", "10K":"00:52:00", "HALF":"01:55:00", "FULL":"03:30:00" });
   const [raceName, setRaceName] = useState("서울마라톤"); const [raceDate, setRaceDate] = useState("2026-10-18"); const [showRaceEditor, setShowRaceEditor] = useState(false);
   const [garminConnected, setGarminConnected] = useState(false);
+  const [timeError, setTimeError] = useState<string | null>(null);
   const time = targetTimes[distance];
   const predictedTimes: Record<string, string> = { "5K":"00:27:30", "10K":"00:57:40", "HALF":"02:06:15", "FULL":"03:45:20" };
   const predictedTime = predictedTimes[distance];
-  const formatTime = (value: string) => { const digits = value.replace(/\D/g, "").slice(0, 6); return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 6)].filter(Boolean).join(":"); };
-  const updateTime = (value: string) => setTargetTimes((times) => ({ ...times, [distance]: formatTime(value) }));
+  const updateTime = (value: string) => { setTimeError(null); setTargetTimes((times) => ({ ...times, [distance]: formatGoalTime(value) })); };
   const dayDiff = Math.ceil((new Date(`${raceDate}T00:00:00`).getTime() - new Date(new Date().toDateString()).getTime()) / 86400000);
   const raceDateLabel = new Intl.DateTimeFormat("ko-KR", { year:"numeric", month:"long", day:"numeric" }).format(new Date(`${raceDate}T00:00:00`));
   useEffect(() => setGarminConnected(localStorage.getItem("traini-garmin-connected") === "true"), []);
   return <div className="app-frame"><Topbar back step="3 / 3" /><main className="goal-page"><h1>어떤 결승선을 향해<br />달려볼까요?</h1>
     <section><Label>TARGET RACE</Label><button type="button" className="goal-race-card" onClick={() => setShowRaceEditor((value) => !value)}><span><Icon>route</Icon></span><div><p>{raceName}</p><small><b>{dayDiff >= 0 ? `D-${dayDiff}` : "완료"}</b>&nbsp;&nbsp;{raceDateLabel}</small></div><Icon>chevron_right</Icon></button>{showRaceEditor && <div className="race-editor"><label>마라톤명<input value={raceName} onChange={(event) => setRaceName(event.target.value)} placeholder="대회명을 입력하세요" /></label><label>대회 날짜<input type="date" value={raceDate} onChange={(event) => setRaceDate(event.target.value)} /></label></div>}</section>
-    <div className="goal-segments">{["5K","10K","HALF","FULL"].map((item) => <button key={item} onClick={() => setDistance(item)} className={distance === item ? "active" : ""}>{item}</button>)}</div>
-    <section className="goal-time"><Label>{distance} GOAL TIME</Label><input inputMode="numeric" aria-label={`${distance} goal time`} value={time} onChange={(e) => updateTime(e.target.value)} /><span>⌁ 도전 목표</span><p>종목별 목표 기록은 각각 따로 저장됩니다</p></section>
+    <div className="goal-segments">{["5K","10K","HALF","FULL"].map((item) => <button key={item} onClick={() => { setDistance(item); setTimeError(null); }} className={distance === item ? "active" : ""}>{item}</button>)}</div>
+    <section className="goal-time"><Label>{distance} GOAL TIME</Label><input inputMode="numeric" aria-label={`${distance} goal time`} value={time} onChange={(e) => updateTime(e.target.value)} onBlur={() => setTimeError(getGoalTimeLimitError(distance, time))} /><span>⌁ 도전 목표</span>{timeError ? <p className="time-validation-error" role="alert">{timeError}</p> : <p>종목별 목표 기록은 각각 따로 저장됩니다</p>}</section>
     <section className="goal-hint"><Icon>trending_up</Icon><p>현재 분석 기준 예상 기록은 <b>{predictedTime}</b>이에요.<br /><b>{time}</b> 목표를 위해서는 약 6개월의 점진적인 훈련이 필요해요.</p></section>
     {garminConnected ? <section className="goal-report"><div className="flex items-center justify-between"><p>AI 페이스 분석 리포트</p><Label>SMART DIAGNOSIS</Label></div><div className="goal-gap"><small>Gap Analysis</small><p>현재 예상보다 <b>15분 20초</b> 빠름</p></div><div className="goal-metrics"><Metric label="VDOT" value="44"/><Metric label="PREDICTED FULL" value={predictedTime}/></div><div className="mt-4"><div className="flex justify-between text-[10px]"><span className="text-[#756e7c]">주간 평균 거리</span><b>38.4km</b></div><div className="mt-2 h-[3px] w-full bg-[#eee9f0]"><div className="h-full w-[62%] bg-[#1584b6]" /></div></div></section> : <section className="goal-connect-prompt"><span><Icon>bar_chart</Icon></span><div><p>AI 페이스 분석 리포트</p><small>Garmin을 연동하면 현재 기록을 분석해<br />예상 기록과 훈련 페이스를 알려드려요.</small><button onClick={() => router.push("/garmin-connect")}>Garmin 연동하고 리포트 확인하기</button></div></section>}
     <section className="goal-notice"><Icon>info</Icon><p>무리한 목표는 매주 훈련 강도 조정으로 안전하게 관리해드려요.</p></section>
-    <button className="primary-button goal-submit" onClick={() => { localStorage.setItem("traini-plan", "created"); router.push("/schedule"); }}>나만의 훈련 플랜 만들기</button>
+    <button className="primary-button goal-submit" onClick={() => { const error = getGoalTimeLimitError(distance, time); if (error) { setTimeError(error); return; } localStorage.setItem("traini-plan", "created"); router.push("/schedule"); }}>나만의 훈련 플랜 만들기</button>
   </main></div>;
 }
 
@@ -150,6 +163,23 @@ function Today() {
   </main></div>;
 }
 
+const toTime = (seconds: number | null) => seconds === null ? "03:30:00" : `${String(Math.floor(seconds / 3600)).padStart(2, "0")}:${String(Math.floor((seconds % 3600) / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+const toSeconds = (value: string) => { const [h = "0", m = "0", s = "0"] = value.split(":"); return Number(h) * 3600 + Number(m) * 60 + Number(s); };
+
+function MyGoals() {
+  const router = useRouter();
+  const [raceName, setRaceName] = useState("서울마라톤"); const [raceDate, setRaceDate] = useState("2026-10-18"); const [distance, setDistance] = useState("FULL"); const [time, setTime] = useState("03:30:00"); const [saved, setSaved] = useState(false);
+  const [timeError, setTimeError] = useState<string | null>(null);
+  useEffect(() => { void (async () => { const sb = getSupabaseBrowserClient(); const { data: { user } } = await sb.auth.getUser(); if (!user) return; const { data } = await sb.from("profiles").select("race_name, target_date, target_distance, target_time_seconds").eq("id", user.id).maybeSingle(); if (data) { setRaceName(data.race_name || raceName); setRaceDate(data.target_date || raceDate); setDistance(data.target_distance || distance); setTime(toTime(data.target_time_seconds)); } })(); }, []);
+  const save = async () => { const error = getGoalTimeLimitError(distance, time); if (error) { setTimeError(error); return; } const sb = getSupabaseBrowserClient(); const { data: { user } } = await sb.auth.getUser(); if (!user) return; await sb.from("profiles").update({ race_name: raceName, target_date: raceDate, target_distance: distance, target_time_seconds: toSeconds(time) }).eq("id", user.id); setSaved(true); window.setTimeout(() => setSaved(false), 1800); };
+  const dDay = Math.max(0, Math.ceil((new Date(`${raceDate}T00:00:00`).getTime() - Date.now()) / 86400000));
+  return <div className="page app-frame settings-page"><section className="settings-title"><Label>GOAL & RACE</Label><h1>내 목표 및 대회</h1><p>목표를 조정하면 로드맵과 훈련 기준이 함께 업데이트돼요.</p></section><section className="goal-race-card"><span><Icon>route</Icon></span><div><input value={raceName} onChange={(e) => setRaceName(e.target.value)} aria-label="대회명"/><small><b>D-{dDay}</b>&nbsp;&nbsp;{new Intl.DateTimeFormat("ko-KR", { year:"numeric", month:"long", day:"numeric" }).format(new Date(`${raceDate}T00:00:00`))}</small></div></section><label className="settings-field">대회 날짜<input type="date" value={raceDate} onChange={(e) => setRaceDate(e.target.value)} /></label><div className="goal-segments">{["5K", "10K", "HALF", "FULL"].map((item) => <button key={item} onClick={() => { setDistance(item); setTimeError(null); }} className={distance === item ? "active" : ""}>{item}</button>)}</div><label className="settings-field">목표 기록<input className="mono" value={time} inputMode="numeric" placeholder="03:30:00" onChange={(e) => { setTime(formatGoalTime(e.target.value)); setTimeError(null); }} onBlur={() => setTimeError(getGoalTimeLimitError(distance, time))} />{timeError && <span className="time-validation-error" role="alert">{timeError}</span>}</label><section className="goal-hint"><Icon>trending_up</Icon><p>현재 분석 기준 예상 기록은 <b>03:45:20</b>이에요.<br />목표에 맞춰 주간 훈련 강도를 안전하게 조정할게요.</p></section><button className="primary-button mt-7" onClick={() => void save()}>{saved ? "저장되었습니다 ✓" : "목표 저장하기"}</button><button className="settings-link-button" onClick={() => router.push("/roadmap")}>로드맵에서 확인하기 <Icon>chevron_right</Icon></button></div>;
+}
+
+function Privacy() { const rows = [["수집하는 데이터", "프로필, 훈련 기록, 위치 기반 날씨 정보"], ["데이터 사용 목적", "개인화 훈련 가이드와 서비스 개선"], ["프로필 사진", "내 계정에서 언제든 변경할 수 있어요"]]; return <div className="page app-frame settings-page"><section className="settings-title"><Label>DATA & PRIVACY</Label><h1>데이터 및 개인정보</h1><p>영찬님의 데이터는 더 안전하고 개인화된 훈련을 위해서만 사용돼요.</p></section><section className="settings-list">{rows.map(([title, text]) => <article key={title}><Icon>shield</Icon><div><h2>{title}</h2><p>{text}</p></div></article>)}</section><section className="privacy-note"><Icon>info</Icon><p>Garmin 연결 데이터는 연결 해제 시 이후 분석에 사용되지 않아요. 데이터 삭제 요청은 고객 지원을 통해 접수할 수 있어요.</p></section></div>; }
+
+function Support() { const faqs = [["훈련 일정은 언제 바뀌나요?", "매주 리뷰 후 다음 1~2주 플랜이 새로 발행돼요."], ["날씨 보정은 어떻게 적용되나요?", "현재 기온과 습도를 반영해 목표 페이스를 안내해요."], ["Garmin 연결은 왜 필요한가요?", "실제 활동과 회복 상태를 훈련 계획에 반영하기 위해 필요해요."]]; return <div className="page app-frame settings-page"><section className="settings-title"><Label>SUPPORT</Label><h1>고객 지원</h1><p>Traini 이용 중 궁금한 점을 빠르게 확인해 보세요.</p></section><section className="support-faq">{faqs.map(([q, a]) => <details key={q}><summary>{q}<Icon>chevron_right</Icon></summary><p>{a}</p></details>)}</section><a className="support-contact" href="mailto:support@traini.app"><Icon>mail</Icon><span><b>문의하기</b><small>support@traini.app</small></span><Icon>chevron_right</Icon></a><p className="support-version">Traini · Version 0.1.0</p></div>; }
+
 function MyPage() {
   const rows = ["내 목표 및 대회", "Garmin 연결 관리", "알림 설정", "데이터 및 개인정보", "고객 지원"];
   const router = useRouter();
@@ -170,6 +200,15 @@ function MyPage() {
     };
     void loadProfileImage();
   }, []);
+  useEffect(() => {
+    const handleSettingsNavigation = (event: MouseEvent) => {
+      const button = (event.target as HTMLElement).closest("button");
+      const destination = button ? mySettingRoutes[button.textContent?.trim() ?? ""] : undefined;
+      if (destination) router.push(destination);
+    };
+    document.addEventListener("click", handleSettingsNavigation);
+    return () => document.removeEventListener("click", handleSettingsNavigation);
+  }, [router]);
   const updateProfileImage = async (file?: File) => {
     if (!file) return;
     setProfileImage(URL.createObjectURL(file));
@@ -189,6 +228,27 @@ function MyPage() {
   return <div className="page app-frame"><header className="flex h-10 items-center justify-between"><Brand /><Icon>settings</Icon></header><section className="mt-5 text-center"><input ref={uploadRef} className="sr-only" type="file" accept="image/*" onChange={(event) => void updateProfileImage(event.target.files?.[0])} /><button type="button" className="profile-upload" aria-label="프로필 사진 업로드" onClick={() => uploadRef.current?.click()}><span className="profile-image-clip">{profileImage ? <img src={profileImage} alt={`${displayName} 프로필`} /> : <Icon>person</Icon>}</span><span>+</span></button><h1 className="mt-3 text-xl font-semibold">{displayName}</h1><p className="mt-1 text-sm text-[#756e7c]">풀코스 3시간 30분 목표</p><span className="mt-2 inline-block rounded-full bg-[#eaf7ff] px-2 py-1 text-[10px] font-semibold text-[#147eaf]">Garmin 연결됨</span></section><section className="mt-6 grid grid-cols-3 divide-x divide-[#ece8ef] rounded-xl border border-[#ece8ef] py-3 text-center"><Metric label="VDOT" value="44"/><Metric label="훈련 연속" value="6" sub="weeks"/><Metric label="평균 거리" value="38.4" sub="km"/></section><section className="my-insight-card"><div className="my-insight-title"><div><p>최근 4주 훈련 인사이트</p><small>꾸준함이 페이스 향상으로 이어지고 있어요</small></div><Icon>insights</Icon></div><div className="my-insight-metrics"><div><small>평균 페이스</small><strong className="mono">5&apos;42&quot; <i>→</i> <b>5&apos;34&quot;</b></strong><p>km당 8초 향상</p></div><div><small>훈련 완료율</small><strong className="mono"><b>89%</b></strong><p>목표 18회 중 16회</p></div></div><div className="my-insight-weeks" aria-label="최근 4주 훈련 완료율"><div><i style={{height:"66%"}}/><span>1주</span></div><div><i style={{height:"74%"}}/><span>2주</span></div><div><i style={{height:"82%"}}/><span>3주</span></div><div><i className="is-current" style={{height:"92%"}}/><span>이번 주</span></div></div></section><section className="mt-5 divide-y divide-[#ece8ef] border-y border-[#ece8ef]">{rows.map((row)=><button className="flex w-full items-center justify-between py-4 text-sm" key={row}>{row}<Icon>chevron_right</Icon></button>)}</section><button type="button" className="logout-button" onClick={() => setShowLogoutModal(true)}>로그아웃</button>{showLogoutModal && <div className="logout-modal-backdrop" role="presentation" onClick={() => setShowLogoutModal(false)}><section className="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-title" onClick={(event) => event.stopPropagation()}><h2 id="logout-title">로그아웃 하시겠습니까?</h2><p>현재 기기에서 Traini를 로그아웃합니다.</p><div><button type="button" onClick={() => setShowLogoutModal(false)}>아니오</button><button type="button" onClick={logout}>예, 로그아웃</button></div></section></div>}<Navigation active="my" /></div>;
 }
 
-function Roadmap() { const phases=[["1–6주차","기초 체력 및 마일리지 확장","완료"],["7–16주차","심폐·역치 강화","진행 중"],["17–21주차","레이스 페이스 적응","예정"],["22–24주차","테이퍼링 & D-Day","예정"]]; return <div className="page app-frame"><header className="flex h-10 items-center justify-between"><Brand /><Icon>settings</Icon></header><section className="mt-6"><Label>2026 SEOUL MARATHON · D-42</Label><h1 className="mt-2 text-[25px] font-semibold tracking-[-.04em]">나의 훈련 로드맵</h1></section><section className="roadmap-overview"><div><Label>GOAL RECORD</Label><p className="mono">03:30:00</p></div><div><Label>ESTIMATED</Label><p className="mono">03:45:20</p></div></section><section className="roadmap-phase"><div className="roadmap-phase-meta"><span>PHASE 2</span><p>심폐 · 역치 강화</p><small>9&nbsp; / &nbsp;24주차 (38%)</small></div><h2>지구력 기반 위에 스피드 지구력을<br/>더하는 단계예요.</h2><div className="roadmap-phase-line"><b /></div></section><section className="roadmap-timeline mt-6">{phases.map(([week,title,status],i)=><div className="roadmap-timeline-row" key={title}><span className={`roadmap-timeline-dot ${i===1?"is-active":i<1?"is-complete":""}`}/><div><p>{week}</p><h3>{title}</h3><small className={status==="진행 중"?"is-active":""}>{status}</small></div></div>)}</section><section className="card mt-2 p-5"><h2 className="font-semibold">이번 단계의 핵심 목표</h2><p className="mt-2 text-sm leading-6 text-[#756e7c]">주간 거리 40→48km, 주 1회 역치주, 격주 장거리주</p><div className="mt-4 border-t border-[#ece8ef] pt-4"><Label>이번 주 포커스</Label><p className="mt-1 text-sm font-semibold">T-Pace 역치주 8km</p></div></section><Navigation active="roadmap" /></div>; }
+function RoadmapProfileSync() {
+  useEffect(() => {
+    const syncRoadmap = async () => {
+      const supabase = getSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("profiles").select("race_name, target_date, target_time_seconds").eq("id", user.id).maybeSingle();
+      if (!data) return;
+      const overview = document.querySelector(".roadmap-overview");
+      const raceLabel = overview?.previousElementSibling?.querySelector(".eyebrow");
+      const raceDate = data.target_date ? new Date(`${data.target_date}T00:00:00`) : null;
+      const dDay = raceDate ? Math.max(0, Math.ceil((raceDate.getTime() - Date.now()) / 86400000)) : null;
+      if (raceLabel) raceLabel.textContent = `${data.race_name || "나의 목표 대회"} · ${dDay === null ? "D-Day" : `D-${dDay}`}`;
+      const target = overview?.querySelector("div:first-child .mono");
+      if (target) target.textContent = toTime(data.target_time_seconds);
+    };
+    void syncRoadmap();
+  }, []);
+  return null;
+}
 
-export function TrainiScreen({ screen }: Props) { const content = { splash:<Splash/>, login:<Login/>, garmin:<Garmin/>, analysis:<Analysis/>, goal:<Goal/>, schedule:<Schedule/>, today:<Today/>, my:<MyPage/>, roadmap:<Roadmap/> }; return content[screen]; }
+function Roadmap() { const phases=[["1–6주차","기초 체력 및 마일리지 확장","완료"],["7–16주차","심폐·역치 강화","진행 중"],["17–21주차","레이스 페이스 적응","예정"],["22–24주차","테이퍼링 & D-Day","예정"]]; return <div className="page app-frame"><RoadmapProfileSync /><header className="flex h-10 items-center justify-between"><Brand /><Icon>settings</Icon></header><section className="mt-6"><Label>2026 SEOUL MARATHON · D-42</Label><h1 className="mt-2 text-[25px] font-semibold tracking-[-.04em]">나의 훈련 로드맵</h1></section><section className="roadmap-overview"><div><Label>GOAL RECORD</Label><p className="mono">03:30:00</p></div><div><Label>ESTIMATED</Label><p className="mono">03:45:20</p></div></section><section className="roadmap-phase"><div className="roadmap-phase-meta"><span>PHASE 2</span><p>심폐 · 역치 강화</p><small>9&nbsp; / &nbsp;24주차 (38%)</small></div><h2>지구력 기반 위에 스피드 지구력을<br/>더하는 단계예요.</h2><div className="roadmap-phase-line"><b /></div></section><section className="roadmap-timeline mt-6">{phases.map(([week,title,status],i)=><div className="roadmap-timeline-row" key={title}><span className={`roadmap-timeline-dot ${i===1?"is-active":i<1?"is-complete":""}`}/><div><p className="text-[11px] text-[#756e7c]">{week}</p><h3>{title}</h3><small className={status==="진행 중"?"is-active":""}>{status}</small></div></div>)}</section><section className="card mt-2 p-5"><h2 className="font-semibold">이번 단계의 핵심 목표</h2><p className="mt-2 text-sm leading-6 text-[#756e7c]">주간 거리 40→48km, 주 1회 역치주, 격주 장거리주</p><div className="mt-4 border-t border-[#ece8ef] pt-4"><Label>이번 주 포커스</Label><p className="mt-1 text-sm font-semibold">T-Pace 역치주 8km</p></div></section><Navigation active="roadmap" /></div>; }
+
+export function TrainiScreen({ screen }: Props) { const content = { splash:<Splash/>, login:<Login/>, garmin:<Garmin/>, analysis:<Analysis/>, goal:<Goal/>, schedule:<Schedule/>, today:<Today/>, my:<MyPage/>, roadmap:<Roadmap/>, "my-goals":<MyGoals/>, privacy:<Privacy/>, support:<Support/> }; return content[screen]; }
