@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Activity, ArrowLeft, ArrowLeftRight, BarChart3, BedDouble, CalendarDays, ChevronLeft, ChevronRight, Circle, Footprints, Gauge, Heart, HeartPulse, Info, Moon, PersonStanding, Route, Settings, ShieldCheck, Sun, TrendingUp, UserRound, type LucideIcon } from "lucide-react";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { applyWeatherPaceAdjustment } from "@/lib/algorithms/pace";
 
 type Screen = "splash" | "login" | "garmin" | "analysis" | "goal" | "schedule" | "today" | "my" | "roadmap";
 type Props = { screen: Screen };
@@ -42,9 +44,19 @@ function Splash() {
 
 function Login() {
   const router = useRouter();
+  const [appleNotice, setAppleNotice] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  useEffect(() => {
+    void getSupabaseBrowserClient().auth.getSession().then(({ data: { session } }) => { if (session) router.replace("/today"); });
+  }, [router]);
+  const signInWithGoogle = async () => {
+    setAuthError(null);
+    const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/auth/callback` } });
+    if (error) setAuthError("Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  };
   return <div className="app-frame"><main className="page flex min-h-dvh flex-col pt-0">
     <div className="login-hero text-center"><div className="login-logo-window mx-auto"><img alt="Traini AI Running Coach" src="/images/brand/traini-logo.png" /></div><h1 className="mt-8 text-[16px] font-semibold leading-[1.3] tracking-[-.04em]">반가워요,<br />트레이니와 함께 달려볼까요?</h1><div className="mx-auto mt-7 h-[238px] w-[238px] overflow-hidden rounded-full shadow-[0_12px_25px_rgba(91,63,112,.14)]"><img alt="Runner shoes" className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmWV8-nCJHFZHBBrk3xBtaIVmlWYIXLp5sXXYBOdzz0DETK6ONT6tCkcOFMbIS2nvMtyM9lc5CzD6QJ1MciCk7xjMAQ82wbIix0xAOuz0oSevdr0K5f9-Odlw5AsJ11ZapkJ7Pj6iTEjDDSuC9hHTex-UYidBZJvvm7wn5XZtXIouk8bacDIN6xlHnQTUg7gMIE5A62Fg4Gba0xijQVs3qFAdxiUG_SUa1KJZ3m7NSg60TW7e5KQNkpg" /></div></div>
-    <div className="mt-auto space-y-[10px]"><button className="auth-button auth-button-apple" onClick={() => router.push("/garmin-connect")}><span className="auth-button-content"><span className="apple-mark"></span><span>Apple로 로그인</span></span></button><button className="auth-button auth-button-google" onClick={() => router.push("/garmin-connect")}><span className="auth-button-content"><img src="/icons/google.svg" alt="" aria-hidden="true" /><span>Google 계정으로 계속하기</span></span></button><p className="pt-8 text-center text-[10px] leading-5 text-[#756e7c]">이용약관&nbsp;&nbsp; · &nbsp;&nbsp;개인정보 처리방침</p></div>
+    <div className="mt-auto space-y-[10px]"><button className="auth-button auth-button-apple" onClick={() => setAppleNotice(true)}><span className="auth-button-content"><span className="apple-mark"></span><span>Apple로 로그인</span></span></button>{appleNotice && <p className="apple-login-notice" role="status">Apple 로그인은 준비 중이에요.<br />Google 계정으로 계속해 주세요.</p>}<button className="auth-button auth-button-google" onClick={() => void signInWithGoogle()}><span className="auth-button-content"><img src="/icons/google.svg" alt="" aria-hidden="true" /><span>Google 계정으로 계속하기</span></span></button>{authError && <p className="auth-error" role="alert">{authError}</p>}<p className="pt-8 text-center text-[10px] leading-5 text-[#756e7c]">이용약관&nbsp;&nbsp; · &nbsp;&nbsp;개인정보 처리방침</p></div>
   </main></div>;
 }
 
@@ -107,13 +119,33 @@ function Schedule() {
   </main></div>;
 }
 
+type WeatherData = { temperatureC: number; humidityPercent: number; summary: string };
+
+function WeatherPaceCard() {
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [status, setStatus] = useState<"loading" | "unavailable" | "ready">("loading");
+  useEffect(() => {
+    if (!navigator.geolocation) { setStatus("unavailable"); return; }
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      try {
+        const response = await fetch(`/api/weather?lat=${coords.latitude}&lon=${coords.longitude}`);
+        if (!response.ok) throw new Error("Weather unavailable");
+        setWeather(await response.json() as WeatherData);
+        setStatus("ready");
+      } catch { setStatus("unavailable"); }
+    }, () => setStatus("unavailable"), { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 });
+  }, []);
+  const penalty = weather ? applyWeatherPaceAdjustment(290, weather.temperatureC, weather.humidityPercent) - 290 : 0;
+  return <div className="mt-7 flex items-center gap-3 rounded-xl bg-[#f7f4f8] p-3"><Icon>light_mode</Icon><div>{status === "ready" && weather ? <><p className="text-sm font-medium">{weather.temperatureC}°C · 습도 {weather.humidityPercent}%</p><p className="text-[11px] text-[#167ca8]">{penalty > 0 ? `페이스 +${penalty}초 보정 적용됨` : "날씨 기준 페이스 보정 없음"}</p></> : status === "loading" ? <><p className="text-sm font-medium">날씨 정보를 불러오는 중</p><p className="text-[11px] text-[#756e7c]">위치 권한을 확인해 주세요</p></> : <><p className="text-sm font-medium">날씨 보정 정보를 사용할 수 없어요</p><p className="text-[11px] text-[#756e7c]">기본 목표 페이스로 훈련해 주세요</p></>}</div></div>;
+}
+
 function Today() {
   const [done, setDone] = useState(false);
   return <div className="app-frame"><Topbar back /><main className="page today-page pt-4"><header className="flex h-10 items-center justify-between"><div className="flex gap-2"><span className="rounded-full bg-[#f3edf6] px-2 py-1 text-[10px] font-semibold">D-42</span><span className="rounded-full bg-[#eaf7ff] px-2 py-1 text-[10px] font-semibold text-[#147eaf]">Phase 2 · 심폐 강화</span></div></header>
     <section className="mt-6"><h1 className="text-xl font-semibold">좋은 아침이에요, 영찬님</h1><p className="mt-1 text-sm text-[#756e7c]">오늘의 컨디션은 ‘최상’입니다. 훈련을 시작해볼까요?</p></section>
     <section className="today-week">{[["월","block"],["화","check_circle"],["수","today"],["목","calendar_today"],["금","directions_run"],["토","bolt"],["일","event_repeat"]].map(([day, icon], i) => <div key={day} className={`today-week-day ${i === 2 && !done ? "is-today" : ""} ${i === 2 && done ? "is-done" : ""}`}><p>{day}</p>{i === 2 ? <strong>{done ? "✓" : "오늘"}</strong> : <Icon>{icon}</Icon>}</div>)}</section>
     <section className="card mt-4 p-4"><div className="flex justify-between"><Label>WEEKLY PROGRESS</Label><span className="mono text-sm text-[#6B21A8]">22/40km</span></div><div className="mt-3 h-2 rounded-full bg-[#eee9f0]"><div className="h-full w-[55%] rounded-full bg-[#6B21A8]" /></div><p className="mt-3 text-xs text-[#756e7c]">이번 주 목표 40km 중 55%를 달성했습니다.</p></section>
-    <section className="card mt-4 p-6"><div className="flex items-start justify-between"><div><Label>TODAY’S SESSION</Label><h2 className="mt-2 text-xl font-semibold">T-Pace 역치주</h2></div><span className="rounded-full bg-[#f3edf6] p-2 text-[#6B21A8]"><Icon>trending_up</Icon></span></div><div className="mt-8 grid grid-cols-2"><div><Label>DISTANCE</Label><p className="mono mt-1 text-5xl font-semibold tracking-[-.11em]">8.0<span className="ml-2 font-sans text-base font-medium tracking-normal">km</span></p></div><div className="space-y-3 self-end text-sm"><p className="today-pace"><Icon>speed</Icon><span className="mono ml-2">4{String.fromCharCode(39)}50”/km</span></p><p className="today-heart"><Icon>favorite</Icon><span className="ml-2">Zone 4 · 155–168</span></p></div></div><div className="mt-7 flex items-center gap-3 rounded-xl bg-[#f7f4f8] p-3"><Icon>light_mode</Icon><div><p className="text-sm font-medium">28°C · 습도 80%</p><p className="text-[11px] text-[#167ca8]">페이스 +12초 보정 적용됨</p></div></div><button className="primary-button mt-6" onClick={() => setDone(!done)}>{done ? "훈련 완료됨 ✓" : "오늘의 훈련 완료"}</button></section>
+    <section className="card mt-4 p-6"><div className="flex items-start justify-between"><div><Label>TODAY’S SESSION</Label><h2 className="mt-2 text-xl font-semibold">T-Pace 역치주</h2></div><span className="rounded-full bg-[#f3edf6] p-2 text-[#6B21A8]"><Icon>trending_up</Icon></span></div><div className="mt-8 grid grid-cols-2"><div><Label>DISTANCE</Label><p className="mono mt-1 text-5xl font-semibold tracking-[-.11em]">8.0<span className="ml-2 font-sans text-base font-medium tracking-normal">km</span></p></div><div className="space-y-3 self-end text-sm"><p className="today-pace"><Icon>speed</Icon><span className="mono ml-2">4{String.fromCharCode(39)}50”/km</span></p><p className="today-heart"><Icon>favorite</Icon><span className="ml-2">Zone 4 · 155–168</span></p></div></div><WeatherPaceCard /><button className="primary-button mt-6" onClick={() => setDone(!done)}>{done ? "훈련 완료됨 ✓" : "오늘의 훈련 완료"}</button></section>
     <section className="mt-4 grid grid-cols-2 gap-3"><div className="card p-4"><Label>SLEEP SCORE</Label><p className="mono mt-2 text-2xl font-semibold">82 <span className="font-sans text-xs text-[#756e7c]">pts</span></p><div className="mt-3 h-1.5 rounded-full bg-[#e7e0e9]"><div className="h-full w-[82%] rounded-full bg-[#38BDF8]" /></div></div><div className="card p-4"><Label>RECOVERY</Label><p className="mt-2 text-2xl font-semibold">Good</p><div className="mt-3 flex gap-1"><i className="h-1.5 flex-1 rounded bg-[#38BDF8]"/><i className="h-1.5 flex-1 rounded bg-[#38BDF8]"/><i className="h-1.5 flex-1 rounded bg-[#38BDF8]"/><i className="h-1.5 flex-1 rounded bg-[#e7e0e9]"/></div></div></section><Navigation active="today" />
   </main></div>;
 }
@@ -123,15 +155,38 @@ function MyPage() {
   const router = useRouter();
   const uploadRef = useRef<HTMLInputElement>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("영찬");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const updateProfileImage = (file?: File) => {
+  useEffect(() => {
+    const loadProfileImage = async () => {
+      const supabase = getSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const googleAvatar = user.user_metadata.avatar_url ?? user.user_metadata.picture ?? null;
+      const googleName = user.user_metadata.full_name ?? user.user_metadata.name ?? user.email?.split("@")[0] ?? "영찬";
+      const { data: profile } = await supabase.from("profiles").select("avatar_url, display_name").eq("id", user.id).maybeSingle();
+      setProfileImage(profile?.avatar_url || googleAvatar);
+      setDisplayName(profile?.display_name || googleName);
+    };
+    void loadProfileImage();
+  }, []);
+  const updateProfileImage = async (file?: File) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setProfileImage(String(reader.result));
-    reader.readAsDataURL(file);
+    setProfileImage(URL.createObjectURL(file));
+    const supabase = getSupabaseBrowserClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const filePath = `${user.id}/profile.${extension}`;
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, file, { upsert: true, contentType: file.type });
+    if (uploadError) return;
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(filePath);
+    const avatarUrl = `${publicUrl}?v=${Date.now()}`;
+    const { error: profileError } = await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
+    if (!profileError) setProfileImage(avatarUrl);
   };
-  const logout = () => { localStorage.removeItem("traini-garmin-connected"); localStorage.removeItem("traini-plan"); router.push("/login"); };
-  return <div className="page app-frame"><header className="flex h-10 items-center justify-between"><Brand /><Icon>settings</Icon></header><section className="mt-5 text-center"><input ref={uploadRef} className="sr-only" type="file" accept="image/*" onChange={(event) => updateProfileImage(event.target.files?.[0])} /><button type="button" className="profile-upload" aria-label="프로필 사진 업로드" onClick={() => uploadRef.current?.click()}><span className="profile-image-clip">{profileImage ? <img src={profileImage} alt="영찬 프로필" /> : <Icon>person</Icon>}</span><span>+</span></button><h1 className="mt-3 text-xl font-semibold">영찬</h1><p className="mt-1 text-sm text-[#756e7c]">풀코스 3시간 30분 목표</p><span className="mt-2 inline-block rounded-full bg-[#eaf7ff] px-2 py-1 text-[10px] font-semibold text-[#147eaf]">Garmin 연결됨</span></section><section className="mt-6 grid grid-cols-3 divide-x divide-[#ece8ef] rounded-xl border border-[#ece8ef] py-3 text-center"><Metric label="VDOT" value="44"/><Metric label="훈련 연속" value="6" sub="weeks"/><Metric label="평균 거리" value="38.4" sub="km"/></section><section className="my-insight-card"><div className="my-insight-title"><div><p>최근 4주 훈련 인사이트</p><small>꾸준함이 페이스 향상으로 이어지고 있어요</small></div><Icon>insights</Icon></div><div className="my-insight-metrics"><div><small>평균 페이스</small><strong className="mono">5&apos;42&quot; <i>→</i> <b>5&apos;34&quot;</b></strong><p>km당 8초 향상</p></div><div><small>훈련 완료율</small><strong className="mono"><b>89%</b></strong><p>목표 18회 중 16회</p></div></div><div className="my-insight-weeks" aria-label="최근 4주 훈련 완료율"><div><i style={{height:"66%"}}/><span>1주</span></div><div><i style={{height:"74%"}}/><span>2주</span></div><div><i style={{height:"82%"}}/><span>3주</span></div><div><i className="is-current" style={{height:"92%"}}/><span>이번 주</span></div></div></section><section className="mt-5 divide-y divide-[#ece8ef] border-y border-[#ece8ef]">{rows.map((row)=><button className="flex w-full items-center justify-between py-4 text-sm" key={row}>{row}<Icon>chevron_right</Icon></button>)}</section><button type="button" className="logout-button" onClick={() => setShowLogoutModal(true)}>로그아웃</button>{showLogoutModal && <div className="logout-modal-backdrop" role="presentation" onClick={() => setShowLogoutModal(false)}><section className="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-title" onClick={(event) => event.stopPropagation()}><h2 id="logout-title">로그아웃 하시겠습니까?</h2><p>현재 기기에서 Traini를 로그아웃합니다.</p><div><button type="button" onClick={() => setShowLogoutModal(false)}>아니오</button><button type="button" onClick={logout}>예, 로그아웃</button></div></section></div>}<Navigation active="my" /></div>;
+  const logout = async () => { await getSupabaseBrowserClient().auth.signOut(); localStorage.removeItem("traini-garmin-connected"); localStorage.removeItem("traini-plan"); router.replace("/login"); };
+  return <div className="page app-frame"><header className="flex h-10 items-center justify-between"><Brand /><Icon>settings</Icon></header><section className="mt-5 text-center"><input ref={uploadRef} className="sr-only" type="file" accept="image/*" onChange={(event) => void updateProfileImage(event.target.files?.[0])} /><button type="button" className="profile-upload" aria-label="프로필 사진 업로드" onClick={() => uploadRef.current?.click()}><span className="profile-image-clip">{profileImage ? <img src={profileImage} alt={`${displayName} 프로필`} /> : <Icon>person</Icon>}</span><span>+</span></button><h1 className="mt-3 text-xl font-semibold">{displayName}</h1><p className="mt-1 text-sm text-[#756e7c]">풀코스 3시간 30분 목표</p><span className="mt-2 inline-block rounded-full bg-[#eaf7ff] px-2 py-1 text-[10px] font-semibold text-[#147eaf]">Garmin 연결됨</span></section><section className="mt-6 grid grid-cols-3 divide-x divide-[#ece8ef] rounded-xl border border-[#ece8ef] py-3 text-center"><Metric label="VDOT" value="44"/><Metric label="훈련 연속" value="6" sub="weeks"/><Metric label="평균 거리" value="38.4" sub="km"/></section><section className="my-insight-card"><div className="my-insight-title"><div><p>최근 4주 훈련 인사이트</p><small>꾸준함이 페이스 향상으로 이어지고 있어요</small></div><Icon>insights</Icon></div><div className="my-insight-metrics"><div><small>평균 페이스</small><strong className="mono">5&apos;42&quot; <i>→</i> <b>5&apos;34&quot;</b></strong><p>km당 8초 향상</p></div><div><small>훈련 완료율</small><strong className="mono"><b>89%</b></strong><p>목표 18회 중 16회</p></div></div><div className="my-insight-weeks" aria-label="최근 4주 훈련 완료율"><div><i style={{height:"66%"}}/><span>1주</span></div><div><i style={{height:"74%"}}/><span>2주</span></div><div><i style={{height:"82%"}}/><span>3주</span></div><div><i className="is-current" style={{height:"92%"}}/><span>이번 주</span></div></div></section><section className="mt-5 divide-y divide-[#ece8ef] border-y border-[#ece8ef]">{rows.map((row)=><button className="flex w-full items-center justify-between py-4 text-sm" key={row}>{row}<Icon>chevron_right</Icon></button>)}</section><button type="button" className="logout-button" onClick={() => setShowLogoutModal(true)}>로그아웃</button>{showLogoutModal && <div className="logout-modal-backdrop" role="presentation" onClick={() => setShowLogoutModal(false)}><section className="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-title" onClick={(event) => event.stopPropagation()}><h2 id="logout-title">로그아웃 하시겠습니까?</h2><p>현재 기기에서 Traini를 로그아웃합니다.</p><div><button type="button" onClick={() => setShowLogoutModal(false)}>아니오</button><button type="button" onClick={logout}>예, 로그아웃</button></div></section></div>}<Navigation active="my" /></div>;
 }
 
 function Roadmap() { const phases=[["1–6주차","기초 체력 및 마일리지 확장","완료"],["7–16주차","심폐·역치 강화","진행 중"],["17–21주차","레이스 페이스 적응","예정"],["22–24주차","테이퍼링 & D-Day","예정"]]; return <div className="page app-frame"><header className="flex h-10 items-center justify-between"><Brand /><Icon>settings</Icon></header><section className="mt-6"><Label>2026 SEOUL MARATHON · D-42</Label><h1 className="mt-2 text-[25px] font-semibold tracking-[-.04em]">나의 훈련 로드맵</h1></section><section className="roadmap-overview"><div><Label>GOAL RECORD</Label><p className="mono">03:30:00</p></div><div><Label>ESTIMATED</Label><p className="mono">03:45:20</p></div></section><section className="roadmap-phase"><div className="roadmap-phase-meta"><span>PHASE 2</span><p>심폐 · 역치 강화</p><small>9&nbsp; / &nbsp;24주차 (38%)</small></div><h2>지구력 기반 위에 스피드 지구력을<br/>더하는 단계예요.</h2><div className="roadmap-phase-line"><b /></div></section><section className="roadmap-timeline mt-6">{phases.map(([week,title,status],i)=><div className="roadmap-timeline-row" key={title}><span className={`roadmap-timeline-dot ${i===1?"is-active":i<1?"is-complete":""}`}/><div><p>{week}</p><h3>{title}</h3><small className={status==="진행 중"?"is-active":""}>{status}</small></div></div>)}</section><section className="card mt-2 p-5"><h2 className="font-semibold">이번 단계의 핵심 목표</h2><p className="mt-2 text-sm leading-6 text-[#756e7c]">주간 거리 40→48km, 주 1회 역치주, 격주 장거리주</p><div className="mt-4 border-t border-[#ece8ef] pt-4"><Label>이번 주 포커스</Label><p className="mt-1 text-sm font-semibold">T-Pace 역치주 8km</p></div></section><Navigation active="roadmap" /></div>; }
