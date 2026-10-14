@@ -12,7 +12,8 @@ collector/.venv/bin/python -m pip install -r collector/requirements.lock -e ./co
 collector/.venv/bin/traini-collect
 ```
 
-Python 3.12 이상이 필요합니다. 기본 조회 범위는 오늘 포함 최근 7일입니다.
+Python 3.12 이상이 필요합니다. 기본 조회 범위는 설정한 시간대 기준으로 완료된 지난 월요일~일요일입니다.
+오늘 포함 최근 7일은 `--days 7`, 한국 시간대는 `--timezone Asia/Seoul`로 지정합니다.
 FIT는 `~/Projects/Traini-data/garmin/activities/`, 인증 토큰은
 `~/Library/Application Support/Traini/auth/`에 저장합니다.
 설치·재인증·날짜 지정·오류 처리는 [수집기 안내](collector/README.md)를 참고하세요.

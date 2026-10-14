@@ -6,7 +6,9 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Callable, Protocol
+from zoneinfo import ZoneInfo
 
+from .periods import training_week
 from .storage import atomic_write, extract_fit, private_directory, validate_fit, write_json
 
 
@@ -38,8 +40,28 @@ def read_state(path: Path) -> dict[str, Any]:
     return state
 
 
+def activity_training_date(activity: dict[str, Any], timezone: ZoneInfo | None) -> tuple[date, str]:
+    """Prefer UTC when available; retain explicit provenance for local fallback."""
+    utc_start = activity.get("startTimeGMT")
+    value = utc_start if timezone is not None and utc_start else activity.get("startTimeLocal")
+    if not isinstance(value, str):
+        raise ValueError("Garmin 활동 시작 시각이 유효하지 않습니다.")
+    try:
+        started_at = datetime.fromisoformat(value)
+    except ValueError:
+        raise ValueError("Garmin 활동 시작 시각이 유효하지 않습니다.") from None
+    if timezone is not None and utc_start:
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=UTC)
+        return started_at.astimezone(timezone).date(), "utc"
+    if timezone is not None and started_at.tzinfo is not None:
+        return started_at.astimezone(timezone).date(), "local_offset"
+    return started_at.date(), "garmin_local"
+
+
 def sync_activities(client: ActivityClient, start: date, end: date, data_dir: Path,
-                    original_format: Any, report: Callable[[str], None] = print) -> SyncResult:
+                    original_format: Any, report: Callable[[str], None] = print, *,
+                    timezone: ZoneInfo | None = None, period_mode: str = "custom") -> SyncResult:
     if start > end:
         raise ValueError("시작일은 종료일보다 늦을 수 없습니다.")
     private_directory(data_dir)
@@ -47,8 +69,12 @@ def sync_activities(client: ActivityClient, start: date, end: date, data_dir: Pa
     private_directory(activity_dir)
     state_path = data_dir / "sync-state.json"
     state = read_state(state_path)
-    # Garmin applies its running category filter, including running subtypes.
-    activities = client.get_activities_by_date(start.isoformat(), end.isoformat(),
+    # Garmin's date filter and the training timezone can differ when travelling.
+    # Two days cover the maximum 26-hour difference between civil timezones.
+    # The final inclusion check uses the exact requested training dates below.
+    query_start = date.fromordinal(max(date.min.toordinal(), start.toordinal() - 2)) if timezone else start
+    query_end = date.fromordinal(min(date.max.toordinal(), end.toordinal() + 2)) if timezone else end
+    activities = client.get_activities_by_date(query_start.isoformat(), query_end.isoformat(),
                                                activitytype="running", sortorder="asc")
     if not isinstance(activities, list):
         raise ValueError("Garmin 활동 목록 응답이 유효하지 않습니다.")
@@ -64,21 +90,26 @@ def sync_activities(client: ActivityClient, start: date, end: date, data_dir: Pa
             continue
         seen.add(activity_id)
         local_start = activity.get("startTimeLocal")
-        try:
-            activity_date = date.fromisoformat(str(local_start)[:10])
-        except ValueError:
-            raise ValueError("Garmin 활동 시작 날짜가 유효하지 않습니다.") from None
+        activity_date, date_source = activity_training_date(activity, timezone)
         if not start <= activity_date <= end:
             continue
         kind = activity.get("activityType", {}).get("typeKey", "")
         if kind not in {"running", "virtual_run", "ultra_run", "obstacle_run"} and not kind.endswith("_running"):
             raise ValueError("러닝 조회 결과에 다른 종목이 포함되어 있습니다.")
         result.found += 1
+        week_start, week_end = training_week(activity_date)
         path = activity_dir / f"{activity_id}.fit"
         entry = {"activity_id": activity_id, "started_at_local": local_start,
                  "activity_type": kind, "distance_meters": activity.get("distance"),
                  "duration_seconds": activity.get("duration"),
-                 "average_heart_rate": activity.get("averageHR"), "file": path.name}
+                 "average_heart_rate": activity.get("averageHR"), "file": path.name,
+                 "training_date": activity_date.isoformat(),
+                 "training_week_starts_on": week_start.isoformat(),
+                 "training_week_ends_on": week_end.isoformat(),
+                 "training_timezone": timezone.key if timezone else None,
+                 "date_source": date_source}
+        if timezone is not None and date_source == "garmin_local":
+            report(f"활동 {activity_id} · UTC 시작 시각 없음: Garmin 현지 날짜로 분류")
         try:
             if path.is_symlink():
                 raise ValueError("FIT 경로가 심볼릭 링크입니다.")
@@ -110,7 +141,9 @@ def sync_activities(client: ActivityClient, start: date, end: date, data_dir: Pa
         state["activities"][activity_id] = entry
         write_json(state_path, state)
     state["last_run"] = {"started_on": start.isoformat(), "ended_on": end.isoformat(),
-                         "finished_at": datetime.now(UTC).isoformat(), **asdict(result)}
+                         "finished_at": datetime.now(UTC).isoformat(),
+                         "timezone": timezone.key if timezone else None,
+                         "period_mode": period_mode, **asdict(result)}
     if result.failed == 0:
         state["last_successful_run"] = state["last_run"]
     write_json(state_path, state)

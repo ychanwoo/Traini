@@ -10,7 +10,7 @@ from unittest.mock import patch
 from garminconnect import GarminConnectAuthenticationError
 
 from traini_collector.auth import authenticate
-from traini_collector.cli import date_range
+from traini_collector.periods import date_range
 from traini_collector.storage import crc16, extract_fit, validate_fit
 from traini_collector.sync import sync_activities
 
