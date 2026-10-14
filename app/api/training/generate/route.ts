@@ -1,17 +1,19 @@
+import { requireAdmin } from "@/lib/security/admin";
 import { createAdaptivePlan } from "@/lib/services/training";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getWeather } from "@/lib/services/weather";
 import type { GarminSnapshot } from "@/types/garmin";
 
-type GenerateRequest = { userId: string; startDate?: string; latitude?: number; longitude?: number };
+type GenerateRequest = { startDate?: string; latitude?: number; longitude?: number };
 
 export async function POST(request: Request) {
-  const body = await request.json() as GenerateRequest;
-  if (!body.userId) return Response.json({ error: "userId is required." }, { status: 400 });
+  const access = await requireAdmin(request);
+  if (access.response) return access.response;
 
   try {
+    const body = await request.json() as GenerateRequest;
     const supabase = getSupabaseAdmin();
-    const { data: snapshot, error } = await supabase.from("garmin_snapshots").select("*").eq("user_id", body.userId).order("recorded_on", { ascending: false }).limit(1).single();
+    const { data: snapshot, error } = await supabase.from("garmin_snapshots").select("*").eq("user_id", access.userId).order("recorded_on", { ascending: false }).limit(1).single();
     if (error || !snapshot) return Response.json({ error: "No Garmin snapshot exists for this user." }, { status: 404 });
 
     const weather = Number.isFinite(body.latitude) && Number.isFinite(body.longitude)
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
     } as GarminSnapshot, startDate: body.startDate, weather });
     const startsOn = plan.workouts[0].date;
     const endsOn = plan.workouts.at(-1)?.date ?? startsOn;
-    const { data: storedPlan, error: planError } = await supabase.from("training_plans").upsert({ user_id: body.userId, starts_on: startsOn, ends_on: endsOn, target_distance_km: plan.targetDistanceKm, recovery_label: snapshot.sleep_score < 60 ? "회복 권장" : "좋음" }, { onConflict: "user_id,starts_on" }).select("id").single();
+    const { data: storedPlan, error: planError } = await supabase.from("training_plans").upsert({ user_id: access.userId, starts_on: startsOn, ends_on: endsOn, target_distance_km: plan.targetDistanceKm, recovery_label: snapshot.sleep_score < 60 ? "회복 권장" : "좋음" }, { onConflict: "user_id,starts_on" }).select("id").single();
     if (planError || !storedPlan) throw planError ?? new Error("Could not save training plan.");
 
     await supabase.from("workouts").delete().eq("plan_id", storedPlan.id);
