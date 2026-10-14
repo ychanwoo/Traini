@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     if (planError || !storedPlan) throw planError ?? new Error("Could not save training plan.");
 
     await supabase.from("workouts").delete().eq("plan_id", storedPlan.id);
-    const { error: workoutsError } = await supabase.from("workouts").insert(plan.workouts.map(({ id: _id, date, ...workout }) => ({ plan_id: storedPlan.id, scheduled_on: date, ...workout })));
+    const { error: workoutsError } = await supabase.from("workouts").insert(plan.workouts.map(({ date, kind, status, title, purpose, distanceKm, targetPace, targetHeartRate }) => ({ plan_id: storedPlan.id, scheduled_on: date, kind, status, title, purpose, distance_km: distanceKm ?? null, target_pace: targetPace ?? null, target_heart_rate: targetHeartRate ?? null })));
     if (workoutsError) throw workoutsError;
     return Response.json({ plan, weather });
   } catch (error) {
