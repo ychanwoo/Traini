@@ -1,3 +1,58 @@
+# Traini — 개인 러닝 코치
+
+현재 개인용 MVP로 전환 중입니다. 기존 Google 계정 하나로 로그인하고, 로컬 Python 수집기로
+Garmin 러닝 FIT 원본을 가져옵니다. 기존 화면의 훈련·분석 데이터는 아직 프로토타입이며
+수집한 파일의 DB 전송과 목표 기간 기반 계획 생성은 다음 구현 단계입니다.
+
+## Garmin 수집기
+
+```sh
+python3 -m venv collector/.venv
+collector/.venv/bin/python -m pip install -r collector/requirements.lock -e ./collector
+collector/.venv/bin/traini-collect
+```
+
+Python 3.12 이상이 필요합니다. 기본 조회 범위는 오늘 포함 최근 7일입니다.
+FIT는 `~/Projects/Traini-data/garmin/activities/`, 인증 토큰은
+`~/Library/Application Support/Traini/auth/`에 저장합니다.
+설치·재인증·날짜 지정·오류 처리는 [수집기 안내](collector/README.md)를 참고하세요.
+
+## 개인용 Google 로그인
+
+Google 로그인과 Supabase의 기존 UUID를 유지합니다. Apple 로그인과 가입 UI는 제공하지 않습니다.
+`.env.local`의 기존 Supabase 설정을 사용해서 다음 명령으로 관리자 Google 계정을 선택합니다.
+
+```sh
+npm run admin:setup
+npm run dev
+```
+
+설정 명령은 Supabase Auth 계정 목록만 읽고 선택한 UUID를 로컬 `.env.local`의
+`TRAINI_ADMIN_USER_ID`에 저장합니다. 계정·이름·race_name·생성일을 변경하지 않습니다.
+관리자 설정이 없으면 접근을 차단합니다. 배포 시에는 동일한 UUID를 서버 환경변수로
+등록해야 합니다. Service role 키를 브라우저 환경변수에 넣지 마세요.
+Supabase Auth의 Google provider와 OAuth redirect URL(`/auth/callback`) 설정은 유지합니다.
+
+화면 진입과 훈련 생성·리뷰 API는 서버에서 검증된 관리자 토큰을 요구합니다.
+기존 Garmin OAuth 코드는 승인 기반 연동을 위한 이전 구현으로, 로컬 수집기에서는 사용하지 않습니다.
+로컬 수집기에 웹 버튼·Supabase 전송·자동 스케줄은 아직 연결하지 않았습니다.
+
+## 확인 명령
+
+```sh
+collector/.venv/bin/python -m unittest discover -s collector/tests -v
+npm run test:admin
+npx tsc --noEmit
+npm run lint
+npm run build
+```
+
+실제 Garmin 인증과 Google OAuth 완료는 본인 계정으로 별도 확인해야 합니다.
+
+---
+
+## 초기 제품 구상 (프로토타입 참고)
+
 # Traini 🏃
 
 > Garmin-powered adaptive running coach  

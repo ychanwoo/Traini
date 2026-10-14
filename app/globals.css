@@ -24,11 +24,8 @@ button, input { font:inherit; }
 @media (max-height:720px) { .login-hero { padding-top:96px; } }
 .auth-button { display:flex; width:100%; height:48px; align-items:center; justify-content:center; border:0; border-radius:12px; background:transparent; color:#25212a; font-size:14px; font-weight:600; cursor:pointer; }
 .auth-button-content { display:inline-flex; align-items:center; justify-content:center; gap:9px; }
-.auth-button-apple { background:#000; color:#fff; }
 .auth-button-google { border:1px solid #ddd5e2; }
 .auth-button-google img { display:block; width:18px; height:18px; flex:none; }
-.apple-mark { display:block; font-family:Arial, sans-serif; font-size:22px; line-height:1; transform:translateY(1px); }
-.apple-login-notice { margin:-2px 0 2px; color:#756e7c; font-size:11px; line-height:16px; text-align:center; }
 .auth-error { margin:0; color:#c24155; font-size:11px; line-height:16px; text-align:center; }
 .auth-loading { width:100%; min-height:100dvh; background:#fff; }
 .settings-page { padding-top:28px; }.settings-title h1 { margin:7px 0 6px; font-size:24px; letter-spacing:-.05em; }.settings-title > p { margin:0; color:#756e7c; font-size:13px; line-height:19px; }.settings-field { display:block; margin-top:16px; color:#756e7c; font-size:11px; font-weight:700; letter-spacing:.08em; }.settings-field input { display:block; width:100%; margin-top:8px; border:1px solid #e9e3ed; border-radius:11px; padding:13px; background:#fff; color:#302a34; font-size:15px; outline-color:#6b21a8; }.settings-link-button { display:flex; width:100%; align-items:center; justify-content:center; gap:5px; margin-top:13px; border:0; background:transparent; color:#6b21a8; font-size:12px; font-weight:700; }.settings-link-button .lucide { width:15px; }.settings-list { margin-top:24px; border-top:1px solid #eee9f0; }.settings-list article { display:flex; gap:13px; padding:16px 0; border-bottom:1px solid #eee9f0; }.settings-list .lucide,.privacy-note .lucide { color:#6b21a8; width:18px; flex:none; }.settings-list h2 { margin:0; font-size:14px; }.settings-list p,.privacy-note p { margin:5px 0 0; color:#756e7c; font-size:12px; line-height:18px; }.privacy-note { display:flex; gap:10px; margin-top:18px; padding:14px; border-radius:12px; background:#f8f6fa; }.privacy-note p { margin:0; }.support-faq { margin-top:24px; border-top:1px solid #eee9f0; }.support-faq details { border-bottom:1px solid #eee9f0; }.support-faq summary { display:flex; align-items:center; justify-content:space-between; padding:16px 0; font-size:14px; font-weight:600; cursor:pointer; list-style:none; }.support-faq summary .lucide { width:16px; }.support-faq details[open] summary .lucide { transform:rotate(90deg); }.support-faq p { margin:0 0 16px; color:#756e7c; font-size:12px; line-height:18px; }.support-contact { display:flex; align-items:center; gap:11px; margin-top:20px; padding:15px; border:1px solid #eee9f0; border-radius:13px; color:#302a34; text-decoration:none; }.support-contact > .lucide:first-child { color:#6b21a8; }.support-contact span { flex:1; }.support-contact b,.support-contact small { display:block; }.support-contact b { font-size:14px; }.support-contact small,.support-version { margin-top:3px; color:#756e7c; font-size:11px; }.support-version { text-align:center; }
@@ -175,3 +172,31 @@ button, input { font:inherit; }
 .today-week-day.is-today,.today-week-day.is-done { border-radius:10px; }
 .today-week-day strong { font-size:14px; }
 .today-week-day.is-done strong { width:22px; height:22px; font-size:14px; }
+
+/* Private Google sign-in */
+.admin-login { display:flex; flex-direction:column; min-height:100dvh; padding:48px 24px 32px; }
+.admin-login > .login-logo-window { margin-inline:auto; }
+.admin-login-image { width:min(238px,100%); aspect-ratio:1; margin:28px auto; overflow:hidden; border-radius:50%; box-shadow:0 12px 25px rgba(91,63,112,.14); }
+.admin-login-image img { display:block; width:100%; height:100%; object-fit:cover; }
+.admin-login-intro { margin-top:42px; text-align:center; }
+.admin-login-label { color:var(--purple); font-size:10px; font-weight:700; letter-spacing:.16em; }
+.admin-login-intro h1 { margin:16px 0 12px; font-size:30px; line-height:1.3; letter-spacing:-.06em; }
+.admin-login-intro > p { margin:0; color:var(--muted); font-size:14px; line-height:1.8; }
+.admin-login-actions { margin-top:auto; padding-top:20px; }
+.admin-login-access { display:flex; justify-content:center; align-items:center; gap:6px; margin:0 0 14px; color:var(--muted); font-size:11px; }
+.admin-login-access .lucide { width:14px; height:14px; }
+.admin-login .auth-button-google { height:52px; background:#fff; }
+.admin-login .auth-button:disabled { opacity:.6; cursor:wait; }
+.admin-login .auth-button:focus-visible { outline:2px solid var(--purple); outline-offset:4px; }
+.admin-login .auth-error { margin-top:12px; }
+.admin-login-note { margin:14px 0 0; color:#948b9b; text-align:center; font-size:10px; }
+.auth-state { max-width:430px; min-height:100dvh; margin:auto; padding:32px 24px; display:flex; flex-direction:column; justify-content:center; gap:20px; }
+.auth-state p { color:var(--muted); font-size:14px; line-height:1.7; }
+@media (max-height:720px) { .admin-login { padding-top:32px; } .admin-login-intro { margin-top:32px; } .admin-login-image { margin:24px auto; } }
+
+/* Keep the existing 430px mobile frame on every route, including nested pages. */
+.app-frame .app-frame { width:100%; min-height:100%; height:auto; margin:0; border:0; box-shadow:none; }
+.app-tab-content > .app-frame { min-height:100%; height:auto; }
+.auth-loading { width:min(430px,100%); margin-inline:auto; }
+.auth-state { width:min(430px,100%); background:#fff; }
+@media (max-width:430px) { .admin-login { padding-inline:20px; } }
