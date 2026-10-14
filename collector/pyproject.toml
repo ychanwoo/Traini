@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "traini-collector"
+version = "0.1.0"
+description = "Local Garmin activity collector for Traini"
+requires-python = ">=3.12"
+dependencies = ["garminconnect==0.3.17"]
+
+[project.scripts]
+traini-collect = "traini_collector.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["traini_collector*"]

@@ -42,3 +42,12 @@ supabase/.temp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local Garmin collector and private data
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.fit
+**/garmin_tokens.json
+**/sync-state.json
