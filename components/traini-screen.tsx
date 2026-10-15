@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { AdminLogin } from "@/components/auth/admin-login";
+import { WeeklySyncCard } from "@/components/garmin/weekly-sync-card";
 import { useLocalDay } from "@/lib/hooks/use-local-day";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -60,14 +61,10 @@ function Splash() {
 
 
 function Garmin() {
-  const router = useRouter();
-  const rows = [["directions_run", "러닝 기록", "활동 거리, 페이스, 경로 데이터"], ["bar_chart", "회복 지표", "VO₂ Max, HRV, 심박수 변동"], ["dark_mode", "수면 데이터", "수면 단계, 수면 점수 및 휴식 수준"]];
-  return <div className="app-frame"><Topbar back step="1 / 3" /><main className="garmin-page">
-    <h1>Garmin을 연결하면<br />현재 몸 상태를 분석할 수 있어요</h1>
-    <section className="garmin-data-card"><div className="garmin-watch-mark" aria-hidden="true"><i /></div><div className="garmin-data-heading"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e8f4fb]"><Image className="h-5 w-5" src="/icons/garmin.svg" alt="" aria-hidden="true" width={20} height={20} unoptimized /></span><div><p className="text-[10px] font-bold tracking-[.13em] text-[#0277BD]">HEALTH CONNECT</p><p>가민 데이터 연동 항목</p></div></div><div className="garmin-data-list">{rows.map(([icon, title, description]) => <div key={title} className="garmin-data-row"><span><Icon>{icon}</Icon></span><div><p>{title}</p><small>{description}</small></div></div>)}</div></section>
-    <div className="garmin-privacy"><Icon>shield</Icon><p>데이터는 분석에만 안전하게 사용되며, 사용자의 허가 없이 제3자에게 제공되지 않습니다.</p></div>
-    <p className="garmin-revoke"><Icon>info</Icon> 언제든 연결을 해제할 수 있어요</p>
-    <div className="garmin-actions"><button className="primary-button" onClick={() => { localStorage.setItem("traini-garmin-connected", "true"); router.push("/running-analysis"); }}><span className="mr-3 inline-block h-4 w-4 bg-white align-[-3px]" />Garmin 계정 연결하기</button><button className="garmin-later" onClick={() => { localStorage.setItem("traini-garmin-connected", "false"); router.push("/goal-setting"); }}>나중에 연결할게요</button></div>
+  return <div className="app-frame"><Topbar back /><main className="garmin-sync-page">
+    <header><p>데이터 관리</p><h1>Garmin 러닝 기록</h1><span>지난주 기록을 확인하고 다음 훈련을 준비해요.</span></header>
+    <WeeklySyncCard detailed />
+    <p className="garmin-sync-note">워치를 Garmin Connect 앱과 먼저 동기화해 주세요.<br />수집한 원본 파일은 Mac에 보관됩니다.</p>
   </main></div>;
 }
 
@@ -148,6 +145,7 @@ function Today() {
   const [done, setDone] = useState(false);
   return <div className="app-frame"><Topbar back /><main className="page today-page pt-4"><header className="flex h-10 items-center justify-between"><div className="flex gap-2"><span className="rounded-full bg-[#f3edf6] px-2 py-1 text-[10px] font-semibold">D-42</span><span className="rounded-full bg-[#eaf7ff] px-2 py-1 text-[10px] font-semibold text-[#147eaf]">Phase 2 · 심폐 강화</span></div></header>
     <section className="mt-6"><h1 className="text-xl font-semibold">좋은 아침이에요, 영찬님</h1><p className="mt-1 text-sm text-[#756e7c]">오늘의 컨디션은 ‘최상’입니다. 훈련을 시작해볼까요?</p></section>
+    <WeeklySyncCard />
     <section className="today-week">{[["월","block"],["화","check_circle"],["수","today"],["목","calendar_today"],["금","directions_run"],["토","bolt"],["일","event_repeat"]].map(([day, icon], i) => <div key={day} className={`today-week-day ${i === 2 && !done ? "is-today" : ""} ${i === 2 && done ? "is-done" : ""}`}><p>{day}</p>{i === 2 ? <strong>{done ? "✓" : "오늘"}</strong> : <Icon>{icon}</Icon>}</div>)}</section>
     <section className="card mt-4 p-4"><div className="flex justify-between"><Label>WEEKLY PROGRESS</Label><span className="mono text-sm text-[#6B21A8]">22/40km</span></div><div className="mt-3 h-2 rounded-full bg-[#eee9f0]"><div className="h-full w-[55%] rounded-full bg-[#6B21A8]" /></div><p className="mt-3 text-xs text-[#756e7c]">이번 주 목표 40km 중 55%를 달성했습니다.</p></section>
     <section className="card mt-4 p-6"><div className="flex items-start justify-between"><div><Label>TODAY’S SESSION</Label><h2 className="mt-2 text-xl font-semibold">T-Pace 역치주</h2></div><span className="rounded-full bg-[#f3edf6] p-2 text-[#6B21A8]"><Icon>trending_up</Icon></span></div><div className="mt-8 grid grid-cols-2"><div><Label>DISTANCE</Label><p className="mono mt-1 text-5xl font-semibold tracking-[-.11em]">8.0<span className="ml-2 font-sans text-base font-medium tracking-normal">km</span></p></div><div className="space-y-3 self-end text-sm"><p className="today-pace"><Icon>speed</Icon><span className="mono ml-2">4{String.fromCharCode(39)}50”/km</span></p><p className="today-heart"><Icon>favorite</Icon><span className="ml-2">Zone 4 · 155–168</span></p></div></div><WeatherPaceCard /><button className="primary-button mt-6" onClick={() => setDone(!done)}>{done ? "훈련 완료됨 ✓" : "오늘의 훈련 완료"}</button></section>

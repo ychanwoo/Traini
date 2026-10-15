@@ -200,3 +200,10 @@ button, input { font:inherit; }
 .auth-loading { width:min(430px,100%); margin-inline:auto; }
 .auth-state { width:min(430px,100%); background:#fff; }
 @media (max-width:430px) { .admin-login { padding-inline:20px; } }
+
+/* Garmin collection management follows the existing mobile frame. */
+.garmin-sync-page { min-height:calc(100dvh - 56px); padding:28px 20px 40px; }
+.garmin-sync-page > header > p { margin:0 0 8px; color:#948b9b; font-size:11px; }
+.garmin-sync-page h1 { margin:0; color:#302a34; font-size:20px; line-height:28px; font-weight:600; letter-spacing:-.04em; }
+.garmin-sync-page > header > span { display:block; margin-top:8px; color:#827888; font-size:12px; line-height:19px; }
+.garmin-sync-note { margin:18px 0 0; color:#948b9b; font-size:11px; line-height:19px; }

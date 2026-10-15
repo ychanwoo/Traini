@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "admin:setup": "node --env-file=.env.local scripts/setup-admin.mjs",
-    "test:admin": "node --test tests/admin-access.test.mjs"
+    "test:admin": "node --test tests/admin-access.test.mjs",
+    "test:garmin": "node --test tests/garmin-sync.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",

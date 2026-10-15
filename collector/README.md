@@ -43,6 +43,7 @@ Garmin의 날짜 필터와 훈련 시간대가 다를 수 있어 API 조회는 �
 | --- | --- |
 | FIT 원본 | `~/Projects/Traini-data/garmin/activities/` |
 | 진행 기록 | `~/Projects/Traini-data/garmin/sync-state.json` |
+| 웹 실행 상태 | `~/Projects/Traini-data/garmin/web-sync.json` |
 | 인증 토큰 | `~/Library/Application Support/Traini/auth/garmin_tokens.json` |
 
 개인 폴더는 700, 새 파일은 600 권한으로 저장합니다. 인증 토큰은 비밀번호처럼 취급하고
@@ -97,6 +98,31 @@ collector/.venv/bin/traini-collect --non-interactive
 
 종료 코드는 성공 0, 일부 실패 또는 인증·연결·설정 오류 1, 사용자 중단 130입니다.
 일부 실패 시 `sync-state.json`의 활동별 `error_type`을 확인할 수 있습니다.
+
+## Traini에서 가져오기
+
+CLI 설치와 최초 Garmin 로그인을 마친 뒤 프로젝트의 `.env.local`에 설정합니다.
+
+```dotenv
+TRAINI_LOCAL_COLLECTOR_ENABLED=true
+TRAINI_COLLECTOR_PYTHON=/absolute/path/to/traini/collector/.venv/bin/python
+TRAINI_TIMEZONE=America/Los_Angeles
+```
+
+`TRAINI_COLLECTOR_PYTHON`은 실제 가상환경 Python의 절대 경로입니다. 서버를 다시 시작하고
+관리자 Google 계정으로 로그인한 뒤 오늘 화면 또는 `/garmin-connect`의 **지난주 가져오기**를
+누릅니다. 선택한 시간대의 지난 월~일 러닝을 조회하고 새 파일·기존 파일·실패 수를 표시합니다.
+CLI의 사용자 지정 경로 대신 위 표의 기본 저장·인증 경로를 사용합니다.
+
+웹 API는 서버에서 관리자 토큰을 검증합니다. 인증 토큰·로컬 경로·상세 Garmin 오류는
+브라우저로 전달하지 않습니다. 버튼에서 이메일·비밀번호·2단계 인증 코드를 입력받지 않으며,
+재인증이 필요하면 Mac 터미널에서 `collector/.venv/bin/traini-collect --login`을 실행합니다.
+
+웹 수집은 Mac의 Next 서버에서 별도 Python 프로세스로 실행되고 최대 5분 후 중단됩니다.
+탭을 닫거나 새로고침해도 진행 상태는 파일에 남습니다. CLI와 같은 파일 잠금을 사용하므로
+동시 실행은 거절됩니다. 중단·일부 실패 후 다시 실행하면 기존 정상 파일은 건너뜁니다.
+Mac이 잠자기 상태이거나 서버가 꺼져 있으면 버튼을 사용할 수 없습니다. 환경변수로 명시적으로
+활성화한 macOS에서만 작동하며 Vercel 배포에서는 비활성화됩니다. FIT 분석이나 DB 업로드는 수행하지 않습니다.
 
 ## 검증
 
