@@ -36,13 +36,27 @@ Supabase Auth의 Google provider와 OAuth redirect URL(`/auth/callback`) 설정�
 
 화면 진입과 훈련 생성·리뷰 API는 서버에서 검증된 관리자 토큰을 요구합니다.
 기존 Garmin OAuth 코드는 승인 기반 연동을 위한 이전 구현으로, 로컬 수집기에서는 사용하지 않습니다.
-로컬 수집기에 웹 버튼·Supabase 전송·자동 스케줄은 아직 연결하지 않았습니다.
+오늘 화면의 **지난주 가져오기** 버튼 또는 `/garmin-connect`에서 로컬 수집기를 실행할 수 있습니다.
+아래 서버 환경변수를 `.env.local`에 설정하고 개발 서버를 다시 시작합니다.
+
+```dotenv
+TRAINI_LOCAL_COLLECTOR_ENABLED=true
+TRAINI_COLLECTOR_PYTHON=/absolute/path/to/traini/collector/.venv/bin/python
+TRAINI_TIMEZONE=America/Los_Angeles
+```
+
+Python 경로는 설치한 가상환경의 절대 경로로 바꾸세요. 최초 Garmin 로그인은 위 CLI로 완료해야 합니다.
+버튼은 Mac에서 실행 중인 Next 서버와 저장된 Garmin 인증을 사용합니다. Vercel에서는 비활성화됩니다.
+진행 중에는 중복 실행을 막고, 새로고침 후에도 마지막 실행 결과를 확인할 수 있습니다.
+상세 설정과 재인증 방법은 [수집기 안내](collector/README.md#traini에서-가져오기)를 참고하세요.
+Supabase 전송·FIT 분석·훈련 계획 생성·자동 스케줄은 아직 연결하지 않았습니다.
 
 ## 확인 명령
 
 ```sh
 collector/.venv/bin/python -m unittest discover -s collector/tests -v
 npm run test:admin
+npm run test:garmin
 npx tsc --noEmit
 npm run lint
 npm run build

@@ -1,0 +1,152 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowDownToLine, Check, ChevronRight, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { CollectionJob, CollectionSnapshot } from "@/lib/garmin/collection";
+import styles from "./weekly-sync-card.module.css";
+
+const messages: Record<string, string> = {
+  auth_required: "Garmin 인증이 만료되었어요. Mac에서 다시 연결한 뒤 가져와 주세요.",
+  rate_limited: "Garmin 요청이 잠시 제한됐어요. 잠시 후 다시 시도해 주세요.",
+  connection: "Garmin에 연결하지 못했어요. 연결 상태를 확인하고 다시 시도해 주세요.",
+  storage: "기록을 저장하지 못했어요. Mac의 저장 공간과 폴더 권한을 확인해 주세요.",
+  timeout: "가져오기가 예상보다 오래 걸려 중단됐어요. 다시 시도해 주세요.",
+  interrupted: "이전 가져오기가 중단됐어요. 저장된 기록은 유지되니 다시 시도해 주세요.",
+  collector_failed: "기록을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.",
+  partial_download: "일부 기록을 가져오지 못했어요. 다시 실행하면 빠진 기록만 확인해요.",
+};
+
+async function requestSnapshot(method: "GET" | "POST", signal?: AbortSignal): Promise<CollectionSnapshot> {
+  const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+  if (!session) throw new Error("로그인이 만료되었어요. 다시 로그인해 주세요.");
+  const response = await fetch("/api/garmin/sync", {
+    method, headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
+  });
+  if (response.status === 409) {
+    const snapshot = await requestSnapshot("GET", signal);
+    if (snapshot.job?.status === "running") return snapshot;
+    throw new Error("Mac에서 다른 가져오기가 실행 중이에요. 완료 후 다시 시도해 주세요.");
+  }
+  if (response.status === 401 || response.status === 403) throw new Error("관리자 로그인 상태를 확인해 주세요.");
+  if (!response.ok) throw new Error("가져오기 요청을 확인하지 못했어요. 상태를 새로 확인해 주세요.");
+  return response.json() as Promise<CollectionSnapshot>;
+}
+
+function periodLabel(start: string, end: string): string {
+  const label = (value: string) => `${Number(value.slice(5, 7))}.${Number(value.slice(8, 10))}`;
+  return `${label(start)} 월 – ${label(end)} 일`;
+}
+
+function timeLabel(value: string, timezone: string): string {
+  return new Intl.DateTimeFormat("ko-KR", { timeZone: timezone, month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+}
+
+function isCurrentJob(job: CollectionJob | null | undefined, snapshot: CollectionSnapshot | null): boolean {
+  return Boolean(job && snapshot && job.period.start === snapshot.period.start && job.period.end === snapshot.period.end && job.period.timezone === snapshot.period.timezone);
+}
+
+export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
+  const [snapshot, setSnapshot] = useState<CollectionSnapshot | null>(null);
+  const [requesting, setRequesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
+  const inFlight = useRef(false);
+  const mounted = useRef(false);
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    const next = await requestSnapshot("GET", signal);
+    if (mounted.current) { setSnapshot(next); setError(null); }
+    return next;
+  }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    const controller = new AbortController();
+    void refresh(controller.signal).catch(() => {
+      if (!controller.signal.aborted) setError("기록 상태를 불러오지 못했어요. 다시 확인해 주세요.");
+    }).finally(() => { if (!controller.signal.aborted) setChecking(false); });
+    return () => { mounted.current = false; controller.abort(); };
+  }, [refresh]);
+
+  const running = snapshot?.job?.status === "running";
+  useEffect(() => {
+    if (!running) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const controller = new AbortController();
+    const poll = async () => {
+      try { await refresh(controller.signal); }
+      catch { if (!cancelled) setError("연결이 잠시 끊겼어요. 가져오기 상태를 다시 확인하고 있어요."); }
+      if (!cancelled) timer = setTimeout(() => void poll(), 2_000);
+    };
+    timer = setTimeout(() => void poll(), 1_500);
+    return () => { cancelled = true; controller.abort(); clearTimeout(timer); };
+  }, [running, refresh]);
+
+  const start = async () => {
+    if (inFlight.current || running) return;
+    inFlight.current = true;
+    setRequesting(true);
+    setError(null);
+    try {
+      const next = await requestSnapshot("POST");
+      if (mounted.current) setSnapshot(next);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "다시 시도해 주세요.";
+      // The request may have reached the worker even when the response was lost.
+      try {
+        const next = await requestSnapshot("GET");
+        if (mounted.current) { setSnapshot(next); setError(next.job?.status === "running" ? null : message); }
+      } catch { if (mounted.current) setError(message); }
+    } finally {
+      inFlight.current = false;
+      if (mounted.current) setRequesting(false);
+    }
+  };
+
+  const current = isCurrentJob(snapshot?.job, snapshot) ? snapshot?.job : null;
+  const job = snapshot?.job;
+  const counts = current?.counts;
+  const busy = running || requesting;
+  const succeeded = current?.status === "succeeded";
+  const jobMessage = job?.errorCode ? messages[job.errorCode] : null;
+  const notice = snapshot?.notice === "local_only" ? "Mac에서 실행 중인 Traini에서 가져올 수 있어요."
+    : snapshot?.notice === "setup_required" ? "Mac에 Garmin 수집기를 먼저 설치해 주세요."
+    : snapshot?.notice === "status_unavailable" ? "이전 결과를 읽지 못했어요. 다시 가져와 확인할 수 있어요." : null;
+  const timezoneLabel = snapshot?.period.timezone === "America/Los_Angeles" ? "태평양 시간 기준" : snapshot?.period.timezone.replaceAll("_", " ").split("/").pop();
+
+  return <section className={styles.card} aria-label="Garmin 주간 기록 가져오기">
+    <div className={styles.heading}>
+      <div><h2>지난주 러닝</h2><p>{snapshot ? periodLabel(snapshot.period.start, snapshot.period.end) : "월요일부터 일요일까지"}<span>{timezoneLabel}</span></p></div>
+      <span className={`${styles.badge} ${busy ? styles.pending : succeeded ? styles.complete : ""}`}>
+        {busy ? <RefreshCw className={styles.spinning} aria-hidden="true" /> : succeeded ? <Check aria-hidden="true" /> : <span className={styles.dot} />}
+        {busy ? "가져오는 중" : succeeded ? "가져옴" : "Garmin"}
+      </span>
+    </div>
+    {counts && <dl className={styles.counts} aria-label="지난주 수집 결과">
+      <div><dt>새로 저장</dt><dd>{counts.downloaded}<small>개</small></dd></div>
+      <div><dt>기존 기록</dt><dd>{counts.skipped}<small>개</small></dd></div>
+      <div><dt>실패</dt><dd className={counts.failed ? styles.failed : undefined}>{counts.failed}<small>개</small></dd></div>
+    </dl>}
+    <div aria-live="polite" aria-atomic="true" className={styles.status}>
+      {busy ? <p>{job?.stage === "authenticating" ? "Garmin 연결을 확인하고 있어요." : "러닝 기록을 확인하고 있어요."}</p>
+        : error ? <p role="alert" className={styles.failed}>{error}</p>
+        : notice ? <p>{notice}</p>
+        : jobMessage ? <p className={styles.failed}>{jobMessage}</p>
+        : succeeded ? <p>{counts?.found === 0 ? "지난주에 기록된 러닝이 없어요." : `러닝 ${counts?.found}개의 원본 파일을 확인했어요.`}</p>
+        : <p>Garmin Connect에 동기화된 기록을 가져와요.</p>}
+    </div>
+    <button type="button" className={styles.button} disabled={checking || busy || !snapshot?.available} onClick={() => void start()} aria-busy={Boolean(busy)}>
+      {busy ? <RefreshCw className={styles.spinning} aria-hidden="true" /> : <ArrowDownToLine aria-hidden="true" />}
+      {checking ? "상태 확인 중" : busy ? "지난주 기록 가져오는 중" : "지난주 가져오기"}
+    </button>
+    <div className={styles.footer}>
+      <span>{job?.finishedAt ? `마지막 실행 ${timeLabel(job.finishedAt, job.period.timezone)}` : "이미 받은 기록은 중복 저장하지 않아요."}</span>
+      {!detailed && <Link href="/garmin-connect">관리<ChevronRight aria-hidden="true" /></Link>}
+      {error && !running && <button type="button" onClick={() => { void refresh().catch(() => setError("연결을 확인하고 다시 시도해 주세요.")); }}>상태 새로고침</button>}
+    </div>
+    {job?.errorCode === "auth_required" && <details className={styles.reconnect}><summary>Garmin 다시 연결하기</summary><p>Mac의 Traini 프로젝트 터미널에서 아래 명령을 실행한 뒤 다시 가져와 주세요. 비밀번호는 이 화면에서 입력하지 않아요.</p><code>collector/.venv/bin/traini-collect --login</code></details>}
+  </section>;
+}

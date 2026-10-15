@@ -61,7 +61,8 @@ def activity_training_date(activity: dict[str, Any], timezone: ZoneInfo | None) 
 
 def sync_activities(client: ActivityClient, start: date, end: date, data_dir: Path,
                     original_format: Any, report: Callable[[str], None] = print, *,
-                    timezone: ZoneInfo | None = None, period_mode: str = "custom") -> SyncResult:
+                    timezone: ZoneInfo | None = None, period_mode: str = "custom",
+                    on_progress: Callable[[SyncResult], None] | None = None) -> SyncResult:
     if start > end:
         raise ValueError("시작일은 종료일보다 늦을 수 없습니다.")
     private_directory(data_dir)
@@ -140,6 +141,8 @@ def sync_activities(client: ActivityClient, start: date, end: date, data_dir: Pa
             report(f"{activity_date} · 활동 {activity_id} · 실패 ({type(error).__name__}), 재실행 시 재시도")
         state["activities"][activity_id] = entry
         write_json(state_path, state)
+        if on_progress is not None:
+            on_progress(result)
     state["last_run"] = {"started_on": start.isoformat(), "ended_on": end.isoformat(),
                          "finished_at": datetime.now(UTC).isoformat(),
                          "timezone": timezone.key if timezone else None,
