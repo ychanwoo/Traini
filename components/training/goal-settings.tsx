@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { ChatGPTConnectionCard } from "@/components/chatgpt/chatgpt-connection-card";
 import { Info, Route } from "lucide-react";
 import { addCalendarDays } from "@/lib/garmin/running-summary";
 import {
@@ -303,6 +304,7 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
           {saving ? "저장 중…" : "목표 저장하기"}
         </button>
       </form>
+      {!onboarding && <ChatGPTConnectionCard />}
       <TrainingContextCard settings />
     </div>
   );
