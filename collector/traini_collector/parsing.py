@@ -5,7 +5,7 @@ import hashlib
 import json
 import stat
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Callable
 from zoneinfo import ZoneInfo
@@ -63,9 +63,25 @@ def parse_activities(data_dir: Path, timezone: ZoneInfo,
         return _parse_locked(data_dir, timezone, report)
 
 
-def _parse_locked(data_dir: Path, timezone: ZoneInfo, report: Callable[[str], None]) -> ParseResult:
-    files = sorted((path for path in (data_dir / "activities").iterdir()
-                    if path.suffix.lower() == ".fit"), key=lambda path: path.name)
+def _parse_locked(data_dir: Path, timezone: ZoneInfo, report: Callable[[str], None], *,
+                  filenames: list[str] | None = None,
+                  period: tuple[date, date] | None = None,
+                  on_progress: Callable[[ParseResult], None] | None = None) -> ParseResult:
+    """Caller must hold .sync.lock for the entire operation, including upload.
+
+    A web import supplies only files confirmed by its own collection run. The
+    standalone CLI retains its all-files behavior.
+    """
+    activity_dir = data_dir / "activities"
+    if activity_dir.is_symlink() or not activity_dir.is_dir():
+        raise ValueError("Invalid activities directory")
+    if filenames is not None:
+        if any(name != f"{Path(name).stem}.fit" or not valid_activity_id(Path(name).stem) for name in filenames):
+            raise ValueError("Invalid selected FIT filename")
+        files = [activity_dir / name for name in sorted(set(filenames))]
+    else:
+        files = sorted((path for path in activity_dir.iterdir()
+                        if path.suffix.lower() == ".fit"), key=lambda path: path.name)
     output_dir = data_dir / "normalized"
     private_directory(output_dir)
     state_path = data_dir / "parse-state.json"
@@ -80,6 +96,8 @@ def _parse_locked(data_dir: Path, timezone: ZoneInfo, report: Callable[[str], No
     # Invalidate previous eligibility before processing; interrupted runs leave
     # pending files explicitly visible instead of advertising stale successes.
     write_json(state_path, manifest)
+    if on_progress is not None:
+        on_progress(result)
     ids: dict[str, int] = {}
     for path in files:
         ids[path.stem] = ids.get(path.stem, 0) + 1
@@ -95,6 +113,8 @@ def _parse_locked(data_dir: Path, timezone: ZoneInfo, report: Callable[[str], No
             contents = read_regular(path, MAX_FIT_BYTES)
             entry["source_sha256"] = hashlib.sha256(contents).hexdigest()
             normalized = decode_activity(contents, activity_id, timezone)
+            if period is not None and not period[0] <= date.fromisoformat(normalized["training_date"]) <= period[1]:
+                raise FitParseError("outside_import_period")
             normalized["source"]["file"] = path.name
             output = output_dir / f"{activity_id}.json"
             encoded = (json.dumps(normalized, ensure_ascii=False, allow_nan=False, indent=2) + "\n").encode()
@@ -132,6 +152,8 @@ def _parse_locked(data_dir: Path, timezone: ZoneInfo, report: Callable[[str], No
         manifest["counts"] = asdict(result)
         # A manifest write failure is fatal: never claim a checkpoint was saved.
         write_json(state_path, manifest)
+        if on_progress is not None:
+            on_progress(result)
         report(f"{label} · {outcome}")
     manifest["status"] = "partial" if result.failed else "complete"
     manifest["finished_at"] = datetime.now(UTC).isoformat()

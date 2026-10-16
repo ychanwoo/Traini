@@ -205,7 +205,9 @@ def upload_activities(data_dir: Path, store: SupabaseActivityStore | None,
 
 
 def _upload_locked(data_dir: Path, store: SupabaseActivityStore | None, manifest: dict,
-                   manifest_hash: str, report: Callable[[str], None]) -> UploadResult:
+                   manifest_hash: str, report: Callable[[str], None], *,
+                   on_progress: Callable[[UploadResult], None] | None = None) -> UploadResult:
+    """Caller must hold .sync.lock; each acknowledged RPC is checkpointed."""
     result = UploadResult(found=len(manifest["files"]))
     result.eligible = sum(entry["status"] == "complete" for entry in manifest["files"].values())
     result.excluded = result.found - result.eligible
@@ -220,6 +222,8 @@ def _upload_locked(data_dir: Path, store: SupabaseActivityStore | None, manifest
     }
     state_path = data_dir / ("upload-state.json" if store is not None else "upload-validation.json")
     write_json(state_path, state)
+    if on_progress is not None:
+        on_progress(result)
     timezone = ZoneInfo(manifest["training_timezone"])
     labels = {"inserted": "새로 저장", "updated": "변경 갱신", "unchanged": "기존 기록 확인", "validated": "검증 완료"}
     for filename, entry in manifest["files"].items():
@@ -250,6 +254,8 @@ def _upload_locked(data_dir: Path, store: SupabaseActivityStore | None, manifest
             message = f"실패 ({code}) · 로컬 원본 유지, 재실행 시 재시도"
         state["counts"] = asdict(result)
         write_json(state_path, state)
+        if on_progress is not None:
+            on_progress(result)
         report(f"{label} · {message}")
     state["status"] = "partial" if result.failed or result.excluded else "complete"
     state["finished_at"] = datetime.now(UTC).isoformat()
