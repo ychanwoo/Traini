@@ -14,6 +14,15 @@ function load(file, modules = {}, extra = {}) {
   return context.exports;
 }
 const schema = load("lib/garmin/collection.ts");
+
+test("retired OAuth and webhook routes reject requests without accessing credentials or the database", async () => {
+  for (const [route, method] of [["connect", "GET"], ["callback", "GET"], ["webhook", "POST"]]) {
+    const api = load(`app/api/garmin/${route}/route.ts`);
+    const response = await api[method](new Request("https://traini.test/api/garmin/" + route, { method }));
+    assert.equal(response.status, 410);
+  }
+});
+
 const job = {
   id: "8e654a26-c58a-482f-96d4-8a78660f9b24", pid: 123,
   status: "running", stage: "collecting", startedAt: new Date().toISOString(),
