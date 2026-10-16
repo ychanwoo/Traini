@@ -207,3 +207,7 @@ button, input { font:inherit; }
 .garmin-sync-page h1 { margin:0; color:#302a34; font-size:20px; line-height:28px; font-weight:600; letter-spacing:-.04em; }
 .garmin-sync-page > header > span { display:block; margin-top:8px; color:#827888; font-size:12px; line-height:19px; }
 .garmin-sync-note { margin:18px 0 0; color:#948b9b; font-size:11px; line-height:19px; }
+
+/* Authenticated setup pages share the same fixed navigation and safe-area clearance. */
+.service-content { padding-bottom:calc(80px + env(safe-area-inset-bottom)); }
+.service-content .app-frame { height:auto; }
