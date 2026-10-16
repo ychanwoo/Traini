@@ -11,6 +11,7 @@
     "garmin:upload": "node --env-file=.env.local scripts/upload-garmin.mjs",
     "test:admin": "node --test tests/admin-access.test.mjs",
     "test:garmin": "node --test tests/garmin-sync.test.mjs",
+    "test:summary": "node --test tests/weekly-running-summary.test.mjs",
     "test:db": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/garmin_activity_storage.sql --output json --agent no"
   },
   "dependencies": {
