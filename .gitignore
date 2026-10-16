@@ -51,4 +51,6 @@ __pycache__/
 *.fit
 **/garmin_tokens.json
 **/sync-state.json
+**/parse-state.json
+**/normalized/*.json
 .env.local.*.tmp

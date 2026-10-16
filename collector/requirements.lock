@@ -4,6 +4,7 @@ cffi==2.1.1
 charset-normalizer==3.5.2
 curl_cffi==0.16.3
 garminconnect==0.3.17
+garmin-fit-sdk==21.218.0
 idna==3.20
 pycparser==3.11
 requests==2.34.2
