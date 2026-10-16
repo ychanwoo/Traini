@@ -3,7 +3,7 @@ import { CollectionStartError, collectionSnapshot, startCollection } from "@/lib
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const headers = { "Cache-Control": "no-store" };
+const headers = { "Cache-Control": "no-store", Vary: "Authorization" };
 
 export async function GET(request: Request) {
   const access = await requireAdmin(request);
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "origin_not_allowed" }, { status: 403, headers });
   }
   try {
-    await startCollection();
+    await startCollection(access.userId);
     return Response.json(await collectionSnapshot(), { status: 202, headers });
   } catch (error) {
     const code = error instanceof CollectionStartError ? error.code : "start_failed";

@@ -111,7 +111,10 @@ TRAINI_TIMEZONE=America/Los_Angeles
 
 `TRAINI_COLLECTOR_PYTHON`은 실제 가상환경 Python의 절대 경로입니다. 서버를 다시 시작하고
 관리자 Google 계정으로 로그인한 뒤 오늘 화면 또는 `/garmin-connect`의 **지난주 가져오기**를
-누릅니다. 선택한 시간대의 지난 월~일 러닝을 조회하고 새 파일·기존 파일·실패 수를 표시합니다.
+누릅니다. 선택한 시간대의 지난 월~일 러닝을 수집 → FIT 분석 → Supabase 저장 순서로
+처리하고, 완료 후 현재 선택한 주간 요약을 다시 조회합니다. 별도의 분석·업로드 명령은 필요하지 않습니다.
+서버에는 기존 `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TRAINI_ADMIN_USER_ID` 설정도
+필요합니다. 키와 관리자 UUID를 브라우저나 버튼 입력으로 받지 않습니다.
 CLI의 사용자 지정 경로 대신 위 표의 기본 저장·인증 경로를 사용합니다.
 
 웹 API는 서버에서 관리자 토큰을 검증합니다. 인증 토큰·로컬 경로·상세 Garmin 오류는
@@ -122,11 +125,12 @@ CLI의 사용자 지정 경로 대신 위 표의 기본 저장·인증 경로를
 탭을 닫거나 새로고침해도 진행 상태는 파일에 남습니다. CLI와 같은 파일 잠금을 사용하므로
 동시 실행은 거절됩니다. 중단·일부 실패 후 다시 실행하면 기존 정상 파일은 건너뜁니다.
 Mac이 잠자기 상태이거나 서버가 꺼져 있으면 버튼을 사용할 수 없습니다. 환경변수로 명시적으로
-활성화한 macOS에서만 작동하며 Vercel 배포에서는 비활성화됩니다. FIT 분석이나 DB 업로드는 수행하지 않습니다.
+활성화한 macOS에서만 작동하며 Vercel 배포에서는 비활성화됩니다.
+실행 단위·부분 실패·복구·보안은 [통합 가져오기](docs/garmin-import-pipeline.md)를 참고하세요.
 
 ## 다운로드한 FIT 분석
 
-의존성을 설치한 뒤 별도 오프라인 명령으로 실행합니다. 다운로드 버튼에는 아직 연결하지 않았습니다.
+버튼은 이번 가져오기에서 확인한 파일만 분석합니다. 과거 파일 전체를 다시 분석하려면 별도 오프라인 명령을 사용합니다.
 
 ```sh
 collector/.venv/bin/python -m pip install -r collector/requirements.lock -e ./collector
@@ -142,7 +146,7 @@ collector/.venv/bin/traini-parse --timezone America/Los_Angeles
 
 ## Supabase 저장
 
-프로젝트 루트에서 기존 `.env.local` 설정을 사용합니다. 로컬 분석 후 별도로 실행합니다.
+버튼은 분석 후 자동으로 저장합니다. 수동 분석 결과를 검증하거나 다시 업로드할 때는 프로젝트 루트에서 기존 `.env.local` 설정으로 실행합니다.
 
 ```sh
 npm run garmin:upload -- --dry-run

@@ -7,6 +7,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dateInZone, distanceLabel, durationLabel, paceLabel, periodLabel, timezoneLabel,
   type RunningSummary, type WeekSelection } from "@/lib/garmin/running-summary";
 import styles from "./weekly-running-summary.module.css";
+import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
 
 type State = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: RunningSummary };
 const weekdays = ["월", "화", "수", "목", "금", "토", "일"];
@@ -34,6 +35,11 @@ export function WeeklyRunningSummary({ detailed = false, initialWeek = "current"
     setState({ status: "loading" });
     setRevision((value) => value + 1);
   }, []);
+
+  useEffect(() => {
+    window.addEventListener(IMPORT_FINISHED_EVENT, refresh);
+    return () => window.removeEventListener(IMPORT_FINISHED_EVENT, refresh);
+  }, [refresh]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -99,7 +105,7 @@ export function WeeklyRunningSummary({ detailed = false, initialWeek = "current"
         <div><dt>평균 페이스</dt><dd>{paceLabel(summary.totals.paceSecondsPerKm)}<small>/km</small></dd></div>
       </dl>
       {count === 0 ? <div className={styles.empty}><p>{week === "current" ? "이번 주에 저장된 러닝 기록이 없어요." : "지난주에 저장된 러닝 기록이 없어요."}</p>
-        <span>FIT 분석과 업로드가 끝나면 여기에 표시돼요.</span></div>
+        <span>지난주 가져오기를 마치면 저장된 기록이 여기에 표시돼요.</span></div>
         : <div className={styles.notes}>
           {summary.coverage.distanceCount < count && <p>{summary.coverage.distanceCount
             ? `거리는 값이 있는 ${summary.coverage.distanceCount}/${count}개 기록의 합계예요.` : "거리 정보가 없어 총 거리를 계산하지 않았어요."}</p>}

@@ -13,6 +13,7 @@ function load(file, modules = {}, extra = {}) {
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText, context);
   return context.exports;
 }
+const OWNER = "11111111-1111-4111-8111-111111111111";
 const schema = load("lib/garmin/collection.ts");
 
 test("retired OAuth and webhook routes reject requests without accessing credentials or the database", async () => {
@@ -45,9 +46,11 @@ test("public job projection excludes extra fields and invalid counts", () => {
   assert.equal(schema.parseJob({ ...job, errorCode: "private-exception-details" }), null);
 });
 
-function collector({ enabled = true, currentJob = null, alive = true, handshake = "started" } = {}) {
+function collector({ enabled = true, currentJob = null, alive = true, handshake = "started", configuration = true, timezone = "America/Los_Angeles" } = {}) {
   let spawned;
-  const fakeProcess = { env: { TRAINI_LOCAL_COLLECTOR_ENABLED: String(enabled), TRAINI_COLLECTOR_PYTHON: "/project/collector/.venv/bin/python", SUPABASE_SERVICE_ROLE_KEY: "must-not-inherit" },
+  const fakeProcess = { env: { TRAINI_LOCAL_COLLECTOR_ENABLED: String(enabled), TRAINI_COLLECTOR_PYTHON: "/project/collector/.venv/bin/python", SUPABASE_SERVICE_ROLE_KEY: configuration ? "server-only-key" : undefined,
+      NEXT_PUBLIC_SUPABASE_URL: "https://kmmutfcgshellvjgpick.supabase.co", TRAINI_ADMIN_USER_ID: OWNER,
+      TRAINI_TIMEZONE: timezone, WEATHER_API_KEY: "must-not-inherit" },
     platform: "darwin", cwd: () => "/project", kill: () => { if (!alive) throw new Error("not found"); } };
   const api = load("lib/garmin/local-collector.ts", {
     "./collection": schema,
@@ -75,12 +78,12 @@ function collector({ enabled = true, currentJob = null, alive = true, handshake 
 test("local collection requires explicit enablement", async () => {
   const { api, spawned } = collector({ enabled: false });
   assert.equal((await api.collectionSnapshot()).available, false);
-  await assert.rejects(api.startCollection(), (error) => error.code === "local_only");
+  await assert.rejects(api.startCollection(OWNER), (error) => error.code === "local_only");
   assert.equal(spawned(), undefined);
 });
 test("running job prevents another subprocess", async () => {
   const { api, spawned } = collector({ currentJob: job });
-  await assert.rejects(api.startCollection(), (error) => error.code === "busy");
+  await assert.rejects(api.startCollection(OWNER), (error) => error.code === "busy");
   assert.equal(spawned(), undefined);
 });
 test("dead worker is reported as interrupted", async () => {
@@ -89,18 +92,22 @@ test("dead worker is reported as interrupted", async () => {
   assert.equal(snapshot.job.status, "failed");
   assert.equal(snapshot.job.errorCode, "interrupted");
 });
-test("worker invocation uses fixed arguments and excludes service credentials", async () => {
+test("worker invocation uses fixed arguments and only necessary server credentials", async () => {
   const { api, spawned } = collector();
-  await api.startCollection();
+  await api.startCollection(OWNER);
   const command = spawned();
   assert.equal(command.file, "/project/collector/.venv/bin/python");
   assert.deepEqual(Array.from(command.args), ["-m", "traini_collector.web", "--timezone", "America/Los_Angeles"]);
   assert.equal(command.options.shell, undefined);
-  assert.equal(command.options.env.SUPABASE_SERVICE_ROLE_KEY, undefined);
+  assert.equal(command.options.env.SUPABASE_SERVICE_ROLE_KEY, "server-only-key");
+  assert.equal(command.options.env.TRAINI_ADMIN_USER_ID, OWNER);
+  assert.equal(command.options.env.WEATHER_API_KEY, undefined);
+  assert.doesNotMatch(JSON.stringify(command.args), /server-only-key|must-not-inherit/);
+  assert.doesNotMatch(JSON.stringify(await api.collectionSnapshot()), /server-only-key|must-not-inherit/);
 });
 test("worker OS lock busy response is propagated", async () => {
   const { api } = collector({ handshake: "busy" });
-  await assert.rejects(api.startCollection(), (error) => error.code === "busy");
+  await assert.rejects(api.startCollection(OWNER), (error) => error.code === "busy");
 });
 
 test("route rejects unauthenticated and cross-origin requests before starting work", async () => {
@@ -121,4 +128,52 @@ test("route rejects unauthenticated and cross-origin requests before starting wo
     method: "POST", headers: { origin: "http://localhost:3017", host: "localhost:3017" },
   }))).status, 202);
   assert.equal(started, 2);
+});
+
+
+test("missing upload configuration and unverified owner never start a worker", async () => {
+  const missing = collector({ configuration: false });
+  assert.equal((await missing.api.collectionSnapshot()).notice, "upload_setup_required");
+  await assert.rejects(missing.api.startCollection(OWNER), error => error.code === "upload_setup_required");
+  assert.equal(missing.spawned(), undefined);
+  const ready = collector();
+  await assert.rejects(ready.api.startCollection("another-owner"), error => error.code === "upload_setup_required");
+  assert.equal(ready.spawned(), undefined);
+});
+
+test("invalid timezone fails closed rather than importing a different week", async () => {
+  const { api, spawned } = collector({ timezone: "invalid/zone" });
+  assert.equal((await api.collectionSnapshot()).notice, "timezone_invalid");
+  await assert.rejects(api.startCollection(OWNER), error => error.code === "timezone_invalid");
+  assert.equal(spawned(), undefined);
+});
+
+const pipelineJob = {
+  ...job, version: 2, stage: "uploading", uploadStarted: true, failedStage: null,
+  parsing: { found: 6, processed: 6, skipped: 0, failed: 0, private: "hidden" },
+  upload: { found: 6, eligible: 6, validated: 0, inserted: 2, updated: 1, unchanged: 3, failed: 0, excluded: 0, key: "hidden" },
+};
+test("versioned pipeline projects only stage counters and keeps legacy results distinct", () => {
+  const parsed = schema.parseJob(pipelineJob);
+  assert.equal(parsed.version, 2);
+  assert.equal(parsed.stage, "uploading");
+  assert.equal(parsed.upload.inserted, 2);
+  assert.equal(parsed.uploadStarted, true);
+  assert.doesNotMatch(JSON.stringify(parsed), /hidden|pid|private/);
+  const legacy = schema.parseJob(job);
+  assert.equal(legacy.version, 1);
+  assert.equal(legacy.upload, null);
+  assert.equal(legacy.uploadStarted, false);
+  for (const change of [{ upload: null }, { uploadStarted: "true" }, { version: 3 },
+    { failedStage: "private-details" }, { upload: { ...pipelineJob.upload, inserted: -1 } }]) {
+    assert.equal(schema.parseJob({ ...pipelineJob, ...change }), null);
+  }
+});
+test("interrupted upload retains acknowledged writes and triggers summary refresh eligibility", async () => {
+  const { api } = collector({ currentJob: pipelineJob, alive: false });
+  const { job: interrupted } = await api.collectionSnapshot();
+  assert.equal(interrupted.status, "failed");
+  assert.equal(interrupted.failedStage, "uploading");
+  assert.equal(interrupted.upload.inserted, 2);
+  assert.equal(interrupted.uploadStarted, true);
 });

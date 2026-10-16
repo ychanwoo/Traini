@@ -5,6 +5,7 @@ import { ArrowDownToLine, Check, ChevronRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { CollectionJob, CollectionSnapshot } from "@/lib/garmin/collection";
+import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
 import styles from "./weekly-sync-card.module.css";
 
 const messages: Record<string, string> = {
@@ -15,8 +16,29 @@ const messages: Record<string, string> = {
   timeout: "가져오기가 예상보다 오래 걸려 중단됐어요. 다시 시도해 주세요.",
   interrupted: "이전 가져오기가 중단됐어요. 저장된 기록은 유지되니 다시 시도해 주세요.",
   collector_failed: "기록을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.",
-  partial_download: "일부 기록을 가져오지 못했어요. 다시 실행하면 빠진 기록만 확인해요.",
+  partial_download: "일부 원본을 가져오지 못했어요. 저장 결과를 확인하고 다시 시도해 주세요.",
+  partial_parse: "일부 FIT 파일을 분석하지 못했어요. 원본은 유지되니 다시 시도해 주세요.",
+  partial_upload: "일부 기록을 저장하지 못했어요. 저장된 기록은 반영했으니 다시 시도해 주세요.",
+  parse_failed: "FIT 분석이 중단됐어요. 원본은 유지되니 다시 가져와 주세요.",
+  upload_failed: "기록 저장을 마치지 못했어요. Mac의 분석 결과는 유지되니 다시 시도해 주세요.",
+  upload_connection: "기록 저장 서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.",
+  upload_setup_required: "기록 저장 설정을 확인해 주세요. Mac의 서버 설정이 필요해요.",
 };
+
+const stages = [
+  { key: "collecting", label: "수집" },
+  { key: "parsing", label: "분석" },
+  { key: "uploading", label: "저장" },
+] as const;
+
+function stageState(job: CollectionJob, index: number): string {
+  const failed = [job.counts.failed, job.parsing?.failed ?? 0, job.upload?.failed ?? 0][index];
+  const position = stages.findIndex(({ key }) => key === (job.status === "failed" ? job.failedStage : job.stage));
+  if (failed || (job.status === "failed" && position === index)) return "failed";
+  if (job.status === "running" && position === index) return "active";
+  if (job.status === "succeeded" || job.status === "partial" || position > index) return "complete";
+  return "pending";
+}
 
 async function requestSnapshot(method: "GET" | "POST", signal?: AbortSignal): Promise<CollectionSnapshot> {
   const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
@@ -55,6 +77,7 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
   const [checking, setChecking] = useState(true);
   const inFlight = useRef(false);
   const mounted = useRef(false);
+  const notified = useRef<string | null>(null);
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const next = await requestSnapshot("GET", signal);
     if (mounted.current) { setSnapshot(next); setError(null); }
@@ -71,6 +94,20 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
   }, [refresh]);
 
   const running = snapshot?.job?.status === "running";
+  const latestJob = snapshot?.job;
+  useEffect(() => {
+    if (!latestJob || latestJob.status === "running" || !latestJob.uploadStarted || notified.current === latestJob.id) return;
+    notified.current = latestJob.id;
+    // Refresh even after a failed upload: a lost acknowledgement may follow a
+    // committed RPC. The summary API remains the authority for saved totals.
+    window.dispatchEvent(new Event(IMPORT_FINISHED_EVENT));
+  }, [latestJob]);
+
+  useEffect(() => {
+    const onFocus = () => { if (inFlight.current) return; void refresh().catch(() => {}); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refresh]);
   useEffect(() => {
     if (!running) return;
     let cancelled = false;
@@ -109,11 +146,15 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
   const current = isCurrentJob(snapshot?.job, snapshot) ? snapshot?.job : null;
   const job = snapshot?.job;
   const counts = current?.counts;
+  const upload = current?.upload;
+  const failureCount = (counts?.failed ?? 0) + (current?.parsing?.failed ?? 0) + (upload?.failed ?? 0);
   const busy = running || requesting;
-  const succeeded = current?.status === "succeeded";
+  const succeeded = current?.version === 2 && current.status === "succeeded";
   const jobMessage = job?.errorCode ? messages[job.errorCode] : null;
   const notice = snapshot?.notice === "local_only" ? "Mac에서 실행 중인 Traini에서 가져올 수 있어요."
     : snapshot?.notice === "setup_required" ? "Mac에 Garmin 수집기를 먼저 설치해 주세요."
+    : snapshot?.notice === "upload_setup_required" ? messages.upload_setup_required
+    : snapshot?.notice === "timezone_invalid" ? "훈련 시간대 설정이 유효하지 않아요. Mac의 서버 설정을 확인해 주세요."
     : snapshot?.notice === "status_unavailable" ? "이전 결과를 읽지 못했어요. 다시 가져와 확인할 수 있어요." : null;
   const timezoneLabel = snapshot?.period.timezone === "America/Los_Angeles" ? "태평양 시간 기준" : snapshot?.period.timezone.replaceAll("_", " ").split("/").pop();
 
@@ -125,18 +166,31 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
         {busy ? "가져오는 중" : succeeded ? "가져옴" : "Garmin"}
       </span>
     </div>
-    {counts && <dl className={styles.counts} aria-label="지난주 수집 결과">
-      <div><dt>새로 저장</dt><dd>{counts.downloaded}<small>개</small></dd></div>
-      <div><dt>기존 기록</dt><dd>{counts.skipped}<small>개</small></dd></div>
-      <div><dt>실패</dt><dd className={counts.failed ? styles.failed : undefined}>{counts.failed}<small>개</small></dd></div>
+    {current?.version === 2 && <ol className={styles.stages} aria-label="가져오기 진행 단계">
+      {stages.map(({ key, label }, index) => {
+        const state = stageState(current, index);
+        return <li key={key} data-state={state} aria-current={state === "active" ? "step" : undefined}>
+          <span>{state === "complete" ? <Check aria-hidden="true" /> : index + 1}</span>{label}
+          <small>{state === "active" ? "진행 중" : state === "complete" ? "완료" : state === "failed" ? "확인 필요" : "대기"}</small>
+        </li>;
+      })}
+    </ol>}
+    {counts && (current?.version === 1 || current?.uploadStarted) && <dl className={styles.counts} aria-label={upload ? "지난주 기록 저장 결과" : "이전 원본 다운로드 결과"}>
+      <div><dt>{upload ? "저장·갱신" : "원본 다운로드"}</dt><dd>{upload ? upload.inserted + upload.updated : counts.downloaded}<small>개</small></dd></div>
+      <div><dt>기존 기록</dt><dd>{upload ? upload.unchanged : counts.skipped}<small>개</small></dd></div>
+      <div><dt>실패</dt><dd className={failureCount ? styles.failed : undefined}>{failureCount}<small>개</small></dd></div>
     </dl>}
     <div aria-live="polite" aria-atomic="true" className={styles.status}>
-      {busy ? <p>{job?.stage === "authenticating" ? "Garmin 연결을 확인하고 있어요." : "러닝 기록을 확인하고 있어요."}</p>
+      {busy ? <p>{job?.stage === "authenticating" ? "Garmin 연결을 확인하고 있어요."
+        : job?.stage === "parsing" ? `FIT 파일을 분석하고 있어요. ${(job.parsing?.processed ?? 0) + (job.parsing?.skipped ?? 0)}/${job.parsing?.found ?? 0}개 확인`
+        : job?.stage === "uploading" ? "분석된 기록을 저장하고 있어요. 완료 후 주간 요약을 갱신해요."
+        : "지난주 러닝 기록을 확인하고 있어요."}</p>
         : error ? <p role="alert" className={styles.failed}>{error}</p>
         : notice ? <p>{notice}</p>
         : jobMessage ? <p className={styles.failed}>{jobMessage}</p>
-        : succeeded ? <p>{counts?.found === 0 ? "지난주에 기록된 러닝이 없어요." : `러닝 ${counts?.found}개의 원본 파일을 확인했어요.`}</p>
-        : <p>Garmin Connect에 동기화된 기록을 가져와요.</p>}
+        : succeeded ? <p>{counts?.found === 0 ? "지난주에 기록된 러닝이 없어요." : `러닝 ${upload ? upload.inserted + upload.updated + upload.unchanged : 0}개를 저장·확인했어요. 주간 요약에 반영돼요.`}</p>
+        : current?.version === 1 ? <p>이전 원본 다운로드 결과예요. 다시 가져오면 분석과 저장까지 진행해요.</p>
+        : <p>러닝 기록을 가져와 분석하고 주간 요약에 반영해요.</p>}
     </div>
     <button type="button" className={styles.button} disabled={checking || busy || !snapshot?.available} onClick={() => void start()} aria-busy={Boolean(busy)}>
       {busy ? <RefreshCw className={styles.spinning} aria-hidden="true" /> : <ArrowDownToLine aria-hidden="true" />}

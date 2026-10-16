@@ -8,6 +8,15 @@
 .dot { width:5px; height:5px; border-radius:50%; background:#b2a5bc; }
 .pending { color:#705184; background:#f6f1f8; }
 .complete { color:#367a63; background:#f0f6f3; }
+.stages { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; list-style:none; padding:0; margin:16px 0 0; }
+.stages li { display:flex; flex-wrap:wrap; align-items:center; gap:4px; color:#948b9b; font-size:11px; line-height:18px; }
+.stages li > span { display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; border:1px solid #eae5ed; border-radius:50%; font-size:9px; }
+.stages svg { width:11px; height:11px; }
+.stages small { flex-basis:100%; padding-left:21px; font-size:9px; }
+.stages li[data-state="active"] { color:#705184; }
+.stages li[data-state="active"] > span { border-color:#a57bbd; }
+.stages li[data-state="complete"] { color:#367a63; }
+.stages li[data-state="failed"] { color:#ad4f57; }
 .counts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:16px 0 0; padding:14px 0 0; border-top:1px solid #f0ecf2; }
 .counts div { padding-left:14px; border-left:1px solid #f0ecf2; }
 .counts div:first-child { padding-left:0; border-left:0; }

@@ -6,7 +6,6 @@ import fcntl
 import json
 import os
 import signal
-import sys
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,6 +13,8 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from .auth import authenticate
+from .parsing import ParseResult, _parse_locked
+from .upload import UploadError, UploadResult, SupabaseActivityStore, _upload_locked, read_manifest
 from .periods import select_period, today_in_zone
 from .storage import private_directory, write_json
 from .sync import SyncResult, sync_activities
@@ -29,6 +30,12 @@ def error_code(error: BaseException) -> str:
     name = type(error).__name__
     if isinstance(error, WorkerStopped):
         return "timeout"
+    if isinstance(error, UploadError):
+        if error.code == "invalid_configuration":
+            return "upload_setup_required"
+        if error.code in {"connection_failed", "temporarily_unavailable"}:
+            return "upload_connection"
+        return "upload_failed"
     if "Authentication" in name or "MFA" in name:
         return "auth_required"
     if "TooManyRequests" in name:
@@ -44,12 +51,19 @@ def notify(kind: str, **fields: object) -> None:
     print(json.dumps({"kind": kind, **fields}), flush=True)
 
 
+def create_store() -> SupabaseActivityStore:
+    return SupabaseActivityStore(os.environ.get("NEXT_PUBLIC_SUPABASE_URL", ""),
+                                 os.environ.get("SUPABASE_SERVICE_ROLE_KEY", ""),
+                                 os.environ.get("TRAINI_ADMIN_USER_ID", ""))
+
+
 def run_worker(data_dir: Path, token_dir: Path, timezone: ZoneInfo) -> int:
     private_directory(data_dir)
     lock_path = data_dir / ".sync.lock"
     if lock_path.is_symlink():
         raise ValueError("Invalid lock path")
     with lock_path.open("a") as lock:
+        lock_path.chmod(0o600)
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -58,11 +72,13 @@ def run_worker(data_dir: Path, token_dir: Path, timezone: ZoneInfo) -> int:
         period = select_period(today_in_zone(timezone))
         job_path = data_dir / "web-sync.json"
         job = {
-            "id": str(uuid4()), "pid": os.getpid(), "status": "running",
+            "version": 2, "id": str(uuid4()), "pid": os.getpid(), "status": "running",
             "stage": "authenticating", "startedAt": datetime.now(UTC).isoformat(),
             "finishedAt": None, "errorCode": None,
             "period": {"start": period.start.isoformat(), "end": period.end.isoformat(),
                        "timezone": timezone.key}, "counts": asdict(SyncResult()),
+            "parsing": asdict(ParseResult()), "upload": asdict(UploadResult()),
+            "uploadStarted": False, "failedStage": None,
         }
         write_json(job_path, job)
         notify("started")
@@ -71,7 +87,23 @@ def run_worker(data_dir: Path, token_dir: Path, timezone: ZoneInfo) -> int:
             job["counts"] = asdict(result)
             write_json(job_path, job)
 
+        selected: list[str] = []
+
+        def collected(entry: dict) -> None:
+            if entry["status"] == "complete":
+                selected.append(entry["file"])
+
+        def parsed(result: ParseResult) -> None:
+            job["parsing"] = asdict(result)
+            write_json(job_path, job)
+
+        def uploaded(result: UploadResult) -> None:
+            job["upload"] = asdict(result)
+            write_json(job_path, job)
+
+        store = None
         try:
+            store = create_store()
             # Do not let third-party diagnostics enter the HTTP process pipe.
             with open(os.devnull, "w") as quiet, contextlib.redirect_stdout(quiet):
                 client = authenticate(token_dir, non_interactive=True)
@@ -82,17 +114,49 @@ def run_worker(data_dir: Path, token_dir: Path, timezone: ZoneInfo) -> int:
                     client, period.start, period.end, data_dir,
                     Garmin.ActivityDownloadFormat.ORIGINAL, lambda _: None,
                     timezone=timezone, period_mode=period.mode, on_progress=progress,
+                    on_activity=collected,
                 )
             job["counts"] = asdict(result)
-            job["status"] = "partial" if result.failed else "succeeded"
-            job["errorCode"] = "partial_download" if result.failed else None
+            job["stage"] = "parsing"
+            write_json(job_path, job)
+            parsed_result = _parse_locked(data_dir, timezone, lambda _: None,
+                                          filenames=selected, period=(period.start, period.end),
+                                          on_progress=parsed)
+            job["parsing"] = asdict(parsed_result)
+            job["stage"] = "uploading"
+            # Even a lost RPC response may mean a committed write. The UI must
+            # refresh after any terminal run that entered upload, including failures.
+            job["uploadStarted"] = True
+            write_json(job_path, job)
+            store.verify_owner()
+            manifest, manifest_hash = read_manifest(data_dir)
+            uploaded_result = _upload_locked(data_dir, store, manifest, manifest_hash,
+                                             lambda _: None, on_progress=uploaded)
+            job["upload"] = asdict(uploaded_result)
+            failures = [(result.failed, "partial_download", "collecting"),
+                        (parsed_result.failed, "partial_parse", "parsing"),
+                        (uploaded_result.failed, "partial_upload", "uploading")]
+            job["status"] = "succeeded"
+            for count, code, stage in failures:
+                if count:
+                    job["status"] = "partial"
+                    job["errorCode"] = code
+                    job["failedStage"] = stage
+                    break
         except (Exception, WorkerStopped, KeyboardInterrupt) as error:
             job["status"] = "failed"
             job["errorCode"] = error_code(error)
+            if job["errorCode"] == "collector_failed" and job["stage"] == "parsing":
+                job["errorCode"] = "parse_failed"
+            job["failedStage"] = job["stage"]
         finally:
-            job["stage"] = "finished"
-            job["finishedAt"] = datetime.now(UTC).isoformat()
-            write_json(job_path, job)
+            try:
+                job["stage"] = "finished"
+                job["finishedAt"] = datetime.now(UTC).isoformat()
+                write_json(job_path, job)
+            finally:
+                if store is not None:
+                    store.close()
         return 0 if job["status"] == "succeeded" else 1
 
 
