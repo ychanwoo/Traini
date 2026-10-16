@@ -9,9 +9,9 @@ import type { TrainingGoal } from "./goal";
 import { goalFromProfile } from "./goal";
 import { dateInZone } from "@/lib/garmin/running-summary";
 const profileColumns =
-  "race_name,target_distance,target_date,target_time_seconds,training_days,long_run_day";
+  "race_name,target_distance,target_date,target_time_seconds,training_days,long_run_day,training_baseline";
 const activityColumns =
-  "garmin_activity_id,started_at,updated_at,distance_meters,duration_seconds,average_pace_seconds_per_km,average_heart_rate";
+  "garmin_activity_id,started_at,updated_at,distance_meters,duration_seconds,average_pace_seconds_per_km,average_heart_rate,activity_training_details(evidence)";
 export async function readTrainingGoal(userId: string, now = new Date()) {
   const timezone = process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles";
   const today = dateInZone(now, timezone);

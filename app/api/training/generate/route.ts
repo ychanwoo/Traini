@@ -1,38 +1,50 @@
 import { requireAdmin } from "@/lib/security/admin";
-import { createAdaptivePlan } from "@/lib/services/training";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { getWeather } from "@/lib/services/weather";
-import type { GarminSnapshot } from "@/types/garmin";
-
-type GenerateRequest = { startDate?: string; latitude?: number; longitude?: number };
-
+import { readMutation, RequestInputError } from "@/lib/security/json-request";
+import { PlanError } from "@/lib/training/weekly-plan";
+import { generatePlan } from "@/lib/training/plan-service";
+import { planErrorMessage } from "@/lib/training/plan-errors";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+const headers = { "Cache-Control": "private, no-store", Vary: "Authorization" };
 export async function POST(request: Request) {
   const access = await requireAdmin(request);
-  if (access.response) return access.response;
-
+  if (access.response) {
+    for (const [k, v] of Object.entries(headers))
+      access.response.headers.set(k, v);
+    return access.response;
+  }
   try {
-    const body = await request.json() as GenerateRequest;
-    const supabase = getSupabaseAdmin();
-    const { data: snapshot, error } = await supabase.from("garmin_snapshots").select("*").eq("user_id", access.userId).order("recorded_on", { ascending: false }).limit(1).single();
-    if (error || !snapshot) return Response.json({ error: "No Garmin snapshot exists for this user." }, { status: 404 });
-
-    const weather = Number.isFinite(body.latitude) && Number.isFinite(body.longitude)
-      ? await getWeather(body.latitude!, body.longitude!)
-      : undefined;
-    const plan = createAdaptivePlan({ snapshot: {
-      vo2Max: snapshot.vo2_max, averageHeartRate: snapshot.average_heart_rate, averagePaceSecondsPerKm: snapshot.average_pace_seconds_per_km,
-      sleepScore: snapshot.sleep_score, hrvStatus: snapshot.hrv_status, weeklyDistanceKm: snapshot.weekly_distance_km, updatedAt: snapshot.created_at,
-    } as GarminSnapshot, startDate: body.startDate, weather });
-    const startsOn = plan.workouts[0].date;
-    const endsOn = plan.workouts.at(-1)?.date ?? startsOn;
-    const { data: storedPlan, error: planError } = await supabase.from("training_plans").upsert({ user_id: access.userId, starts_on: startsOn, ends_on: endsOn, target_distance_km: plan.targetDistanceKm, recovery_label: snapshot.sleep_score < 60 ? "회복 권장" : "좋음" }, { onConflict: "user_id,starts_on" }).select("id").single();
-    if (planError || !storedPlan) throw planError ?? new Error("Could not save training plan.");
-
-    await supabase.from("workouts").delete().eq("plan_id", storedPlan.id);
-    const { error: workoutsError } = await supabase.from("workouts").insert(plan.workouts.map(({ date, kind, status, title, purpose, distanceKm, targetPace, targetHeartRate }) => ({ plan_id: storedPlan.id, scheduled_on: date, kind, status, title, purpose, distance_km: distanceKm ?? null, target_pace: targetPace ?? null, target_heart_rate: targetHeartRate ?? null })));
-    if (workoutsError) throw workoutsError;
-    return Response.json({ plan, weather });
+    const body = await readMutation(request);
+    if (
+      Object.keys(body).length !== 1 ||
+      !["current", "next"].includes(body.week as string)
+    )
+      throw new RequestInputError(400, "이번 주 또는 다음 주를 선택해 주세요.");
+    return Response.json(
+      await generatePlan(access.userId, body.week as "current" | "next"),
+      { headers },
+    );
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Could not generate plan." }, { status: 500 });
+    if (error instanceof RequestInputError)
+      return Response.json(
+        { error: error.message },
+        { status: error.status, headers },
+      );
+    const code = error instanceof PlanError ? error.code : "generation";
+    return Response.json(
+      { error: planErrorMessage(code), code },
+      {
+        status:
+          code === "busy"
+            ? 409
+            : code === "limited"
+              ? 429
+              : ["inputs", "period", "history"].includes(code)
+                ? 422
+                : 503,
+        headers,
+      },
+    );
   }
 }

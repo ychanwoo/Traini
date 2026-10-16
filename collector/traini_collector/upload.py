@@ -173,10 +173,10 @@ class SupabaseActivityStore:
                 or not isinstance(profile[0], dict) or profile[0].get("id") != self.owner_id):
             raise UploadError("profile_missing")
 
-    def save(self, row: dict) -> str:
+    def save(self, row: dict, details: dict | None = None) -> str:
         if row.get("user_id") != self.owner_id:
             raise UploadError("owner_mismatch")
-        outcome = self.request("POST", "/rest/v1/rpc/import_garmin_activity", json={"p_activity": row})
+        outcome = self.request("POST", "/rest/v1/rpc/import_garmin_activity_with_details", json={"p_activity": row, "p_details": details}) if details is not None else self.request("POST", "/rest/v1/rpc/import_garmin_activity", json={"p_activity": row})
         if not isinstance(outcome, str) or outcome not in {"inserted", "updated", "unchanged"}:
             raise UploadError("invalid_response")
         return outcome
@@ -237,7 +237,12 @@ def _upload_locked(data_dir: Path, store: SupabaseActivityStore | None, manifest
                 result.validated += 1
                 outcome = "validated"
             else:
-                outcome = store.save(activity_row(document, store.owner_id, entry["normalized_sha256"]))
+                from .intensity import decode_intensity
+                intensity_contents = read_regular(data_dir / "activities" / filename, MAX_FIT_BYTES)
+                if hashlib.sha256(intensity_contents).hexdigest() != document["source"]["sha256"]:
+                    raise UploadError("source_changed")
+                evidence = decode_intensity(intensity_contents)
+                outcome = store.save(activity_row(document, store.owner_id, entry["normalized_sha256"]), evidence)
                 setattr(result, outcome, getattr(result, outcome) + 1)
             state["files"][filename] = {"status": "complete", "outcome": outcome,
                                        "normalized_sha256": entry["normalized_sha256"]}

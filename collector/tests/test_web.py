@@ -198,13 +198,13 @@ class WebWorkerTests(unittest.TestCase):
 
     def test_lock_held_through_upload_and_termination_is_checkpointed(self):
         original = self.store.save
-        def save(row):
+        def save(row, details=None):
             with (self.data / ".sync.lock").open("a") as lock:
                 with self.assertRaises(BlockingIOError):
                     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             if row["garmin_activity_id"] == "102":
                 raise WorkerStopped()
-            return original(row)
+            return original(row, details)
         client = PipelineClient([activity(101, "2026-10-11"), activity(102, "2026-10-11")])
         with patch.object(self.store, "save", side_effect=save):
             code, job = self.run_worker(client)
@@ -228,8 +228,8 @@ class WebWorkerTests(unittest.TestCase):
 
     def test_committed_write_with_lost_response_is_safe_to_retry(self):
         original = self.store.save
-        def lost_response(row):
-            original(row)
+        def lost_response(row, details=None):
+            original(row, details)
             raise UploadError("connection_failed")
         client = PipelineClient([activity(day="2026-10-11")])
         with patch.object(self.store, "save", side_effect=lost_response):
