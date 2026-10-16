@@ -4,6 +4,7 @@ import Image from "next/image";
 import { AdminLogin } from "@/components/auth/admin-login";
 import { WeeklySyncCard } from "@/components/garmin/weekly-sync-card";
 import { WeeklyRunningSummary } from "@/components/garmin/weekly-running-summary";
+import { TodayPlan, WeeklySchedule, formatPlanPace } from "@/components/training/weekly-plan-view";
 import { GoalSettings } from "@/components/training/goal-settings";
 import { TrainingContextCard } from "@/components/training/training-context-card";
 import { timeText } from "@/lib/training/goal";
@@ -69,19 +70,13 @@ function Analysis() {
 
 function Goal() { return <div className="app-frame"><Topbar back step="3 / 3" /><GoalSettings onboarding /></div>; }
 
-const workouts = [["월", "12", "Recovery Rest", "Complete recovery day", "완료", "dark_mode"], ["화", "13", "Easy Run 6km", "Easy aerobic run", "완료", "directions_run"], ["수", "14", "T-Pace Interval 8km", "Focus: 4'20”–4'35” Pace", "오늘", "trending_up"], ["목", "15", "Recovery Rest", "Low-impact recovery day", "예정", "dark_mode"], ["금", "16", "Easy Run 7km", "Easy aerobic run", "예정", "directions_run"], ["토", "17", "LSD 18km", "Long slow distance", "예정", "route"], ["일", "18", "Full Rest", "Deep restoration", "예정", "bedtime"]];
-const nextWeekWorkouts = [["월", "19", "Recovery Rest", "Complete recovery day", "예정", "dark_mode"], ["화", "20", "Easy Run 8km", "Easy aerobic run", "예정", "directions_run"], ["수", "21", "Interval 6 × 800m", "Focus: I-Pace 4'10”/km", "예정", "trending_up"], ["목", "22", "Recovery Rest", "Low-impact recovery day", "예정", "dark_mode"], ["금", "23", "Easy Run 6km", "Easy aerobic run", "예정", "directions_run"], ["토", "24", "LSD 20km", "Long slow distance", "예정", "route"], ["일", "25", "Full Rest", "Deep restoration", "예정", "bedtime"]];
 function Schedule() {
-  const [week, setWeek] = useState(0); const router = useRouter();
-  return <div className="app-frame"><Topbar back /><main className="schedule-page"><header className="schedule-week"><button onClick={() => setWeek(Math.max(0, week-1))}><Icon>chevron_left</Icon></button><p>{week === 0 ? "8월 12일–8월 18일" : "8월 19일–8월 25일"}</p><button onClick={() => setWeek(Math.min(1, week+1))}><Icon>chevron_right</Icon></button></header>
-    <section className="schedule-progress"><div><Label>WEEKLY PROGRESS</Label><span className="mono">22 <i>/ 40 km</i></span></div><div className="schedule-progress-line"><b /></div><p>이번 주 목표까지 18km 남았습니다.</p></section>
-    <section className="schedule-list">{(week === 0 ? workouts : nextWeekWorkouts).map(([day,date,title,detail,status,icon]) => <button key={date} onClick={() => status === "오늘" && router.push("/today")} className={`schedule-row ${status === "오늘" ? "today" : ""}`}><div className="schedule-date"><small>{day}</small><b>{date}</b></div><div className="schedule-copy"><p>{title}</p><small className={status === "완료" ? "complete" : status === "오늘" ? "focus" : "upcoming"}>{status === "완료" ? "● Completed" : status === "오늘" ? `⚡ ${detail}` : status === "예정" && title !== "Recovery Rest" && title !== "Full Rest" ? "UPCOMING" : detail}</small></div>{status === "오늘" ? <span className="schedule-play"><Icon>trending_up</Icon></span> : <span className="schedule-icon"><Icon>{icon}</Icon></span>}</button>)}</section>
-  </main></div>;
+  return <div className="app-frame"><Topbar back /><WeeklySchedule /></div>;
 }
 
 type WeatherData = { temperatureC: number; humidityPercent: number; summary: string };
 
-function WeatherPaceCard() {
+function WeatherPaceCard({basePace}: {basePace:number|null}) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [status, setStatus] = useState<"loading" | "unavailable" | "ready">("loading");
   useEffect(() => {
@@ -95,18 +90,18 @@ function WeatherPaceCard() {
       } catch { setStatus("unavailable"); }
     }, () => setStatus("unavailable"), { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 });
   }, []);
-  const penalty = weather ? applyWeatherPaceAdjustment(290, weather.temperatureC, weather.humidityPercent) - 290 : 0;
-  return <div className="mt-7 flex items-center gap-3 rounded-xl bg-[#f7f4f8] p-3"><Icon>light_mode</Icon><div>{status === "ready" && weather ? <><p className="text-sm font-medium">{weather.temperatureC}°C · 습도 {weather.humidityPercent}%</p><p className="text-[11px] text-[#167ca8]">{penalty > 0 ? `페이스 +${penalty}초 보정 적용됨` : "날씨 기준 페이스 보정 없음"}</p></> : status === "loading" ? <><p className="text-sm font-medium">날씨 정보를 불러오는 중</p><p className="text-[11px] text-[#756e7c]">위치 권한을 확인해 주세요</p></> : <><p className="text-sm font-medium">날씨 보정 정보를 사용할 수 없어요</p><p className="text-[11px] text-[#756e7c]">기본 목표 페이스로 훈련해 주세요</p></>}</div></div>;
+  const adjustedPace = weather && basePace !== null ? applyWeatherPaceAdjustment(basePace, weather.temperatureC, weather.humidityPercent) : null;
+  const penalty = adjustedPace !== null && basePace !== null ? adjustedPace - basePace : 0;
+  return <div className="mt-7 flex items-center gap-3 rounded-xl bg-[#f7f4f8] p-3"><Icon>light_mode</Icon><div>{status === "ready" && weather ? <><p className="text-sm font-medium">{weather.temperatureC}°C · 습도 {weather.humidityPercent}%</p><p className="text-[11px] text-[#167ca8]">{penalty > 0 ? `현재 날씨 참고 ${formatPlanPace(adjustedPace)} (+${penalty}초)` : basePace === null ? "페이스 대신 대화 가능한 강도를 참고해 주세요" : "현재 날씨 기준 추가 보정 없음"}</p></> : status === "loading" ? <><p className="text-sm font-medium">날씨 정보를 불러오는 중</p><p className="text-[11px] text-[#756e7c]">위치 권한을 확인해 주세요</p></> : <><p className="text-sm font-medium">날씨 보정 정보를 사용할 수 없어요</p><p className="text-[11px] text-[#756e7c]">{basePace === null ? "대화 가능한 강도를 기준으로 훈련해 주세요" : "기본 목표 페이스를 참고해 주세요"}</p></>}</div></div>;
 }
 
 function Today() {
-  const [done, setDone] = useState(false);
-  return <div className="app-frame"><Topbar back /><main className="page today-page pt-4"><header className="flex h-10 items-center justify-between"><div className="flex gap-2"><span className="rounded-full bg-[#f3edf6] px-2 py-1 text-[10px] font-semibold">D-42</span><span className="rounded-full bg-[#eaf7ff] px-2 py-1 text-[10px] font-semibold text-[#147eaf]">Phase 2 · 심폐 강화</span></div></header>
-    <section className="mt-6"><h1 className="text-xl font-semibold">좋은 아침이에요, 영찬님</h1><p className="mt-1 text-sm text-[#756e7c]">오늘의 컨디션은 ‘최상’입니다. 훈련을 시작해볼까요?</p></section>
+  return <div className="app-frame"><Topbar back /><main className="page today-page pt-4">
+    <section className="mt-6"><h1 className="text-xl font-semibold">오늘의 훈련</h1><p className="mt-1 text-sm text-[#756e7c]">목표와 러닝 기록을 바탕으로 준비한 계획을 확인해요.</p></section>
     <WeeklySyncCard />
     <WeeklyRunningSummary />
-    <section className="card mt-4 p-6"><div className="flex items-start justify-between"><div><Label>TODAY’S SESSION</Label><h2 className="mt-2 text-xl font-semibold">T-Pace 역치주</h2></div><span className="rounded-full bg-[#f3edf6] p-2 text-[#6B21A8]"><Icon>trending_up</Icon></span></div><div className="mt-8 grid grid-cols-2"><div><Label>DISTANCE</Label><p className="mono mt-1 text-5xl font-semibold tracking-[-.11em]">8.0<span className="ml-2 font-sans text-base font-medium tracking-normal">km</span></p></div><div className="space-y-3 self-end text-sm"><p className="today-pace"><Icon>speed</Icon><span className="mono ml-2">4{String.fromCharCode(39)}50”/km</span></p><p className="today-heart"><Icon>favorite</Icon><span className="ml-2">Zone 4 · 155–168</span></p></div></div><WeatherPaceCard /><button className="primary-button mt-6" onClick={() => setDone(!done)}>{done ? "훈련 완료됨 ✓" : "오늘의 훈련 완료"}</button></section>
-    <section className="mt-4 grid grid-cols-2 gap-3"><div className="card p-4"><Label>SLEEP SCORE</Label><p className="mono mt-2 text-2xl font-semibold">82 <span className="font-sans text-xs text-[#756e7c]">pts</span></p><div className="mt-3 h-1.5 rounded-full bg-[#e7e0e9]"><div className="h-full w-[82%] rounded-full bg-[#38BDF8]" /></div></div><div className="card p-4"><Label>RECOVERY</Label><p className="mt-2 text-2xl font-semibold">Good</p><div className="mt-3 flex gap-1"><i className="h-1.5 flex-1 rounded bg-[#38BDF8]"/><i className="h-1.5 flex-1 rounded bg-[#38BDF8]"/><i className="h-1.5 flex-1 rounded bg-[#38BDF8]"/><i className="h-1.5 flex-1 rounded bg-[#e7e0e9]"/></div></div></section>
+    <TodayPlan weather={(pace)=><WeatherPaceCard basePace={pace}/>} />
+    <section className="mt-4 grid grid-cols-2 gap-3"><div className="card p-4"><Label>SLEEP SCORE</Label><p className="mono mt-2 text-2xl font-semibold">—</p><p className="mt-2 text-[11px] text-[#756e7c]">수면 데이터 미수집</p></div><div className="card p-4"><Label>RECOVERY</Label><p className="mt-2 text-lg font-semibold">확인 전</p><p className="mt-2 text-[11px] text-[#756e7c]">실제 회복 데이터가 없어요</p></div></section>
   </main></div>;
 }
 

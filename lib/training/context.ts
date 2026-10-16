@@ -9,8 +9,12 @@ import {
   DISTANCES,
   goalFromProfile,
   goalIssues,
+  validDate,
 } from "./goal";
-export type ContextRow = RunningRow & { average_heart_rate: unknown };
+export type ContextRow = RunningRow & {
+  average_heart_rate: unknown;
+  activity_training_details?: unknown;
+};
 export function historyPeriod(timezone: string, now: Date) {
   const last = runningPeriod(timezone, "previous", now);
   return { ...last, start: addCalendarDays(last.start, -49) };
@@ -26,6 +30,110 @@ function heartRate(value: unknown): number | null {
   if (!Number.isFinite(n) || n < 1 || n > 254)
     throw new Error("Invalid heart rate");
   return n;
+}
+export type ReportedBaseline = {
+  version: 1;
+  source: "user_reported";
+  reportedOn: string;
+  weeklyDistanceKm: number;
+  longRunKm: number;
+  easyPaceSecondsPerKm: number;
+  qualityPaceSecondsPerKm: number;
+  weeklyQualityKm: number;
+  weeklyQualitySessions: number;
+  routine: unknown[];
+};
+function reportedBaseline(
+  value: unknown,
+  today: string,
+): ReportedBaseline | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const b = value as ReportedBaseline;
+  if (
+    b.version !== 1 ||
+    b.source !== "user_reported" ||
+    typeof b.reportedOn !== "string" ||
+    !validDate(b.reportedOn) ||
+    b.reportedOn > today ||
+    calendarDistance(b.reportedOn, today) > 56 ||
+    !Array.isArray(b.routine) ||
+    b.routine.length > 7
+  )
+    return null;
+  for (const [n, low, high] of [
+    [b.weeklyDistanceKm, 1, 200],
+    [b.longRunKm, 1, 60],
+    [b.easyPaceSecondsPerKm, 120, 1800],
+    [b.qualityPaceSecondsPerKm, 100, 1800],
+    [b.weeklyQualityKm, 0, 40],
+    [b.weeklyQualitySessions, 0, 3],
+  ])
+    if (typeof n !== "number" || !Number.isFinite(n) || n < low || n > high)
+      return null;
+  return b;
+}
+type Lap = {
+  distanceMeters: number | null;
+  timerSeconds: number | null;
+  paceSecondsPerKm: number | null;
+  averageHeartRate: number | null;
+  intensity: string | null;
+};
+function lapEvidence(raw: unknown) {
+  if (Array.isArray(raw)) raw = raw[0];
+  if (!raw || typeof raw !== "object" || !("evidence" in raw)) return null;
+  const e = (raw as { evidence: Record<string, unknown> }).evidence;
+  if (!e || e.version !== 1 || !Array.isArray(e.laps) || e.laps.length > 160)
+    return null;
+  const laps: Lap[] = [];
+  for (const rawLap of e.laps) {
+    if (!rawLap || typeof rawLap !== "object") return null;
+    const l = rawLap as Lap;
+    for (const [v, max] of [
+      [l.distanceMeters, 100000],
+      [l.timerSeconds, 86400],
+      [l.paceSecondsPerKm, 3600],
+      [l.averageHeartRate, 254],
+    ] as const)
+      if (
+        v !== null &&
+        (typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > max)
+      )
+        return null;
+    if (
+      l.intensity !== null &&
+      ![
+        "warmup",
+        "cooldown",
+        "active",
+        "rest",
+        "recovery",
+        "interval",
+      ].includes(l.intensity)
+    )
+      return null;
+    laps.push({
+      distanceMeters: l.distanceMeters,
+      timerSeconds: l.timerSeconds,
+      paceSecondsPerKm: l.paceSecondsPerKm,
+      averageHeartRate: l.averageHeartRate,
+      intensity: l.intensity,
+    });
+  }
+  return {
+    source: "fit_lap" as const,
+    lapsComplete: e.lapsComplete === true,
+    lapCount: e.lapCount,
+    laps,
+    aerobicTrainingEffect:
+      typeof e.aerobicTrainingEffect === "number"
+        ? e.aerobicTrainingEffect
+        : null,
+    anaerobicTrainingEffect:
+      typeof e.anaerobicTrainingEffect === "number"
+        ? e.anaerobicTrainingEffect
+        : null,
+  };
 }
 export function buildTrainingContext(
   profile: Record<string, unknown>,
@@ -99,7 +207,16 @@ export function buildTrainingContext(
     limitations.push("missing_heart_rate");
   const readyForPlanInput =
     issues.length === 0 && summary.coverage.paceCount > 0;
+  const baseline = reportedBaseline(profile.training_baseline, period.today);
+  const rowById = new Map(rows.map((r) => [r.garmin_activity_id, r]));
+  const sessions = summary.activities.map((a) => ({
+    ...a,
+    id: undefined,
+    averageHeartRate: heartRates.get(a.id) ?? null,
+    evidence: lapEvidence(rowById.get(a.id)?.activity_training_details),
+  }));
   return {
+    reportedBaseline: baseline,
     schemaVersion: 1 as const,
     generatedAt: now.toISOString(),
     timezone,
@@ -137,6 +254,7 @@ export function buildTrainingContext(
       coverage: { ...summary.coverage, heartRateCount },
       lastUpdatedAt: summary.lastUpdatedAt,
       weeks,
+      sessions,
     },
   };
 }

@@ -32,7 +32,7 @@ class MemoryStore:
     def verify_owner(self):
         self.verifications += 1
 
-    def save(self, row):
+    def save(self, row, details=None):
         key = row['garmin_activity_id']
         if key in self.fail:
             raise UploadError('temporarily_unavailable')

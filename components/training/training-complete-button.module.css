@@ -1,0 +1,8 @@
+.completed,
+.completed:disabled {
+  background: #d8cddf;
+  color: #786783;
+  box-shadow: none;
+  cursor: default;
+  opacity: 1;
+}

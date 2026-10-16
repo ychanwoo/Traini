@@ -14,10 +14,15 @@
     "test:summary": "node --test tests/weekly-running-summary.test.mjs",
     "test:db": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/garmin_activity_storage.sql --output json --agent no",
     "test:training": "node --test tests/training-context.test.mjs",
-    "test:db:training": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/training_availability.sql --output json --agent no"
+    "test:db:training": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/training_availability.sql --output json --agent no",
+    "test:chatgpt": "node --test tests/chatgpt-connection.test.mjs",
+    "test:plan": "node --test tests/weekly-training-plan.test.mjs",
+    "test:db:plan": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/weekly_training_plans.sql --output json --agent no",
+    "test:db:lap": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/training_lap_evidence.sql --output json --agent no"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",
+    "jose": "6.2.12",
     "lucide-react": "^1.28.0",
     "next": "16.2.12",
     "react": "19.2.4",
