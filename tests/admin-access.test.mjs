@@ -6,10 +6,11 @@ import ts from "typescript";
 
 function loadAdmin({ adminId = "owner", user = { id: "owner" }, error = null, throws = false } = {}) {
   let verifiedToken;
+  let cookieRead = false;
   const context = {
     exports: {}, Response,
     process: { env: { TRAINI_ADMIN_USER_ID: adminId } },
-    require: () => ({ getSupabaseAdmin: () => ({ auth: { getUser: async (token) => {
+    require: (id) => id.endsWith("/server") ? { getSupabaseServerClient: async () => { cookieRead = true; return { auth: { getUser: async () => ({ data: { user: null }, error: null }) } }; } } : ({ getSupabaseAdmin: () => ({ auth: { getUser: async (token) => {
       verifiedToken = token;
       if (throws) throw new Error("network failure");
       return { data: { user }, error };
@@ -18,10 +19,10 @@ function loadAdmin({ adminId = "owner", user = { id: "owner" }, error = null, th
   const source = readFileSync(new URL("../lib/security/admin.ts", import.meta.url), "utf8");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } });
   vm.runInNewContext(compiled.outputText, context);
-  return { requireAdmin: context.exports.requireAdmin, token: () => verifiedToken };
+  return { requireAdmin: context.exports.requireAdmin, token: () => verifiedToken, cookieRead: () => cookieRead };
 }
 
-test("missing or malformed bearer token is rejected before contacting Supabase", async () => {
+test("missing credentials return 401 and malformed bearer tokens are rejected", async () => {
   for (const authorization of [null, "owner", "Bearer", "Bearer token extra"]) {
     const admin = loadAdmin();
     const headers = authorization ? { authorization } : {};

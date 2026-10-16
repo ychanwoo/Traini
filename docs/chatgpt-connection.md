@@ -18,7 +18,7 @@ If model lookup fails after successful OAuth, credentials are retained and the c
 
 The account's actual subscription eligibility, model access, and usage limits are provider-controlled and can only be confirmed after the user authorizes the connection. Hosted deployment is not enabled by this implementation. Do not assume this local-app registration can be moved to Vercel without the provider's hosted-app approval.
 
-Connecting alone does **not** generate a training plan or send running history to OpenAI. A separate explicit generate action in Today/Schedule uses the weekly plan pipeline described in [weekly training plans](weekly-training-plan.md). Cookie server sessions and Proxy remain the next separate issue.
+Connecting alone does **not** generate a training plan or send running history to OpenAI. A separate explicit generate action in Today/Schedule uses the weekly plan pipeline described in [weekly training plans](weekly-training-plan.md). Cookie server sessions and Proxy are implemented separately; see [admin authentication](admin-session-proxy.md).
 
 ## Storage and boundaries
 
@@ -32,7 +32,7 @@ Credentials and host identity are stored outside the repository:
 
 The directory uses mode `0700`, the atomic replacement file uses `0600`, and credential reads reject symlinks and unsafe permissions. A process lock serializes connection, refresh and revocation. A dead worker's lock is recovered on the next operation. Tokens and the PKCE verifier never appear in application API responses or logs. The temporary state and nonce are included only in the official authorization URL, returned after an explicit administrator connect action; status polling does not return that URL. The authorization URL contains only temporary OAuth parameters, never access/refresh/ID tokens. Do not include this private directory in backups shared with others or troubleshooting reports.
 
-The connection API verifies the existing server-side administrator allowlist before reading credentials. Mutations also check the request Origin and host. The API is restricted to HTTP localhost/127.0.0.1 on a local Mac and is disabled on Vercel. The first connection must run on the same Mac as the server, since the callback is loopback. This restriction does not replace the planned server-session/Proxy work for the rest of the app.
+The connection API verifies the existing server-side administrator allowlist before reading credentials. Mutations also check the request Origin and host. The API is restricted to HTTP localhost/127.0.0.1 on a local Mac and is disabled on Vercel. The first connection must run on the same Mac as the server, since the callback is loopback. This restriction is additional to the server-session/Proxy protection used by the rest of the app.
 
 Signature, issuer, issued-client audience, expiration, nonce, verified subject and granted plan scopes are checked before activating a connection. The host ID and issued client registration survive sign-out. Refresh rotation is persisted before a subsequent model request. Revocation failure preserves credentials so the operation can be retried; the UI does not claim sign-out succeeded.
 

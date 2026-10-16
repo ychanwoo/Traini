@@ -1,14 +1,13 @@
 "use client";
 
-import type { Session } from "@supabase/supabase-js";
 
 export class AdminSessionError extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
 }
 
-export async function verifyAdminSession(session: Session): Promise<void> {
+export async function verifyAdminSession(): Promise<void> {
   const response = await fetch("/api/admin/session", {
-    headers: { Authorization: `Bearer ${session.access_token}` },
+    credentials: "same-origin",
     cache: "no-store",
     signal: AbortSignal.timeout(15_000),
   });

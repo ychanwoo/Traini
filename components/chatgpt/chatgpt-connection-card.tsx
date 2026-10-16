@@ -22,8 +22,8 @@ async function request<T>(signal: AbortSignal, action?: string): Promise<T> {
   const response = await fetch("/api/chatgpt/connection", {
     method: action ? "POST" : "GET",
     cache: "no-store",
+    credentials: "same-origin",
     headers: {
-      Authorization: `Bearer ${session.access_token}`,
       ...(action ? { "Content-Type": "application/json" } : {}),
     },
     body: action ? JSON.stringify({ action }) : undefined,

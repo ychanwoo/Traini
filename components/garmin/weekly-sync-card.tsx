@@ -44,7 +44,7 @@ async function requestSnapshot(method: "GET" | "POST", signal?: AbortSignal): Pr
   const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
   if (!session) throw new Error("로그인이 만료되었어요. 다시 로그인해 주세요.");
   const response = await fetch("/api/garmin/sync", {
-    method, headers: { Authorization: `Bearer ${session.access_token}` },
+    method, credentials: "same-origin",
     cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
   });
   if (response.status === 409) {

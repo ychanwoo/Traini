@@ -17,7 +17,7 @@ async function loadSummary(week: WeekSelection, signal: AbortSignal): Promise<Ru
   const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
   if (!session) throw new SummaryRequestError("로그인이 만료되었어요. 다시 로그인해 주세요.");
   const response = await fetch(`/api/garmin/weekly-summary?week=${week}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store",
+    credentials: "same-origin", cache: "no-store",
     signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]),
   });
   if (response.status === 401 || response.status === 403) throw new SummaryRequestError("관리자 로그인 상태를 확인해 주세요.");

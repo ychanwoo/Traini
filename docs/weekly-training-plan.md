@@ -28,7 +28,7 @@ An advisory transaction lock plus a partial unique running-job index serializes 
 
 A revision covers the goal fields and FIT activity metrics. The revision is checked around the input read, at reservation and inside the final save. Changed inputs reject the save. The final RPC writes the plan, all workouts and successful job status in one transaction. Any failure rolls back every plan/workout write. A timeout may leave a successful committed result; the client reads the authoritative saved state rather than automatically generating again.
 
-All API routes call the existing server-verified administrator allowlist. Mutation requests require matching Origin, JSON and a bounded streaming body; caller-supplied user IDs are not accepted. Plans and job history have owner-only reads; generation/completion RPCs are executable only by the service role. Browser tokens never obtain the service role. Cookie sessions and Proxy enforcement remain the next issue.
+All API routes call the existing server-verified administrator allowlist. Mutation requests require matching Origin, JSON and a bounded streaming body; caller-supplied user IDs are not accepted. Plans and job history have owner-only reads; generation/completion RPCs are executable only by the service role. Browser tokens never obtain the service role. Cookie sessions, Proxy enforcement and additional administrator RLS restrictions are implemented; see [admin authentication](admin-session-proxy.md).
 
 ## Validation
 

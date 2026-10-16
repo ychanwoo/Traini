@@ -63,14 +63,20 @@ npm run admin:setup
 npm run dev
 ```
 
-설정 명령은 Supabase Auth 계정 목록만 읽고 선택한 UUID를 로컬 `.env.local`의
-`TRAINI_ADMIN_USER_ID`에 저장합니다. 계정·이름·race_name·생성일을 변경하지 않습니다.
+설정 명령은 기존 Google 계정을 선택해 UUID를 로컬 `.env.local`의
+`TRAINI_ADMIN_USER_ID`에 저장하고, DB의 단일 관리자 접근 정책과 동기화합니다.
+기존 UUID가 이미 설정되어 있으면 `npm run admin:sync`로 DB 정책만 동기화할 수 있습니다. 계정·이름·race_name·생성일을 변경하지 않습니다.
 관리자 설정이 없으면 접근을 차단합니다. 배포 시에는 동일한 UUID를 서버 환경변수로
 등록해야 합니다. Service role 키를 브라우저 환경변수에 넣지 마세요.
 Supabase Auth의 Google provider와 OAuth redirect URL(`/auth/callback`) 설정은 유지합니다.
 
-화면 진입과 훈련 생성·리뷰 API는 서버에서 검증된 관리자 토큰을 요구합니다.
-승인 기반 Garmin OAuth와 웹훅 API는 종료되어 HTTP 410을 반환합니다. 과거 연결 테이블은
+Google 로그인은 PKCE와 쿠키 기반 SSR 세션을 사용합니다. Proxy와 서버 레이아웃은
+페이지를 보내기 전에 관리자를 확인하고, 모든 API도 서버에서 별도로 검증합니다.
+비로그인 API 요청은 401, 비관리자는 403이며 쿠키 기반 변경 요청은 동일 Origin을 요구합니다.
+Supabase RLS에도 관리자 조건을 추가해 다른 계정의 직접 데이터 접근을 차단합니다.
+기존 localStorage 로그인은 자동 이전하지 않으므로 최초 한 번 Google 로그인이 필요합니다.
+[인증 구조·설정·검증 안내](docs/admin-session-proxy.md)를 참고하세요.
+승인 기반 Garmin OAuth와 웹훅 API는 종료되어 관리자 인증 후 HTTP 410을 반환합니다. 과거 연결 테이블은
 `traini_legacy` 스키마로 보관하며 로컬 Garmin 토큰은 DB로 보내지 않습니다.
 오늘 화면의 **지난주 가져오기** 버튼 또는 `/garmin-connect`에서 로컬 수집기를 실행할 수 있습니다.
 아래 서버 환경변수를 `.env.local`에 설정하고 개발 서버를 다시 시작합니다.
@@ -88,7 +94,7 @@ Python 경로는 설치한 가상환경의 절대 경로로 바꾸세요. 최초
 버튼은 지난주에 확인한 활동만 수집 → 분석 → 업로드하고 주간 요약을 자동 갱신합니다.
 저장·갱신 / 기존 기록 / 실패를 구분하며, 일부 실패 후 재실행해도 중복 저장되지 않습니다.
 [통합 가져오기와 복구 정책](collector/docs/garmin-import-pipeline.md)을 참고하세요.
-훈련 계획 생성과 자동 스케줄은 다음 단계입니다.
+훈련 계획은 별도 수동 생성하며 예약 자동 실행은 후속 단계입니다.
 
 ## 주간 러닝 요약
 

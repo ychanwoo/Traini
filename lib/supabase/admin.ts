@@ -1,3 +1,4 @@
+import "server-only";
 import { createClient } from "@supabase/supabase-js";
 
 export function getSupabaseAdmin() {
@@ -9,6 +10,7 @@ export function getSupabaseAdmin() {
   }
 
   return createClient(url, serviceRoleKey, {
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store", signal: AbortSignal.timeout(15_000) }) },
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

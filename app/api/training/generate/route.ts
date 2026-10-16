@@ -6,7 +6,7 @@ import { planErrorMessage } from "@/lib/training/plan-errors";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-const headers = { "Cache-Control": "private, no-store", Vary: "Authorization" };
+const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" };
 export async function POST(request: Request) {
   const access = await requireAdmin(request);
   if (access.response) {

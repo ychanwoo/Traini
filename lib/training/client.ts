@@ -24,8 +24,8 @@ export async function trainingRequest<T>(
     );
   const response = await fetch(`/api/training/${path}`, {
     method: body === undefined ? "GET" : "PUT",
+    credentials: "same-origin",
     headers: {
-      Authorization: `Bearer ${session.access_token}`,
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
     },
     body: body === undefined ? undefined : JSON.stringify(body),

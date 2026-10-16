@@ -522,7 +522,7 @@ test("context ignores caller owner, timezone and week count; responses are priva
   assert.equal(response.status, 200);
   assert.deepEqual(api.calls, [["context", "verified-owner"]]);
   assert.equal(response.headers.get("cache-control"), "private, no-store");
-  assert.equal(response.headers.get("vary"), "Authorization");
+  assert.equal(response.headers.get("vary"), "Cookie, Authorization");
 });
 test("goal route rejects unsafe origin, unknown fields, malformed JSON and oversized bodies", async () => {
   const api = routes();

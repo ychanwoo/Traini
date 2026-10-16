@@ -178,7 +178,7 @@ test("caller-supplied owner or timezone cannot change query scope", async () => 
   assert.equal(result.status, 200);
   assert.deepEqual(api.received(), ["verified-owner", "previous"]);
   assert.equal(result.headers.get("cache-control"), "private, no-store");
-  assert.equal(result.headers.get("vary"), "Authorization");
+  assert.equal(result.headers.get("vary"), "Cookie, Authorization");
 });
 test("invalid selections reject and database failures do not look like empty weeks", async () => {
   for (const week of ["", "custom", "2026-10-05"]) {

@@ -7,9 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "admin:setup": "node --env-file=.env.local scripts/setup-admin.mjs",
+    "admin:setup": "node --env-file=.env.local scripts/setup-admin.mjs && node --env-file=.env.local scripts/sync-admin-access.mjs",
     "garmin:upload": "node --env-file=.env.local scripts/upload-garmin.mjs",
-    "test:admin": "node --test tests/admin-access.test.mjs",
+    "test:admin": "node --test tests/admin-access.test.mjs tests/server-auth.test.mjs",
     "test:garmin": "node --test tests/garmin-sync.test.mjs",
     "test:summary": "node --test tests/weekly-running-summary.test.mjs",
     "test:db": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/garmin_activity_storage.sql --output json --agent no",
@@ -18,13 +18,17 @@
     "test:chatgpt": "node --test tests/chatgpt-connection.test.mjs",
     "test:plan": "node --test tests/weekly-training-plan.test.mjs",
     "test:db:plan": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/weekly_training_plans.sql --output json --agent no",
-    "test:db:lap": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/training_lap_evidence.sql --output json --agent no"
+    "test:db:lap": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/training_lap_evidence.sql --output json --agent no",
+    "admin:sync": "node --env-file=.env.local scripts/sync-admin-access.mjs",
+    "test:db:admin": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/admin_access.sql --output json --agent no",
+    "test:admin:integration": "node --env-file=.env.local scripts/test-admin-integration.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.0",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.118.0",
     "jose": "6.2.12",
     "lucide-react": "^1.28.0",
-    "next": "16.2.12",
+    "next": "16.4.2",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -34,7 +38,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
