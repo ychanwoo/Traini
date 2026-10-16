@@ -4,6 +4,9 @@
 Garmin 러닝 FIT 원본을 가져옵니다. 기존 화면의 훈련·분석 데이터는 아직 프로토타입이며
 수집한 파일의 DB 전송과 목표 기간 기반 계획 생성은 다음 구현 단계입니다.
 
+다운로드한 FIT는 로컬 분석 명령으로 활동별 JSON으로 변환할 수 있습니다. 앱 화면의 수치에는
+아직 연결하지 않았습니다.
+
 ## Garmin 수집기
 
 ```sh
@@ -17,6 +20,22 @@ Python 3.12 이상이 필요합니다. 기본 조회 범위는 설정한 시간�
 FIT는 `~/Projects/Traini-data/garmin/activities/`, 인증 토큰은
 `~/Library/Application Support/Traini/auth/`에 저장합니다.
 설치·재인증·날짜 지정·오류 처리는 [수집기 안내](collector/README.md)를 참고하세요.
+
+## FIT 분석·전처리
+
+수집기 의존성을 최신 잠금 파일로 설치한 뒤 실행합니다. Garmin 로그인이나 네트워크 연결은 필요하지 않습니다.
+
+```sh
+collector/.venv/bin/python -m pip install -r collector/requirements.lock -e ./collector
+collector/.venv/bin/traini-parse --timezone America/Los_Angeles
+```
+
+기본 데이터 폴더의 `activities/`에 있는 FIT를 모두 분석하고 `normalized/활동ID.json`에 저장합니다.
+원본은 수정하지 않으며, 같은 결과는 다시 저장하지 않습니다. 파일별 실패는 `parse-state.json`에
+기록되고 다른 파일 분석은 계속됩니다. 다운로드 버튼은 수집까지만 수행하며 이 분석 명령은 별도로 실행합니다.
+
+단위·누락 값·이동 시간과 타이머 시간의 차이·재처리 정책은
+[FIT 정규화 계약](collector/docs/fit-normalization.md)에 정리했습니다.
 
 ## 개인용 Google 로그인
 
