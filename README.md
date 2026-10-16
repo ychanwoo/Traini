@@ -2,7 +2,8 @@
 
 현재 개인용 MVP로 전환 중입니다. 기존 Google 계정 하나로 로그인하고, 로컬 Python 수집기로
 Garmin 러닝 FIT 원본을 가져옵니다. 기존 화면의 훈련·분석 데이터는 아직 프로토타입이며
-수집한 파일의 DB 전송과 목표 기간 기반 계획 생성은 다음 구현 단계입니다.
+FIT 분석 결과는 기존 Supabase `activities`에 저장합니다. 실제 기록을 화면에 표시하는 작업과
+목표 기간 기반 계획 생성은 다음 구현 단계입니다.
 
 다운로드한 FIT는 로컬 분석 명령으로 활동별 JSON으로 변환할 수 있습니다. 앱 화면의 수치에는
 아직 연결하지 않았습니다.
@@ -37,6 +38,21 @@ collector/.venv/bin/traini-parse --timezone America/Los_Angeles
 단위·누락 값·이동 시간과 타이머 시간의 차이·재처리 정책은
 [FIT 정규화 계약](collector/docs/fit-normalization.md)에 정리했습니다.
 
+## Supabase에 러닝 기록 저장
+
+기존 `.env.local`의 Supabase 서버 키, 관리자 UUID, 수집기 Python 경로를 사용합니다.
+원본·분석 결과를 확인한 뒤 업로드합니다.
+
+```sh
+npm run garmin:upload -- --dry-run
+npm run garmin:upload
+```
+
+완료된 분석 결과만 원본 FIT로 다시 검증해 기존 `activities`에 저장합니다. 같은 활동은 중복
+생성하지 않으며 변경 내용만 갱신합니다. 업로드 명령은 프로필·목표를 만들거나 덮어쓰지 않습니다.
+기존 이름·race_name·계정 UUID는 유지합니다. 마이그레이션·RLS 테스트·복구 절차와 테이블별
+용도는 [활동 저장 안내](collector/docs/activity-storage.md)를 참고하세요.
+
 ## 개인용 Google 로그인
 
 Google 로그인과 Supabase의 기존 UUID를 유지합니다. Apple 로그인과 가입 UI는 제공하지 않습니다.
@@ -54,7 +70,8 @@ npm run dev
 Supabase Auth의 Google provider와 OAuth redirect URL(`/auth/callback`) 설정은 유지합니다.
 
 화면 진입과 훈련 생성·리뷰 API는 서버에서 검증된 관리자 토큰을 요구합니다.
-기존 Garmin OAuth 코드는 승인 기반 연동을 위한 이전 구현으로, 로컬 수집기에서는 사용하지 않습니다.
+승인 기반 Garmin OAuth와 웹훅 API는 종료되어 HTTP 410을 반환합니다. 과거 연결 테이블은
+`traini_legacy` 스키마로 보관하며 로컬 Garmin 토큰은 DB로 보내지 않습니다.
 오늘 화면의 **지난주 가져오기** 버튼 또는 `/garmin-connect`에서 로컬 수집기를 실행할 수 있습니다.
 아래 서버 환경변수를 `.env.local`에 설정하고 개발 서버를 다시 시작합니다.
 
@@ -68,7 +85,8 @@ Python 경로는 설치한 가상환경의 절대 경로로 바꾸세요. 최초
 버튼은 Mac에서 실행 중인 Next 서버와 저장된 Garmin 인증을 사용합니다. Vercel에서는 비활성화됩니다.
 진행 중에는 중복 실행을 막고, 새로고침 후에도 마지막 실행 결과를 확인할 수 있습니다.
 상세 설정과 재인증 방법은 [수집기 안내](collector/README.md#traini에서-가져오기)를 참고하세요.
-Supabase 전송·FIT 분석·훈련 계획 생성·자동 스케줄은 아직 연결하지 않았습니다.
+버튼은 FIT 다운로드까지 수행합니다. 분석·DB 업로드는 위 명령으로 별도 실행하며,
+실제 기록 화면·훈련 계획 생성·자동 스케줄은 다음 단계입니다.
 
 ## 확인 명령
 

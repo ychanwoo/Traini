@@ -1,7 +1,7 @@
 # Traini Garmin 수집기
 
 개인 컴퓨터에서 Garmin Connect의 러닝 활동을 조회하고 원본 FIT를 저장하는 CLI입니다.
-Garmin 계정의 활동을 변경하거나 Supabase로 전송하지 않습니다. Garmin 워치는 먼저
+수집 명령은 Garmin 계정의 활동을 변경하거나 Supabase로 전송하지 않습니다. Garmin 워치는 먼저
 Garmin Connect 앱과 동기화해야 최근 활동이 반영됩니다.
 
 ## 설치 (macOS, Python 3.12 이상)
@@ -139,6 +139,20 @@ collector/.venv/bin/traini-parse --timezone America/Los_Angeles
 파일별 오류와 성공 결과는 `parse-state.json`에서 확인하고, 같은 명령으로 재처리할 수 있습니다.
 수집기와 같은 잠금을 사용하므로 수집이 끝난 뒤 실행하세요.
 단위·시간대·누락 값·지원 범위·복구 정책은 [FIT 정규화 계약](docs/fit-normalization.md)을 참고하세요.
+
+## Supabase 저장
+
+프로젝트 루트에서 기존 `.env.local` 설정을 사용합니다. 로컬 분석 후 별도로 실행합니다.
+
+```sh
+npm run garmin:upload -- --dry-run
+npm run garmin:upload
+```
+
+`--dry-run`은 원본과 분석 결과를 검증하고 네트워크를 사용하지 않습니다.
+실제 업로드는 기존 `activities` 테이블에 관리자 소유 기록을 저장합니다. 결과는
+`upload-state.json`에 남으며 재실행해도 중복되지 않습니다. 분석에 실패한 파일은 제외합니다.
+서버 키·마이그레이션·권한·오류 복구는 [활동 저장 안내](docs/activity-storage.md)를 참고하세요.
 
 ## 검증
 

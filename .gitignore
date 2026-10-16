@@ -52,5 +52,7 @@ __pycache__/
 **/garmin_tokens.json
 **/sync-state.json
 **/parse-state.json
+**/upload-state.json
+**/upload-validation.json
 **/normalized/*.json
 .env.local.*.tmp
