@@ -1,0 +1,203 @@
+.card {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid #eae5ed;
+  border-radius: 14px;
+  background: #fff;
+  min-width: 0;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.heading h2 {
+  margin: 0;
+  color: #302a34;
+  font-size: 14px;
+  font-weight: 600;
+}
+.heading button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #eae5ed;
+  border-radius: 8px;
+  color: #827888;
+  background: #fff;
+  cursor: pointer;
+}
+.heading svg {
+  width: 14px;
+  height: 14px;
+}
+.note,
+.help {
+  color: #827888;
+  font-size: 11px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+.note {
+  margin: 10px 0 0;
+}
+.help {
+  display: block;
+  margin-top: 6px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #f0ecf2;
+  margin: 14px 0;
+}
+.metrics dt {
+  color: #827888;
+  font-size: 10px;
+}
+.metrics dd {
+  margin: 5px 0 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 18px;
+  color: #302a34;
+}
+.metrics small {
+  color: #948b9b;
+  font-size: 10px;
+}
+.issues,
+.error {
+  color: #ad4f57;
+  font-size: 11px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+.issues {
+  padding-left: 17px;
+  margin: 12px 0;
+}
+.error button {
+  border: 0;
+  background: none;
+  padding: 4px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link {
+  display: inline-block;
+  margin-top: 14px;
+  color: #6b21a8;
+  font-size: 11px;
+}
+.details {
+  margin-top: 14px;
+  border-top: 1px solid #f0ecf2;
+  padding-top: 12px;
+  color: #756e7c;
+  font-size: 11px;
+}
+.details summary {
+  cursor: pointer;
+}
+.details ul {
+  list-style: none;
+  padding: 0;
+}
+.details li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0ecf2;
+}
+.details b {
+  font-weight: 500;
+}
+.details small {
+  flex-basis: 100%;
+  color: #948b9b;
+  font-size: 10px;
+}
+.fields {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.fields input,
+.select select {
+  min-width: 0;
+  max-width: 100%;
+}
+.fields input {
+  font-size: 14px;
+}
+.fields > label:first-child input {
+  width: 100%;
+  border: 0;
+  background: none;
+  outline-color: #6b21a8;
+}
+.fields > label:first-child > div {
+  min-width: 0;
+  flex: 1;
+}
+.availability {
+  border: 0;
+  padding: 0;
+  margin: 22px 0 0;
+  min-width: 0;
+}
+.availability legend {
+  color: #756e7c;
+  font-size: 11px;
+  font-weight: 600;
+}
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 10px;
+}
+.days button {
+  min-width: 0;
+  height: 36px;
+  border: 1px solid #e9e3ed;
+  border-radius: 8px;
+  background: #fff;
+  color: #827888;
+  font-size: 11px;
+  cursor: pointer;
+}
+.days button[aria-pressed="true"] {
+  border-color: #6b21a8;
+  background: #f6f1f8;
+  color: #6b21a8;
+}
+.select select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid #e9e3ed;
+  border-radius: 11px;
+  padding: 13px;
+  background: #fff;
+  color: #302a34;
+  font-size: 14px;
+}
+.card button:focus-visible,
+.days button:focus-visible,
+.select select:focus-visible {
+  outline: 2px solid #a57bbd;
+  outline-offset: 3px;
+}
+.fields:disabled {
+  opacity: 0.65;
+}

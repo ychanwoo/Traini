@@ -284,3 +284,13 @@ Complete workouts and sync Garmin data
   ↓
 Review performance and adjust the next plan
 ```
+
+## 훈련 입력 데이터
+
+`/my/goals` 또는 `/goal-setting`에서 실제 목표와 훈련 가능 요일·장거리 요일을 저장합니다.
+`/my/goals`와 Garmin 관리 화면에서 목표의 누락 항목 및 최근 8주 기록의 수집 범위를 확인할 수 있습니다.
+`GET /api/training/context`는 관리자에게만 버전이 있는 입력 데이터를 반환하며, 기록이 없는 주를
+휴식이나 0km로 가정하지 않습니다. 이 단계에서는 OpenAI 호출이나 훈련계획 생성을 하지 않습니다.
+
+새 환경에는 `20261016000000_add_training_availability.sql` 마이그레이션을 적용해야 합니다.
+목표 저장·단위·주간 경계·오류·검증 방법은 [훈련 입력 데이터 안내](collector/docs/training-context.md)를 참고하세요.

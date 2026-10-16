@@ -12,7 +12,9 @@
     "test:admin": "node --test tests/admin-access.test.mjs",
     "test:garmin": "node --test tests/garmin-sync.test.mjs",
     "test:summary": "node --test tests/weekly-running-summary.test.mjs",
-    "test:db": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/garmin_activity_storage.sql --output json --agent no"
+    "test:db": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/garmin_activity_storage.sql --output json --agent no",
+    "test:training": "node --test tests/training-context.test.mjs",
+    "test:db:training": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/training_availability.sql --output json --agent no"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",
