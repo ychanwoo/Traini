@@ -3,7 +3,7 @@ import { readRunningSummary } from "@/lib/garmin/read-running-summary";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-const headers = { "Cache-Control": "private, no-store", Vary: "Authorization" };
+const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" };
 
 export async function GET(request: Request) {
   const access = await requireAdmin(request);

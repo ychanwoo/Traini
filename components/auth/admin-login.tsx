@@ -2,15 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { safeDestination } from "@/lib/auth/redirect";
 import { ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AdminSessionError, verifyAdminSession } from "@/lib/supabase/admin-session";
 
 function destination(): string {
-  const next = new URLSearchParams(window.location.search).get("next");
-  const routes = ["/today", "/schedule", "/roadmap", "/my", "/goal-setting", "/running-analysis", "/garmin-connect"];
-  return next && (routes.includes(next) || next.startsWith("/my/")) ? next : "/today";
+  return safeDestination(new URLSearchParams(window.location.search).get("next"));
 }
 
 export function AdminLogin() {
@@ -25,12 +24,14 @@ export function AdminLogin() {
         const error = new URLSearchParams(window.location.search).get("error");
         if (error && active) setAuthError(error === "admin"
           ? "등록된 관리자 Google 계정으로 로그인해 주세요."
+          : error === "connection" ? "로그인 연결을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요."
+          : error === "expired" ? "로그인이 만료되었습니다. 다시 로그인해 주세요."
           : "Google 로그인을 완료하지 못했습니다. 다시 시도해 주세요.");
         const supabase = getSupabaseBrowserClient();
         const { data: { session } } = await supabase.auth.getSession();
         if (!session || !active) return;
-        await verifyAdminSession(session);
-        if (active) router.replace(destination());
+        await verifyAdminSession();
+        if (active) { router.replace(destination()); router.refresh(); }
       } catch (error) {
         if (!active) return;
         if (error instanceof AdminSessionError && (error.status === 401 || error.status === 403)) {
@@ -52,7 +53,7 @@ export function AdminLogin() {
     setAuthError(null);
     try {
       const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
-        provider: "google", options: { redirectTo: `${window.location.origin}/auth/callback` },
+        provider: "google", options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination())}` },
       });
       if (error) throw error;
     } catch {

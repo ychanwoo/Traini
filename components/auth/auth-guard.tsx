@@ -25,7 +25,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
       setAuthError(null);
       if (!session) { router.replace(`/login?next=${encodeURIComponent(pathname)}`); return; }
       try {
-        await verifyAdminSession(session);
+        await verifyAdminSession();
         if (!active || current !== revision) return;
         await ensureProfile(session.user);
         if (active && current === revision) setReady(true);

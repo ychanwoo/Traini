@@ -4,7 +4,7 @@
 
 - `/today`: 이번 주로 시작하는 주간 합계와 요일별 러닝 횟수. 지난주로 전환 가능.
 - `/garmin-connect`: 지난주로 시작하는 합계와 활동 목록. 이번 주로 전환 가능.
-- `GET /api/garmin/weekly-summary?week=current|previous`: 관리자 Bearer 토큰 필수.
+- `GET /api/garmin/weekly-summary?week=current|previous`: 서버 검증 관리자 세션 필수(브라우저 SSR 쿠키, 명시적 Bearer도 지원).
 
 `TRAINI_TIMEZONE` 서버 설정을 사용하며 기본은 `America/Los_Angeles`입니다. 클라이언트가
 전달한 사용자 ID·시간대는 사용하지 않습니다. 관리자 인증 후 확인한 사용자 ID로만 조회하며

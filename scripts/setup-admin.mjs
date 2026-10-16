@@ -3,7 +3,7 @@ import { readFile, rename, writeFile, unlink } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { randomUUID } from "node:crypto";
 
-// Read-only in Supabase; only the local .env.local allowlist is changed.
+// Select the local UUID. The npm command then synchronizes the DB allowlist.
 const envPath = new URL("../.env.local", import.meta.url);
 const temporary = new URL(`../.env.local.${randomUUID()}.tmp`, import.meta.url);
 let prompt;
@@ -42,7 +42,7 @@ try {
   const updated = `${lines.join("\n").trimEnd()}\nTRAINI_ADMIN_USER_ID=${selected.id}\n`;
   await writeFile(temporary, updated, { mode: 0o600, flag: "wx" });
   await rename(temporary, envPath);
-  console.log("기존 Google 계정을 관리자로 설정했습니다. 개발 서버를 다시 시작해 주세요.");
+  console.log("기존 Google 계정을 관리자로 설정했습니다. DB 정책 동기화 후 개발 서버를 다시 시작해 주세요.");
 } catch (error) {
   console.error(error instanceof Error ? error.message : "관리자 설정에 실패했습니다.");
   process.exitCode = 1;

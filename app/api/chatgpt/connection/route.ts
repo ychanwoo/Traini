@@ -8,7 +8,7 @@ import {
 } from "@/lib/chatgpt/connection";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const headers = { "Cache-Control": "private, no-store", Vary: "Authorization" };
+const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" };
 
 // The browser and OAuth callback must run on the same Mac. Do not expose dynamic
 // registration as a remotely hosted endpoint before provider approval.

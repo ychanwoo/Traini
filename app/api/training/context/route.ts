@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/security/admin";
 import { readTrainingContext } from "@/lib/training/storage";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const headers = { "Cache-Control": "private, no-store", Vary: "Authorization" };
+const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" };
 export async function GET(request: Request) {
   const access = await requireAdmin(request);
   if (access.response) {

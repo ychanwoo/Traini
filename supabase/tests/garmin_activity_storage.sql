@@ -69,6 +69,12 @@ set local role service_role;
 select pg_temp.assert_true(public.import_garmin_activity((select payload from test_activity)) = 'inserted', 'uniqueness includes owner');
 reset role;
 
+-- The owner fixture must now also be the configured administrator. This local
+-- policy fixture rolls back with the rest of the transaction.
+insert into public.traini_admin_config(singleton,user_id)
+values(true,'11111111-1111-4111-8111-111111111111')
+on conflict(singleton) do update set user_id=excluded.user_id;
+
 set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 set local role authenticated;
 select pg_temp.assert_true((select count(*)=1 from public.activities), 'owner only sees own activity');

@@ -3,7 +3,7 @@ import { CollectionStartError, collectionSnapshot, startCollection } from "@/lib
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const headers = { "Cache-Control": "no-store", Vary: "Authorization" };
+const headers = { "Cache-Control": "no-store", Vary: "Cookie, Authorization" };
 
 export async function GET(request: Request) {
   const access = await requireAdmin(request);
