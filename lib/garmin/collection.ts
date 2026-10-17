@@ -1,3 +1,4 @@
+import { runningPeriod } from "./running-summary";
 export type CollectionPeriod = { start: string; end: string; timezone: string };
 export type CollectionCounts = { found: number; downloaded: number; skipped: number; failed: number };
 export type ParsingCounts = { found: number; processed: number; skipped: number; failed: number };
@@ -79,4 +80,13 @@ function projectCounts<K extends string>(value: unknown, keys: K[]): Record<K, n
   const raw = value as Record<string, unknown>;
   if (!keys.every((key) => Number.isSafeInteger(raw[key]) && (raw[key] as number) >= 0)) return null;
   return Object.fromEntries(keys.map((key) => [key, raw[key]])) as Record<K, number>;
+}
+
+/** Auto selects this week only on its local Sunday; explicit current imports are Sunday-only. */
+export function collectionPeriod(timezone: string, selection: "auto" | "current" | "previous" = "auto", now = new Date()): CollectionPeriod {
+  const current = runningPeriod(timezone, "current", now);
+  if (selection === "current" && current.today !== current.end) throw new Error("collection_period");
+  if (selection === "current" || (selection === "auto" && current.today === current.end))
+    return { start: current.start, end: current.today, timezone };
+  return previousWeek(timezone, now);
 }

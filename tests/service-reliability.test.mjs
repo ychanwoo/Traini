@@ -221,7 +221,8 @@ test("generation status API is admin-only, read-only, owner-scoped and private",
   let reads = 0;
   const handler = (allowed) =>
     load("app/api/training/generation-status/route.ts", {
-      "@/lib/security/admin": {
+      "@/lib/security/json-request": load("lib/security/json-request.ts"),
+    "@/lib/security/admin": {
         requireAdmin: async () =>
           allowed
             ? { userId: "verified" }
@@ -250,6 +251,7 @@ test("generation status API is admin-only, read-only, owner-scoped and private",
 });
 test("Garmin status storage failure produces sanitized retryable JSON", async () => {
   const handler = load("app/api/garmin/sync/route.ts", {
+    "@/lib/security/json-request": load("lib/security/json-request.ts"),
     "@/lib/security/admin": { requireAdmin: async () => ({ userId: "owner" }) },
     "@/lib/garmin/local-collector": {
       collectionSnapshot: async () => {

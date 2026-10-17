@@ -14,11 +14,12 @@ function load(file, modules = {}, extra = {}) {
   return context.exports;
 }
 const OWNER = "11111111-1111-4111-8111-111111111111";
-const schema = load("lib/garmin/collection.ts");
+const schema = load("lib/garmin/collection.ts", {"./running-summary": load("lib/garmin/running-summary.ts")});
 
 test("retired OAuth and webhook routes remain retired after administrator authorization", async () => {
   for (const [route, method] of [["connect", "GET"], ["callback", "GET"], ["webhook", "POST"]]) {
-    const api = load(`app/api/garmin/${route}/route.ts`, { "@/lib/security/admin": { requireAdmin: async () => ({ userId: OWNER }) } });
+    const api = load(`app/api/garmin/${route}/route.ts`, { "@/lib/security/json-request": load("lib/security/json-request.ts"),
+    "@/lib/security/admin": { requireAdmin: async () => ({ userId: OWNER }) } });
     const response = await api[method](new Request("https://traini.test/api/garmin/" + route, { method }));
     assert.equal(response.status, 410);
   }
@@ -97,7 +98,7 @@ test("worker invocation uses fixed arguments and only necessary server credentia
   await api.startCollection(OWNER);
   const command = spawned();
   assert.equal(command.file, "/project/collector/.venv/bin/python");
-  assert.deepEqual(Array.from(command.args), ["-m", "traini_collector.web", "--timezone", "America/Los_Angeles"]);
+  assert.deepEqual(Array.from(command.args), ["-m", "traini_collector.web", "--timezone", "America/Los_Angeles", "--start", schema.collectionPeriod("America/Los_Angeles").start, "--end", schema.collectionPeriod("America/Los_Angeles").end]);
   assert.equal(command.options.shell, undefined);
   assert.equal(command.options.env.SUPABASE_SERVICE_ROLE_KEY, "server-only-key");
   assert.equal(command.options.env.TRAINI_ADMIN_USER_ID, OWNER);
@@ -114,6 +115,7 @@ test("route rejects unauthenticated and cross-origin requests before starting wo
   let started = 0;
   let allowed = false;
   const route = load("app/api/garmin/sync/route.ts", {
+    "@/lib/security/json-request": load("lib/security/json-request.ts"),
     "@/lib/security/admin": { requireAdmin: async () => allowed ? { userId: "owner" } : { response: Response.json({}, { status: 401 }) } },
     "@/lib/garmin/local-collector": { CollectionStartError: Error, collectionSnapshot: async () => ({}), startCollection: async () => { started++; } },
   });
