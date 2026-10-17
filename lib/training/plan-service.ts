@@ -1,4 +1,6 @@
 import "server-only";
+import { readApplicableReview } from "./review-storage";
+import { applyReviewPolicy } from "./weekly-review";
 import { generateWithSubscription } from "@/scripts/lib/chatgpt-inference.mjs";
 import { readRunningSummary } from "@/lib/garmin/read-running-summary";
 import { readTrainingContext } from "./storage";
@@ -23,7 +25,8 @@ export async function generatePlan(userId: string, week: PlanWeek) {
   const existing = await readPlan(userId, week);
   if (existing.plan && !existing.inputsChanged) return existing;
   const context = await readTrainingContext(userId);
-  let policy = planPolicy(context, week);
+  const review = await readApplicableReview(userId, context.timezone);
+  let policy = applyReviewPolicy(planPolicy(context, week), review);
   if (week === "current")
     policy = accountCurrentWeek(
       policy,
@@ -54,7 +57,7 @@ export async function generatePlan(userId: string, week: PlanWeek) {
   try {
     const result = await generateWithSubscription(
       userId,
-      trainingPrompt(context, policy),
+      trainingPrompt(context, policy, review),
       (value: unknown) => {
         usage = value;
       },

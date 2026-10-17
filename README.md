@@ -317,3 +317,5 @@ Review performance and adjust the next plan
 같은 입력의 저장된 계획은 재호출 없이 반환하고, 변경된 목표·기록으로 업데이트할 때는 완료 훈련을 보존합니다. 실제 목표와 러닝 기록을 검증한 결과만
 Supabase에 원자적으로 저장합니다. 오늘의 러닝 훈련은 직접 완료로 표시할 수 있습니다.
 검증 규칙·중복 요청 방지·누락 데이터·실행 방법은 [주간 계획 안내](docs/weekly-training-plan.md)를 참고하세요.
+
+주간 훈련 리뷰의 집계 기준, AI 검증·저장, 다음 계획 반영 및 테스트 방법은 [주간 리뷰 문서](docs/weekly-training-review.md)에 정리되어 있습니다.

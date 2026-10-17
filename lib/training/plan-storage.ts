@@ -27,7 +27,7 @@ export async function readPlan(
   const { data, error } = await db
     .from("training_plans")
     .select(
-      "id,starts_on,ends_on,summary,target_distance_km,created_at,model,input_revision,workouts(id,scheduled_on,kind,status,title,purpose,distance_km,pace_seconds_per_km,effort,steps)",
+      "id,starts_on,ends_on,summary,target_distance_km,created_at,model,input_revision,review_context,workouts(id,scheduled_on,kind,status,title,purpose,distance_km,pace_seconds_per_km,effort,steps)",
     )
     .eq("user_id", userId)
     .eq("starts_on", period.start)
@@ -80,12 +80,14 @@ export async function readPlan(
       targetDistanceKm: Number(data.target_distance_km),
       createdAt: data.created_at,
       model: data.model,
+      review: data.review_context,
       workouts,
     };
   }
   const { data: job, error: jobError } = await db
     .from("training_generation_requests")
     .select("state,lease_expires_at,failure_code,started_at")
+    .eq("kind", "plan")
     .eq("user_id", userId)
     .order("started_at", { ascending: false })
     .limit(1)

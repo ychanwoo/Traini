@@ -439,6 +439,8 @@ test("pipeline reuses an existing plan and does not call AI; failed generation n
           ),
       },
       "./plan-storage": store,
+      "./review-storage": {readApplicableReview: async()=>null},
+      "./weekly-review": {applyReviewPolicy:(policy)=>policy},
       "./weekly-plan": plans,
     });
   await service().generatePlan("owner", "current");
@@ -484,6 +486,8 @@ test("input changes and concurrent reservations stop before AI; invalid output c
           ),
       },
       "./plan-storage": store,
+      "./review-storage": {readApplicableReview: async()=>null},
+      "./weekly-review": {applyReviewPolicy:(policy)=>policy},
       "./weekly-plan": plans,
     });
   await assert.rejects(

@@ -16,6 +16,7 @@ import { useWeeklyPlan } from "./use-weekly-plan";
 import { WorkoutMatchDetails } from "./workout-match-details";
 import { TrainingCompleteButton } from "./training-complete-button";
 import { planErrorMessage } from "@/lib/training/plan-errors";
+import { WeeklyReviewCard } from "./weekly-review-card";
 import styles from "./training.module.css";
 const days = ["월", "화", "수", "목", "금", "토", "일"];
 export function formatPlanPace(seconds: number | null) {
@@ -106,10 +107,15 @@ function PlanFeedback({ state }: { state: ReturnType<typeof useWeeklyPlan> }) {
           </Link>
         </>
       )}
+      {data?.plan?.review && (
+        <p className={styles.note}>
+          {data.plan.review.startsOn} 주간 리뷰를 반영한 계획이에요.
+        </p>
+      )}
       {data?.inputsChanged && (
         <p className={styles.note}>
-          목표나 러닝 기록이 바뀌었어요. 최신 데이터로 계획을 업데이트할 수
-          있으며, 완료한 훈련은 유지돼요.
+          목표·러닝 기록 또는 주간 리뷰가 바뀌었어요. 최신 데이터로 계획을
+          업데이트할 수 있으며, 완료한 훈련은 유지돼요.
         </p>
       )}
     </div>
@@ -196,6 +202,7 @@ export function TodayPlan({
           </details>
         )}
       </section>
+      <WeeklyReviewCard />
     </>
   );
 }
@@ -337,6 +344,7 @@ function ScheduleWeek({
           <p className={styles.help}>ChatGPT · {plan.model}</p>
         </section>
       )}
+      <WeeklyReviewCard />
     </main>
   );
 }
