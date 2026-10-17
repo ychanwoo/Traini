@@ -16,6 +16,7 @@ import { useWeeklyPlan } from "./use-weekly-plan";
 import { WorkoutMatchDetails } from "./workout-match-details";
 import { TrainingCompleteButton } from "./training-complete-button";
 import { planErrorMessage } from "@/lib/training/plan-errors";
+import { TrainingWeatherCard, ScheduleWeather } from "./training-weather-card";
 import { WeeklyReviewCard } from "./weekly-review-card";
 import styles from "./training.module.css";
 const days = ["월", "화", "수", "목", "금", "토", "일"];
@@ -121,11 +122,7 @@ function PlanFeedback({ state }: { state: ReturnType<typeof useWeeklyPlan> }) {
     </div>
   );
 }
-export function TodayPlan({
-  weather,
-}: {
-  weather: (pace: number | null) => React.ReactNode;
-}) {
+export function TodayPlan() {
   const state = useWeeklyPlan("current");
   const today = state.data?.period.today;
   const workout = state.data?.plan?.workouts.find((w) => w.date === today);
@@ -163,7 +160,13 @@ export function TodayPlan({
             </div>
             <p className={styles.note}>{workout.purpose}</p>
             <SessionSteps steps={workout.steps} />
-            {workout.kind !== "rest" && weather(workout.paceSecondsPerKm)}
+            {workout.kind !== "rest" && (
+              <TrainingWeatherCard
+                key={workout.id}
+                workout={workout}
+                timezone={state.data!.period.timezone}
+              />
+            )}
             {workout.kind !== "rest" && (
               <TrainingCompleteButton
                 completed={workout.completed}
@@ -343,6 +346,14 @@ function ScheduleWeek({
           <p className={styles.note}>{plan.summary}</p>
           <p className={styles.help}>ChatGPT · {plan.model}</p>
         </section>
+      )}
+      {plan && data && (
+        <ScheduleWeather
+          key={plan.id}
+          workouts={plan.workouts}
+          timezone={data.period.timezone}
+          today={data.period.today}
+        />
       )}
       <WeeklyReviewCard />
     </main>

@@ -1,0 +1,147 @@
+.card {
+  margin-top: 24px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f7f4f8;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #51465a;
+}
+.heading h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.heading svg {
+  flex-shrink: 0;
+}
+.note,
+.meta,
+.reasons,
+.details {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #756e7c;
+}
+.note {
+  margin: 8px 0 0;
+}
+.meta {
+  margin: 6px 0 0;
+  font-size: 10px;
+}
+.conditions {
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #302a34;
+}
+.error {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #ad4f57;
+  margin: 10px 0 0;
+}
+.paces {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+  padding-top: 12px;
+  border-top: 1px solid #eae5ed;
+}
+.paces dt {
+  font-size: 10px;
+  color: #827888;
+}
+.paces dd {
+  margin: 5px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #51465a;
+}
+.reasons {
+  padding-left: 15px;
+  margin: 12px 0;
+}
+.reasons li + li {
+  margin-top: 5px;
+}
+.action {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid #e0d9e5;
+  border-radius: 8px;
+  background: #fff;
+  color: #51465a;
+  font-size: 11px;
+  cursor: pointer;
+}
+.action:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.action:focus-visible,
+.controls select:focus-visible,
+.controls input:focus-visible {
+  outline: 2px solid #9a7aac;
+  outline-offset: 2px;
+}
+.details {
+  margin-top: 12px;
+  border-top: 1px solid #eae5ed;
+  padding-top: 10px;
+}
+.details summary {
+  cursor: pointer;
+}
+.details p {
+  margin: 8px 0 0;
+}
+.schedule {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #eae5ed;
+  border-radius: 14px;
+  background: #fff;
+  min-width: 0;
+}
+.schedule .card {
+  margin-top: 12px;
+}
+.controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 10px;
+}
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 10px;
+  color: #827888;
+}
+.controls select,
+.controls input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid #eae5ed;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  color: #51465a;
+  font-size: 11px;
+  height: 34px;
+}
+@media (max-width: 350px) {
+  .controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

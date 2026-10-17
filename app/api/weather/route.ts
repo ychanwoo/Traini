@@ -1,19 +1,50 @@
 import { requireAdmin } from "@/lib/security/admin";
-import { NextRequest } from "next/server";
 import { getWeather } from "@/lib/services/weather";
-
-export async function GET(request: NextRequest) {
+import {
+  weatherQuery,
+  WeatherError,
+  weatherErrorMessage,
+} from "@/lib/weather/conditions";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+const headers = {
+  "Cache-Control": "private, no-store",
+  Vary: "Cookie, Authorization",
+};
+export async function GET(request: Request) {
   const access = await requireAdmin(request);
-  if (access.response) return access.response;
-  const latitude = Number(request.nextUrl.searchParams.get("lat"));
-  const longitude = Number(request.nextUrl.searchParams.get("lon"));
-  if (!request.nextUrl.searchParams.has("lat") || !request.nextUrl.searchParams.has("lon") || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
-    return Response.json({ error: "lat and lon query parameters are required." }, { status: 400 });
+  if (access.response) {
+    for (const [key, value] of Object.entries(headers))
+      access.response.headers.set(key, value);
+    return access.response;
   }
-
   try {
-    return Response.json(await getWeather(latitude, longitude), { headers: { "Cache-Control": "private, no-store" } });
-  } catch {
-    return Response.json({ error: "날씨 정보를 가져오지 못했습니다." }, { status: 502 });
+    const timezone = process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles";
+    const { latitude, longitude, target } = weatherQuery(
+      new URL(request.url).searchParams,
+      timezone,
+    );
+    return Response.json(
+      { ...(await getWeather(latitude, longitude, target)), timezone },
+      { headers },
+    );
+  } catch (error) {
+    const code =
+      error instanceof WeatherError ? error.code : "weather_provider";
+    return Response.json(
+      { error: weatherErrorMessage(code), code },
+      {
+        status: ["weather_input", "weather_time"].includes(code)
+          ? 400
+          : code === "weather_coverage"
+            ? 422
+            : code === "weather_limited"
+              ? 429
+              : code === "weather_config"
+                ? 503
+                : 502,
+        headers,
+      },
+    );
   }
 }

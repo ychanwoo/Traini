@@ -319,3 +319,5 @@ Supabase에 원자적으로 저장합니다. 오늘의 러닝 훈련은 직접 �
 검증 규칙·중복 요청 방지·누락 데이터·실행 방법은 [주간 계획 안내](docs/weekly-training-plan.md)를 참고하세요.
 
 주간 훈련 리뷰의 집계 기준, AI 검증·저장, 다음 계획 반영 및 테스트 방법은 [주간 리뷰 문서](docs/weekly-training-review.md)에 정리되어 있습니다.
+
+날씨 조회·예보 범위·규칙 기반 페이스 참고 안내와 테스트 방법은 [날씨 보정 문서](docs/weather-training-adjustment.md)에 정리되어 있습니다. 이 기능은 OpenAI를 호출하지 않으며 저장된 훈련 처방을 변경하지 않습니다.

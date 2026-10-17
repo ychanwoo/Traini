@@ -1,10 +1,8 @@
 import { getRecoveryLabel } from "@/lib/algorithms/fatigue";
-import { applyWeatherPaceAdjustment } from "@/lib/algorithms/pace";
 import type { GarminSnapshot } from "@/types/garmin";
 import type { WeeklyTrainingPlan, Workout, WorkoutKind } from "@/types/training";
-import type { WeatherSnapshot } from "./weather";
 
-type PlanInput = { snapshot: GarminSnapshot; startDate?: string; weather?: WeatherSnapshot };
+type PlanInput = { snapshot: GarminSnapshot; startDate?: string };
 
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 const plusDays = (date: Date, days: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
@@ -13,14 +11,15 @@ function workout(date: Date, kind: WorkoutKind, title: string, purpose: string, 
   return { id: crypto.randomUUID(), date: isoDate(date), kind, status: "scheduled", title, purpose, ...options };
 }
 
-export function createAdaptivePlan({ snapshot, startDate = isoDate(new Date()), weather }: PlanInput): WeeklyTrainingPlan {
+export function createAdaptivePlan({ snapshot, startDate = isoDate(new Date()) }: PlanInput): WeeklyTrainingPlan {
   const start = new Date(`${startDate}T00:00:00`);
   const weeklyDistance = snapshot.weeklyDistanceKm ?? 30;
   const recovery = getRecoveryLabel(snapshot);
   const fatigueLimited = recovery !== "좋음";
   const targetDistanceKm = Math.round(weeklyDistance * (fatigueLimited ? 0.9 : 1.06));
   const basePaceSeconds = snapshot.averagePaceSecondsPerKm ?? 360;
-  const adjustedPace = weather ? applyWeatherPaceAdjustment(basePaceSeconds, weather.temperatureC, weather.humidityPercent) : basePaceSeconds;
+  // Current weather must never be baked into a full week of stored prescriptions.
+  const adjustedPace = basePaceSeconds;
   const pace = `${Math.floor(adjustedPace / 60)}'${String(adjustedPace % 60).padStart(2, "0")}"/km`;
   const workouts: Workout[] = [
     workout(start, "rest", "Recovery Rest", "회복을 위한 완전 휴식"),
