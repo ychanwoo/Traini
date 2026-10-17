@@ -115,6 +115,13 @@ Garmin 관리 화면에는 해당 주의 활동 목록을 함께 보여줍니다
 버튼이나 창으로 돌아올 때 최신 값을 확인할 수 있습니다. 조회 실패를 기록 0개로 처리하지 않습니다.
 집계·시간대·접근 제어 정책은 [주간 요약 안내](collector/docs/weekly-running-summary.md)에 정리했습니다.
 
+## PR 자동 검증
+
+`main` 대상 PR과 `main` push에서 GitHub Actions가 웹 검사, Python 3.12·3.14
+수집기 검사, 격리된 브라우저 검사를 실행합니다. 개인 키·Garmin 로그인·OpenAI 호출은
+사용하지 않습니다. 로컬 재현과 실패 보고서, `Required checks`를 main 필수 검사로
+지정하는 방법은 [CI 안내](docs/continuous-integration.md)를 참고하세요.
+
 ## 확인 명령
 
 ```sh

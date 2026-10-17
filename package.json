@@ -46,7 +46,9 @@
     "test:plan:personal": "node --env-file=.env.local scripts/test-personal-plan.mjs",
     "test:plan:acceptance": "node --test tests/personal-plan-validation.test.mjs",
     "test:e2e:serve": "node tests/e2e/server.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test": "node --test tests/*.test.mjs",
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
