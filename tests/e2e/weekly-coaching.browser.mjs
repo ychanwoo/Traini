@@ -35,6 +35,34 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
     await row.getByRole("combobox", {name: "훈련 결과", exact: true}).waitFor({state: "visible"});
   };
   return {
+    async closeout() {
+      await reset();
+      const card = p.getByRole("region", {name:"주간 마감",exact:true});
+      await scenario("closeout-sunday");
+      await show(card,"2026-10-12 – 2026-10-18 · America/Los_Angeles");
+      await show(card,/2026-10-19부터 7일/);
+      const close = card.getByRole("button",{name:"주간 마감 확인",exact:true});
+      assert.equal(await close.isEnabled(),false);
+      await card.getByRole("checkbox").check();await close.click();
+      await show(card,"이 주의 기록으로 마감을 확인했어요. 리뷰와 계획 생성은 각각 직접 실행해 주세요.");
+      await show(review(),/아직 저장된 AI 리뷰가 없어/);
+      assert.equal((await diagnostic()).closeoutRequests.length,1);
+      await tab.reload();
+      await show(card,/이 주의 기록으로 마감을 확인했어요/);
+      await scenario("closeout-monday");
+      await show(card,/완료된 지난주 기록을 확인해 주세요/);
+      await show(card,"2026-10-12 – 2026-10-18 · America/Los_Angeles");
+      await scenario("closeout-stale");
+      await show(card,/마감 이후 기록·목표·피드백이 바뀌었어요/);
+      await show(review(),/일요일 마감 이후 기록이 바뀌었어요/);
+      assert.equal(await review().getByRole("button",{name:"주간 리뷰 생성",exact:true}).isEnabled(),false);
+      await card.getByRole("checkbox").check();
+      await card.getByRole("button",{name:"주간 마감 갱신",exact:true}).click();
+      // Leave stale scenario after the explicit POST so subsequent GETs do not invent another edit.
+      await scenario("closeout-sunday");
+      await show(card,/이 주의 기록으로 마감을 확인했어요/);
+      assert.equal((await diagnostic()).closeoutRequests.length,2);
+    },
     async history() {
       await reset();
       await show(review(), /38.5km/);
