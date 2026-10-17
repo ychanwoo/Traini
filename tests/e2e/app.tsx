@@ -20,7 +20,7 @@ function Harness() {
   return <>
     <aside aria-label="Isolated test controls" style={{ padding: 8, fontSize: 12 }}>
       <label>Test scenario <select value={scenario} onChange={e => void control(e.target.value)}>
-        {["normal", "reset", "empty", "partial", "stale", "pain", "review-error", "summary-error", "plan-error", "unauthorized", "forbidden", "malformed", "slow", "save-error", "save-lost", "save-conflict"].map(value => <option key={value}>{value}</option>)}
+        {["normal", "reset", "empty", "partial", "stale", "pain", "review-error", "summary-error", "plan-error", "unauthorized", "forbidden", "malformed", "slow", "save-error", "save-lost", "save-conflict", "closeout-sunday", "closeout-monday", "closeout-stale"].map(value => <option key={value}>{value}</option>)}
       </select></label>{" "}
       <button onClick={async () => { setDiagnostics(""); setDiagnostics(JSON.stringify(await (await fetch("/__test/diagnostics")).json())); }}>Inspect test requests</button>
       <output aria-label="Active test scenario">{scenario}</output>

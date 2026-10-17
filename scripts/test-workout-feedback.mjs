@@ -72,7 +72,12 @@ const review = load("lib/training/weekly-review.ts", {
   "./goal": goal,
   "./workout-matching": matching,
 });
+const closeouts = load("lib/training/closeout-storage.ts", {
+  "server-only": {}, "@/lib/supabase/admin": { getSupabaseAdmin: () => db },
+  "@/lib/garmin/running-summary": running, "./weekly-review": review,
+});
 const rs = load("lib/training/review-storage.ts", {
+  "./closeout-storage": closeouts,
   "server-only": {},
   "@/lib/supabase/admin": { getSupabaseAdmin: () => db },
   "@/lib/garmin/running-summary": running,
@@ -99,6 +104,7 @@ const summary = load("lib/garmin/read-running-summary.ts", {
   "./running-summary": running,
 });
 const inputs = load("lib/training/prescription-storage.ts", {
+  "./closeout-storage": closeouts,
   "server-only": {},
   "./review-storage": rs,
   "@/lib/garmin/read-running-summary": summary,

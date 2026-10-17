@@ -56,7 +56,7 @@ async function handle(request: Request, mutate: boolean) {
             ? 400
             : code === "review_history"
               ? 422
-              : code === "busy" || code === "review_changed"
+              : code === "busy" || code === "review_changed" || code === "closeout_changed"
                 ? 409
                 : code === "limited"
                   ? 429

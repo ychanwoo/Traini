@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       { error: planErrorMessage(code), code },
       {
         status:
-          code === "busy"
+          code === "busy" || code === "closeout_changed"
             ? 409
             : code === "limited"
               ? 429

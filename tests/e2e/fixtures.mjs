@@ -23,7 +23,7 @@ export function initialState() {
       },
     };
   }
-  return { plans, scenario: "normal", feedbackRequests: [], appliedRequests: [], unexpectedRequests: [], reviewGenerationRequests: 0, reviewRequests: 0, planRequests: 0, inferenceRequests: 0 };
+  return { plans, scenario: "normal", closeoutVersion: 1, closedRevision: "0".repeat(31)+"1", closed: false, closeoutStale: false, closeoutRequests: [], feedbackRequests: [], appliedRequests: [], unexpectedRequests: [], reviewGenerationRequests: 0, reviewRequests: 0, planRequests: 0, inferenceRequests: 0 };
 }
 export function planView(state, week) {
   const view = structuredClone(state.plans[week] ?? state.plans.current);
@@ -37,7 +37,9 @@ export function planView(state, week) {
   return view;
 }
 export function reviewView(state, start, buildCoachingFeedback) {
-  const selected = start || LATEST;
+  const shifted = state.scenario.startsWith("closeout-");
+  const latest = shifted && (state.closed || state.scenario === "closeout-monday") ? "2026-10-12" : LATEST;
+  const selected = start || latest;
   const old = selected !== LATEST;
   const workouts = state.plans.previous.plan.workouts;
   const metrics = {
@@ -53,7 +55,7 @@ export function reviewView(state, start, buildCoachingFeedback) {
   };
   if (state.scenario === "partial") Object.assign(metrics, { distanceKnown: 4, actualKm: 28.5 });
   if (state.scenario === "empty") Object.assign(metrics, { actualKm: null, activityCount: 0, distanceKnown: 0, baselineKm: null, activities: [], sessions: [], hasPlan: false, plannedKm: null, unconfirmed: null });
-  const review = state.scenario === "empty" ? null : {
+  const review = state.scenario === "empty" || selected === "2026-10-12" ? null : {
     id: old ? "review-older" : "review-latest", revision: "revision-1", fresh: state.scenario !== "stale" && (old || !workouts.some(w => w.feedback)), metrics,
     model: "fixture-model", createdAt: "2026-10-17T12:00:00Z",
     content: { summary: old ? "이전 주에는 42km를 달렸어요." : "비교 기준보다 거리가 늘었어요. 현재 상태를 확인하며 훈련량을 유지해요.",
@@ -62,7 +64,7 @@ export function reviewView(state, start, buildCoachingFeedback) {
       limitations: ["recovery_unavailable"],
     },
   };
-  const result = { period: { startsOn: selected, endsOn: addDays(selected, 6), timezone: "America/Los_Angeles" }, latestStartsOn: LATEST, generating: false, generationError: null, metrics, review };
+  const result = { period: { startsOn: selected, endsOn: addDays(selected, 6), timezone: "America/Los_Angeles" }, latestStartsOn: latest, closeout: shifted && state.closed ? {closedAt: "2026-10-18T21:00:00Z", revision: "1".repeat(32),fresh: !state.closeoutStale} : null, generating: false, generationError: null, metrics, review };
   result.coaching = buildCoachingFeedback(result, { today: TODAY, condition: state.scenario === "pain" ? {reportedOn: TODAY, feeling: "pain"} : null, current: planView(state, "current"), next: planView(state, "next") });
   return result;
 }
@@ -78,6 +80,7 @@ export function saveFeedback(state, body) {
   workout.status = body.outcome === "unconfirmed" ? "planned" : body.outcome;
   workout.completed = body.outcome === "completed";
   workout.feedback = body.outcome === "unconfirmed" ? null : { version: body.version + 1, assessment: body.assessment, skipReason: body.skipReason, reportedAt: "2026-10-17T18:00:00Z" };
+  if (state.closed) { state.closeoutStale = true; state.closeoutVersion++; }
   for (const plan of Object.values(state.plans)) plan.inputsChanged = true;
   return state.scenario === "save-lost" ? {status: 502, error: "응답을 확인하지 못했어요. 저장 여부를 먼저 확인해 주세요."} : {status: 200};
 }
@@ -87,3 +90,12 @@ export const prescription = {
   guidance: { condition: null, warnings: [], confirmedSessions: 0, manualSessions: 0, unconfirmedSessions: 5,
     goals: [], rules: { bounds: [], intervals: [] }, principles: [] },
 };
+
+export function closeoutView(state) {
+  const shifted = state.scenario.startsWith("closeout-");
+  const start = shifted ? "2026-10-12" : LATEST;
+  return {today: shifted ? state.scenario === "closeout-monday" ? "2026-10-19" : "2026-10-18" : TODAY,
+    startsOn:start,endsOn:addDays(start,6),nextStartsOn:addDays(start,7),timezone:"America/Los_Angeles",early:shifted && state.scenario !== "closeout-monday",
+    revision:state.closeoutVersion.toString(16).padStart(32,"0"),unconfirmed:5,activityCount:5,incompleteActivities:0,
+    closeout:state.closed ? {closedAt:"2026-10-18T21:00:00Z",revision:state.closedRevision,fresh:!state.closeoutStale} : null};
+}

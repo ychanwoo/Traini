@@ -1,4 +1,5 @@
 "use client";
+import { runningPeriod } from "@/lib/garmin/running-summary";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, Check, ChevronRight, RefreshCw } from "lucide-react";
@@ -41,13 +42,13 @@ function stageState(job: CollectionJob, index: number): string {
   return "pending";
 }
 
-async function requestSnapshot(method: "GET" | "POST", signal?: AbortSignal): Promise<CollectionSnapshot> {
+async function requestSnapshot(method: "GET" | "POST", signal?: AbortSignal, selection: "auto" | "current" | "previous" = "auto"): Promise<CollectionSnapshot> {
   const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
   if (!session) throw new Error("로그인이 만료되었어요. 다시 로그인해 주세요.");
-  try { return await requestJson<CollectionSnapshot>("/api/garmin/sync", { method, signal, timeoutMs: 15_000 }); }
+  try { return await requestJson<CollectionSnapshot>(`/api/garmin/sync?week=${selection}`, { method, signal, ...(method === "POST" ? {body: {week: selection}} : {}), timeoutMs: 15_000 }); }
   catch (error) {
     if (method === "POST" && error instanceof ApiRequestError && error.status === 409) {
-      const snapshot = await requestSnapshot("GET", signal);
+      const snapshot = await requestSnapshot("GET", signal, selection);
       if (snapshot.job?.status === "running") return snapshot;
       throw new Error("Mac에서 다른 가져오기가 실행 중이에요. 완료 후 다시 시도해 주세요.");
     }
@@ -69,6 +70,7 @@ function isCurrentJob(job: CollectionJob | null | undefined, snapshot: Collectio
 }
 
 export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
+  const [selection, setSelection] = useState<"auto" | "current" | "previous">("auto");
   const [snapshot, setSnapshot] = useState<CollectionSnapshot | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,18 +79,19 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
   const mounted = useRef(false);
   const notified = useRef<string | null>(null);
   const refresh = useCallback(async (signal?: AbortSignal) => {
-    const next = await requestSnapshot("GET", signal);
-    if (mounted.current) { setSnapshot(next); setError(null); }
+    const next = await requestSnapshot("GET", signal, selection);
+    if (mounted.current) { setSnapshot(next); setError(null); if (next.notice === "collection_period") setSelection("auto"); }
     return next;
-  }, []);
+  }, [selection]);
 
   useEffect(() => {
     mounted.current = true;
     const controller = new AbortController();
-    void refresh(controller.signal).catch(() => {
+    let active = true;
+    queueMicrotask(() => { if (!active) return; void refresh(controller.signal).catch(() => {
       if (!controller.signal.aborted) setError("기록 상태를 불러오지 못했어요. 다시 확인해 주세요.");
-    }).finally(() => { if (!controller.signal.aborted) setChecking(false); });
-    return () => { mounted.current = false; controller.abort(); };
+    }).finally(() => { if (!controller.signal.aborted) setChecking(false); }); });
+    return () => { active = false; mounted.current = false; controller.abort(); };
   }, [refresh]);
 
   const [matchingState, setMatchingState] = useState<
@@ -160,13 +163,13 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
     setRequesting(true);
     setError(null);
     try {
-      const next = await requestSnapshot("POST");
+      const next = await requestSnapshot("POST", undefined, selection);
       if (mounted.current) setSnapshot(next);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "다시 시도해 주세요.";
       // The request may have reached the worker even when the response was lost.
       try {
-        const next = await requestSnapshot("GET");
+        const next = await requestSnapshot("GET", undefined, selection);
         if (mounted.current) { setSnapshot(next); setError(next.job?.status === "running" ? null : message); }
       } catch { if (mounted.current) setError(message); }
     } finally {
@@ -175,6 +178,8 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
     }
   };
 
+  const currentWeek = snapshot ? runningPeriod(snapshot.period.timezone, "current") : null;
+  const weekLabel = snapshot && snapshot.period.start === currentWeek?.start ? "이번 주" : "지난주";
   const current = isCurrentJob(snapshot?.job, snapshot) ? snapshot?.job : null;
   const job = snapshot?.job;
   const counts = current?.counts;
@@ -192,7 +197,7 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
 
   return <section className={styles.card} aria-label="Garmin 주간 기록 가져오기">
     <div className={styles.heading}>
-      <div><h2>지난주 러닝</h2><p>{snapshot ? periodLabel(snapshot.period.start, snapshot.period.end) : "월요일부터 일요일까지"}<span>{timezoneLabel}</span></p></div>
+      <div><h2>{weekLabel} 러닝</h2><p>{snapshot ? periodLabel(snapshot.period.start, snapshot.period.end) : "월요일부터 일요일까지"}<span>{timezoneLabel}</span></p></div>
       <span className={`${styles.badge} ${busy ? styles.pending : succeeded ? styles.complete : ""}`}>
         {busy ? <RefreshCw className={styles.spinning} aria-hidden="true" /> : succeeded ? <Check aria-hidden="true" /> : <span className={styles.dot} />}
         {busy ? "가져오는 중" : succeeded ? "가져옴" : "Garmin"}
@@ -216,11 +221,11 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
       {busy ? <p>{job?.stage === "authenticating" ? "Garmin 연결을 확인하고 있어요."
         : job?.stage === "parsing" ? `FIT 파일을 분석하고 있어요. ${(job.parsing?.processed ?? 0) + (job.parsing?.skipped ?? 0)}/${job.parsing?.found ?? 0}개 확인`
         : job?.stage === "uploading" ? "분석된 기록을 저장하고 있어요. 완료 후 주간 요약을 갱신해요."
-        : "지난주 러닝 기록을 확인하고 있어요."}</p>
+        : `${weekLabel} 러닝 기록을 확인하고 있어요.`}</p>
         : error ? <p role="alert" className={styles.failed}>{error}</p>
         : notice ? <p>{notice}</p>
         : jobMessage ? <p className={styles.failed}>{jobMessage}</p>
-        : succeeded ? <p>{counts?.found === 0 ? "지난주에 기록된 러닝이 없어요." : `러닝 ${upload ? upload.inserted + upload.updated + upload.unchanged : 0}개를 저장·확인했어요. 주간 요약에 반영돼요.`}</p>
+        : succeeded ? <p>{counts?.found === 0 ? `${weekLabel}에 기록된 러닝이 없어요.` : `러닝 ${upload ? upload.inserted + upload.updated + upload.unchanged : 0}개를 저장·확인했어요. 주간 요약에 반영돼요.`}</p>
         : current?.version === 1 ? <p>이전 원본 다운로드 결과예요. 다시 가져오면 분석과 저장까지 진행해요.</p>
         : <p>러닝 기록을 가져와 분석하고 주간 요약에 반영해요.</p>}
     </div>
@@ -242,8 +247,12 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
       )}
     <button type="button" className={styles.button} disabled={checking || busy || !snapshot?.available} onClick={() => void start()} aria-busy={Boolean(busy)}>
       {busy ? <RefreshCw className={styles.spinning} aria-hidden="true" /> : <ArrowDownToLine aria-hidden="true" />}
-      {checking ? "상태 확인 중" : busy ? "지난주 기록 가져오는 중" : "지난주 가져오기"}
+      {checking ? "상태 확인 중" : busy ? `${weekLabel} 기록 가져오는 중` : `${weekLabel} 가져오기`}
     </button>
+    {currentWeek && currentWeek.today === currentWeek.end && <div className={styles.footer}>
+      <button type="button" disabled={busy || checking} onClick={() => {setChecking(true);setSnapshot(null);setSelection(weekLabel === "이번 주" ? "previous" : "current");}}>{weekLabel === "이번 주" ? "지난주 기록 보기" : "이번 주 기록 보기"}</button>
+      <span>일요일 기록 확인 후 주간 마감을 진행해 주세요.</span>
+    </div>}
     <div className={styles.footer}>
       <span>{job?.finishedAt ? `마지막 실행 ${timeLabel(job.finishedAt, job.period.timezone)}` : "이미 받은 기록은 중복 저장하지 않아요."}</span>
       {!detailed && <Link href="/garmin-connect">관리<ChevronRight aria-hidden="true" /></Link>}

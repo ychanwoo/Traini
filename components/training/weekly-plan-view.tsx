@@ -20,6 +20,7 @@ import { TrainingCompleteButton } from "./training-complete-button";
 import { planErrorMessage } from "@/lib/training/plan-errors";
 import { TrainingWeatherCard, ScheduleWeather } from "./training-weather-card";
 import { PrescriptionCard } from "./prescription-card";
+import { WeeklyCloseoutCard } from "./weekly-closeout-card";
 import { WeeklyReviewCard } from "./weekly-review-card";
 import { coachingText, coachingCopy } from "@/lib/training/coaching-copy";
 import styles from "./training.module.css";
@@ -255,6 +256,7 @@ export function TodayPlan() {
           </details>
         )}
       </section>
+      <WeeklyCloseoutCard />
       <WeeklyReviewCard />
     </>
   );
@@ -439,6 +441,7 @@ function ScheduleWeek({
           today={data.period.today}
         />
       )}
+      <WeeklyCloseoutCard />
       <WeeklyReviewCard />
     </main>
   );

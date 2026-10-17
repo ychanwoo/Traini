@@ -15,7 +15,7 @@ npm run test:e2e
 ```
 
 Playwright starts and stops the fixture server on `127.0.0.1:3027`, uses one worker,
-and does not automatically retry failed tests. The port must be free. Its eight
+and does not automatically retry failed tests. The port must be free. Its nine
 scenarios can also be executed through Codex's browser driver using the same
 `coachingScenarios(tab, viewport)` implementation. Ordinary Node tests remain
 available through `node --test tests/*.test.mjs`.
@@ -51,6 +51,9 @@ not a persistence or authentication implementation for the real service.
    retain their operation ID, and subsequent reads reveal committed state.
 8. Expanded feedback/review content at 320/375/430/768px, including long input.
    Frame/navigation bounds and horizontal overflow are checked.
+
+9. Explicit Sunday closeout, reload persistence, Monday continuity of source dates,
+   stale-data generation denial and acknowledgement updates without inference.
 
 Every scenario checks the fixture request ledger for unexpected APIs and verifies
 that viewing data or saving feedback did not request AI generation. The fixture
@@ -91,9 +94,9 @@ last confirmed result when an error occurs. Changing the selected week still
 clears the old result, so a previous week's totals are not shown under a new
 week. No layout, training prescription, saved user data or AI behavior changed.
 
-On 2026-10-17, all eight shared scenarios passed in the Codex browser driver,
+On 2026-10-17, all nine shared scenarios passed in the Codex browser driver,
 including the expanded mobile layouts; no browser console errors were observed.
-The Playwright configuration discovers the same eight tests. All 288 existing
+The Playwright configuration discovers the same nine tests. All 288 existing
 Node tests and the actual administrator, feedback and review integration checks
 also passed without inference calls. See the current check output for lint,
 types and build results rather than treating this dated record as a future pass.

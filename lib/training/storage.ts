@@ -28,9 +28,13 @@ export async function readTrainingGoal(userId: string, now = new Date()) {
     revision: data.revision,
   };
 }
-export async function readTrainingContext(userId: string, now = new Date()) {
+export async function readTrainingContext(
+  userId: string,
+  now = new Date(),
+  closedWeekStart?: string,
+) {
   const timezone = process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles";
-  const period = historyPeriod(timezone, now);
+  const period = historyPeriod(timezone, now, closedWeekStart);
   const window = queryWindow(period);
   const db = getSupabaseAdmin();
   const signal = AbortSignal.timeout(15_000);
@@ -72,7 +76,16 @@ export async function readTrainingContext(userId: string, now = new Date()) {
     if (!data.length || rows.length > expected)
       throw new Error("Incomplete history");
   }
-  const context = buildTrainingContext(profile.data, rows, timezone, now);
+  const context = buildTrainingContext(
+    profile.data,
+    rows.filter((row) => {
+      const started = Date.parse(row.started_at);
+      return !Number.isFinite(started) || started <= now.getTime();
+    }),
+    timezone,
+    now,
+    closedWeekStart,
+  );
   const { data: reports, error: reportError } = await db
     .rpc("training_feedback_evidence", {
       p_user_id: userId,

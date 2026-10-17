@@ -7,7 +7,7 @@ import json
 import os
 import signal
 from dataclasses import asdict
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from .auth import authenticate
 from .parsing import ParseResult, _parse_locked
 from .upload import UploadError, UploadResult, SupabaseActivityStore, _upload_locked, read_manifest
-from .periods import select_period, today_in_zone
+from .periods import CollectionPeriod, select_period, today_in_zone, training_week, previous_training_week
 from .storage import private_directory, write_json
 from .sync import SyncResult, sync_activities
 
@@ -57,7 +57,19 @@ def create_store() -> SupabaseActivityStore:
                                  os.environ.get("TRAINI_ADMIN_USER_ID", ""))
 
 
-def run_worker(data_dir: Path, token_dir: Path, timezone: ZoneInfo) -> int:
+def web_period(today: date, start: date | None = None, end: date | None = None) -> CollectionPeriod:
+    if start is None and end is None:
+        return select_period(today)
+    previous = previous_training_week(today)
+    current = training_week(today)
+    rollover_previous = (previous[0] - timedelta(days=7), previous[1] - timedelta(days=7))
+    if (start, end) != previous and not (today.weekday() == 6 and (start, end) == current) and not (today.weekday() == 0 and (start, end) == rollover_previous):
+        raise ValueError("Invalid web collection period")
+    return CollectionPeriod(start, min(end, today), "current_week" if start == current[0] else "previous_week")
+
+
+def run_worker(data_dir: Path, token_dir: Path, timezone: ZoneInfo,
+               start: date | None = None, end: date | None = None) -> int:
     private_directory(data_dir)
     lock_path = data_dir / ".sync.lock"
     if lock_path.is_symlink():
@@ -69,7 +81,7 @@ def run_worker(data_dir: Path, token_dir: Path, timezone: ZoneInfo) -> int:
         except BlockingIOError:
             notify("busy")
             return 1
-        period = select_period(today_in_zone(timezone))
+        period = web_period(today_in_zone(timezone), start, end)
         job_path = data_dir / "web-sync.json"
         job = {
             "version": 2, "id": str(uuid4()), "pid": os.getpid(), "status": "running",
@@ -163,6 +175,8 @@ def run_worker(data_dir: Path, token_dir: Path, timezone: ZoneInfo) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Traini local web collector")
     parser.add_argument("--timezone", default="America/Los_Angeles")
+    parser.add_argument("--start", type=date.fromisoformat)
+    parser.add_argument("--end", type=date.fromisoformat)
     args = parser.parse_args()
     os.umask(0o077)
 
@@ -175,7 +189,7 @@ def main() -> int:
     try:
         return run_worker(Path.home() / "Projects/Traini-data/garmin",
                           Path.home() / "Library/Application Support/Traini/auth",
-                          ZoneInfo(args.timezone))
+                          ZoneInfo(args.timezone), args.start, args.end)
     except (Exception, WorkerStopped) as error:
         notify("error", code=error_code(error))
         return 1

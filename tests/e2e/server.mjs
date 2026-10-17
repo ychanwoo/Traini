@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import postcss from "postcss";
 import tailwind from "@tailwindcss/postcss";
-import { initialState, planView, reviewView, saveFeedback, prescription } from "./fixtures.mjs";
+import { initialState, planView, reviewView, closeoutView, saveFeedback, prescription } from "./fixtures.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const output = await mkdtemp(path.join(tmpdir(), "traini-browser-test-"));
@@ -31,7 +31,7 @@ const globalCss = await postcss([tailwind()]).process(globalSource, { from: path
 const css = globalCss.css + "\n" + await readFile(path.join(output, "app.css"), "utf8");
 const html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Traini · isolated coaching test</title><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script type="module" src="/app.js"></script></body></html>';
 let state = initialState();
-const scenarios = new Set(["normal", "reset", "empty", "partial", "stale", "pain", "review-error", "summary-error", "plan-error", "unauthorized", "forbidden", "malformed", "slow", "save-error", "save-lost", "save-conflict"]);
+const scenarios = new Set(["normal", "reset", "empty", "partial", "stale", "pain", "review-error", "summary-error", "plan-error", "unauthorized", "forbidden", "malformed", "slow", "save-error", "save-lost", "save-conflict", "closeout-sunday", "closeout-monday", "closeout-stale"]);
 async function jsonBody(req) {
   let body = "";
   for await (const chunk of req) { body += chunk; if (body.length > 8192) throw new Error("Body too large"); }
@@ -48,11 +48,11 @@ const server = createServer(async (req, res) => {
       const body = await jsonBody(req);
       if (!scenarios.has(body.scenario)) return send(400, {error: "Unknown scenario"});
       if (body.scenario === "reset") state = initialState();
-      else state.scenario = body.scenario;
+      else { state.scenario = body.scenario; if(body.scenario === "closeout-stale") {state.closeoutStale = true; state.closeoutVersion++;} }
       return send(200, {scenario: state.scenario});
     }
     if (url.pathname === "/__test/diagnostics") return send(200, {
-      feedbackRequests: state.feedbackRequests, unexpectedRequests: state.unexpectedRequests, reviewGenerationRequests: state.reviewGenerationRequests, reviewRequests: state.reviewRequests,
+      closeoutRequests: state.closeoutRequests, feedbackRequests: state.feedbackRequests, unexpectedRequests: state.unexpectedRequests, reviewGenerationRequests: state.reviewGenerationRequests, reviewRequests: state.reviewRequests,
       planRequests: state.planRequests, inferenceRequests: state.inferenceRequests,
     });
     if (url.pathname.startsWith("/api/")) {
@@ -70,6 +70,16 @@ const server = createServer(async (req, res) => {
           duration_seconds: km * 330, average_pace_seconds_per_km: 330,
         }));
         return send(200, buildRunningSummary(rows, period));
+      }
+      if (url.pathname === "/api/training/closeout") {
+        if (req.method === "POST") {
+          const body = await jsonBody(req);
+          state.closeoutRequests.push(body);
+          const current = closeoutView(state);
+          if (body.confirmed !== true || body.startsOn !== current.startsOn || body.revision !== current.revision) return send(409, {error: "기록이 바뀌었어요. 다시 확인해 주세요."});
+          state.closed = true; state.closedRevision = body.revision; state.closeoutStale = false;
+        }
+        return send(200, closeoutView(state));
       }
       if (url.pathname === "/api/training/review") {
         state.reviewRequests++;

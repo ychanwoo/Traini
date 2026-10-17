@@ -17,8 +17,10 @@ export function reviewPeriod(
   timezone: string,
   start?: string | null,
   now = new Date(),
+  closedCurrent = false,
 ) {
-  const last = runningPeriod(timezone, "previous", now);
+  const current = runningPeriod(timezone, "current", now);
+  const last = runningPeriod(timezone, closedCurrent && current.today === current.end ? "current" : "previous", now);
   const selected = start ?? last.start;
   if (
     !validDate(selected) ||
@@ -30,6 +32,7 @@ export function reviewPeriod(
   return { startsOn: selected, endsOn: addCalendarDays(selected, 6), timezone };
 }
 export type ReviewSnapshot = {
+  closeoutRevision?: string;
   startsOn: string;
   endsOn: string;
   timezone: string;

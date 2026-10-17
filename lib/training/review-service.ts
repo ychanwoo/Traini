@@ -11,6 +11,7 @@ import {
 import { ReviewError, reviewPrompt, validateReview } from "./weekly-review";
 export async function generateReview(userId: string, start?: string | null) {
   const existing = await readReview(userId, start);
+  if (existing.closeout && !existing.closeout.fresh) throw new ReviewError("closeout_changed");
   if (existing.review?.fresh) return existing;
   const { period, snapshot, context, metrics } = await reviewInputs(
     userId,

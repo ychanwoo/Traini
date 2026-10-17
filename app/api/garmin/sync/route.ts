@@ -1,3 +1,4 @@
+import { readMutation, RequestInputError } from "@/lib/security/json-request";
 import { requireAdmin } from "@/lib/security/admin";
 import {
   CollectionStartError,
@@ -13,7 +14,16 @@ export async function GET(request: Request) {
   const access = await requireAdmin(request);
   if (access.response) return access.response;
   try {
-    return Response.json(await collectionSnapshot(), { headers });
+    const selection = new URL(request.url).searchParams.get("week") ?? "auto";
+    if (!["auto", "current", "previous"].includes(selection))
+      return Response.json(
+        { error: "collection_period" },
+        { status: 400, headers },
+      );
+    return Response.json(
+      await collectionSnapshot(selection as "auto" | "current" | "previous"),
+      { headers },
+    );
   } catch {
     return Response.json(
       { error: "기록 상태를 확인하지 못했어요. 잠시 후 다시 확인해 주세요." },
@@ -36,9 +46,29 @@ export async function POST(request: Request) {
     );
   }
   try {
-    await startCollection(access.userId);
-    return Response.json(await collectionSnapshot(), { status: 202, headers });
+    const body = request.headers
+      .get("content-type")
+      ?.includes("application/json")
+      ? await readMutation(request)
+      : {};
+    if (
+      Object.keys(body).some((key) => key !== "week") ||
+      (body.week !== undefined &&
+        !["auto", "current", "previous"].includes(body.week as string))
+    )
+      throw new RequestInputError(400, "가져올 주를 확인해 주세요.");
+    const selection = (body.week ?? "auto") as "auto" | "current" | "previous";
+    await startCollection(access.userId, selection);
+    return Response.json(await collectionSnapshot(selection), {
+      status: 202,
+      headers,
+    });
   } catch (error) {
+    if (error instanceof RequestInputError)
+      return Response.json(
+        { error: error.message },
+        { status: error.status, headers },
+      );
     const code =
       error instanceof CollectionStartError ? error.code : "start_failed";
     return Response.json(

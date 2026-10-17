@@ -15,8 +15,19 @@ export type ContextRow = RunningRow & {
   average_heart_rate: unknown;
   activity_training_details?: unknown;
 };
-export function historyPeriod(timezone: string, now: Date) {
-  const last = runningPeriod(timezone, "previous", now);
+export function historyPeriod(
+  timezone: string,
+  now: Date,
+  closedWeekStart?: string,
+) {
+  const current = runningPeriod(timezone, "current", now);
+  const last = runningPeriod(
+    timezone,
+    closedWeekStart === current.start && current.today === current.end
+      ? "current"
+      : "previous",
+    now,
+  );
   return { ...last, start: addCalendarDays(last.start, -49) };
 }
 function heartRate(value: unknown): number | null {
@@ -140,8 +151,9 @@ export function buildTrainingContext(
   rows: ContextRow[],
   timezone: string,
   now = new Date(),
+  closedWeekStart?: string,
 ) {
-  const period = historyPeriod(timezone, now);
+  const period = historyPeriod(timezone, now, closedWeekStart);
   const { goal, issues: storedIssues } = goalFromProfile(profile, period.today);
   const issues = goalIssues(goal, storedIssues);
   // Validate once across the complete window, including duplicate IDs spanning weeks.
