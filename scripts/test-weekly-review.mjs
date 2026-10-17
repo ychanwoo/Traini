@@ -143,9 +143,14 @@ try {
       ),
   );
   let calls = 0;
+  let lostResponse = true, lastSave;
   const service = load("lib/training/review-service.ts", {
     "server-only": {},
-    "./review-storage": rs,
+    "./review-storage": {...rs, saveReview: async (...args) => {
+      lastSave = args;
+      await rs.saveReview(...args);
+      if (lostResponse) {lostResponse=false;throw new review.ReviewError("review_storage");}
+    }},
     "./weekly-review": review,
     "@/scripts/lib/chatgpt-inference.mjs": {
       generateWithSubscription: async (_owner, prompt, onUsage) => {
@@ -179,6 +184,8 @@ try {
     await db.rpc("training_input_revision", { p_user_id: uid }),
   );
   const result = await service.generateReview(uid);
+  await rs.saveReview(...lastSave);
+  assert.equal(await rs.generationState(uid,lastSave[0]), "completed");
   assert.equal(result.metrics.actualKm, 28);
   assert.equal(result.review.fresh, true);
   assert.equal(result.review.metrics.plannedKm, null);

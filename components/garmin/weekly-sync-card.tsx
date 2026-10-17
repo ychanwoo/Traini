@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, Check, ChevronRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import { ApiRequestError, requestJson } from "@/lib/http/client-request";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { CollectionJob, CollectionSnapshot } from "@/lib/garmin/collection";
 import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
@@ -43,18 +44,15 @@ function stageState(job: CollectionJob, index: number): string {
 async function requestSnapshot(method: "GET" | "POST", signal?: AbortSignal): Promise<CollectionSnapshot> {
   const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
   if (!session) throw new Error("로그인이 만료되었어요. 다시 로그인해 주세요.");
-  const response = await fetch("/api/garmin/sync", {
-    method, credentials: "same-origin",
-    cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
-  });
-  if (response.status === 409) {
-    const snapshot = await requestSnapshot("GET", signal);
-    if (snapshot.job?.status === "running") return snapshot;
-    throw new Error("Mac에서 다른 가져오기가 실행 중이에요. 완료 후 다시 시도해 주세요.");
+  try { return await requestJson<CollectionSnapshot>("/api/garmin/sync", { method, signal, timeoutMs: 15_000 }); }
+  catch (error) {
+    if (method === "POST" && error instanceof ApiRequestError && error.status === 409) {
+      const snapshot = await requestSnapshot("GET", signal);
+      if (snapshot.job?.status === "running") return snapshot;
+      throw new Error("Mac에서 다른 가져오기가 실행 중이에요. 완료 후 다시 시도해 주세요.");
+    }
+    throw error;
   }
-  if (response.status === 401 || response.status === 403) throw new Error("관리자 로그인 상태를 확인해 주세요.");
-  if (!response.ok) throw new Error("가져오기 요청을 확인하지 못했어요. 상태를 새로 확인해 주세요.");
-  return response.json() as Promise<CollectionSnapshot>;
 }
 
 function periodLabel(start: string, end: string): string {

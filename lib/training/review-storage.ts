@@ -204,3 +204,16 @@ export async function failReview(
     .abortSignal(timeout());
   if (error) throw new ReviewError("review_storage");
 }
+
+/** Read back a possibly committed request after a lost save response. Never retry inference. */
+export async function generationState(userId: string, requestId: string) {
+  const { data, error } = await getSupabaseAdmin()
+    .from("training_generation_requests")
+    .select("state")
+    .eq("user_id", userId)
+    .eq("id", requestId)
+    .abortSignal(timeout())
+    .maybeSingle();
+  if (error) throw new ReviewError("review_storage");
+  return data?.state ?? null;
+}

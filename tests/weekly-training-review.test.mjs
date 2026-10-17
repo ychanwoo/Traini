@@ -381,6 +381,7 @@ function service(
       reserveReview: async () => ({ state: "started", requestId: "job" }),
       saveReview: async () => {},
       failReview: async () => {},
+      generationState: async () => "running",
       ...overrides,
     },
   });
@@ -601,4 +602,53 @@ test("plan generation passes the fresh review and reduced server policy to infer
   assert.equal(input.weeklyReview.id, applied.id);
   assert.equal(input.policy.weeklyCeilingKm, 25.2);
   assert.ok(input.policy.maxWeekKm <= 25.2);
+});
+
+test("committed review survives a lost save response without another inference or failure write", async () => {
+  let calls = 0,
+    failed = 0,
+    reads = 0;
+  const result = await service(
+    {
+      readReview: async () =>
+        ++reads === 1
+          ? { review: null }
+          : { review: { id: "saved", fresh: true } },
+      saveReview: async () => {
+        throw new reviews.ReviewError("review_storage");
+      },
+      generationState: async () => "completed",
+      failReview: async () => {
+        failed++;
+      },
+    },
+    async () => {
+      calls++;
+      return { content: valid(metrics()), model: "fixture" };
+    },
+  ).generateReview("owner");
+  assert.equal(result.review.id, "saved");
+  assert.equal(calls, 1);
+  assert.equal(failed, 0);
+});
+test("unknown review save outcome retains lease instead of permitting a duplicate inference", async () => {
+  let failed = 0;
+  await assert.rejects(
+    service(
+      {
+        saveReview: async () => {
+          throw new reviews.ReviewError("review_storage");
+        },
+        generationState: async () => {
+          throw new Error("unreachable");
+        },
+        failReview: async () => {
+          failed++;
+        },
+      },
+      async () => ({ content: valid(metrics()), model: "fixture" }),
+    ).generateReview("owner"),
+    /review_storage/,
+  );
+  assert.equal(failed, 0);
 });
