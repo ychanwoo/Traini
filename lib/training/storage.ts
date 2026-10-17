@@ -1,3 +1,4 @@
+import { feedbackCondition, type FeedbackEvidence } from "./workout-feedback";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { queryWindow } from "@/lib/garmin/running-summary";
 import {
@@ -71,7 +72,22 @@ export async function readTrainingContext(userId: string, now = new Date()) {
     if (!data.length || rows.length > expected)
       throw new Error("Incomplete history");
   }
-  return buildTrainingContext(profile.data, rows, timezone, now);
+  const context = buildTrainingContext(profile.data, rows, timezone, now);
+  const { data: reports, error: reportError } = await db
+    .rpc("training_feedback_evidence", {
+      p_user_id: userId,
+      p_as_of: context.asOfDate,
+    })
+    .abortSignal(signal);
+  if (reportError || !Array.isArray(reports))
+    throw new Error("Feedback unavailable");
+  context.workoutFeedback = reports as FeedbackEvidence[];
+  context.goal.condition = feedbackCondition(
+    context.goal.condition,
+    context.workoutFeedback,
+    context.asOfDate,
+  );
+  return context;
 }
 export async function saveTrainingGoal(
   userId: string,

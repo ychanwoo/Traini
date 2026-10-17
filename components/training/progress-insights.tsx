@@ -10,10 +10,9 @@ import type { ProgressInsights } from "@/lib/training/progress";
 import styles from "./progress-insights.module.css";
 const phases: Record<string, string> = {
   preparation: "대회 준비",
-  taper: "대회 전 보호 구간",
+  taper: "테이퍼",
   race_day: "대회일",
-  recovery: "대회 후 회복 구간",
-  past: "지난 대회",
+  recovery: "회복·복귀 확인",
 };
 function useProgress() {
   const [data, setData] = useState<ProgressInsights | null>(null),
@@ -423,28 +422,65 @@ export function TrainingRoadmap() {
                   {race.phase === "preparation"
                     ? "실제 기록에 맞춰 다음 한 주를 준비해요."
                     : race.phase === "taper"
-                      ? "대회를 앞둔 보호 구간이에요."
+                      ? "훈련량을 줄이며 익숙한 자극을 조절하는 시기예요."
                       : race.phase === "recovery"
-                        ? "대회 후 회복을 고려하는 구간이에요."
+                        ? !race.affectsCurrentPlan &&
+                          race.recoveryState === "needs_check_in"
+                          ? "과거 대회의 현재 회복 상태는 평가하지 않아요."
+                          : race.recoveryState === "needs_check_in"
+                            ? "복귀 전 상태와 러닝 기록을 확인해 주세요."
+                            : "회복과 단계적인 복귀를 확인하는 시기예요."
                         : race.phase === "race_day"
                           ? "등록한 대회일이에요."
                           : "대회 날짜가 지난 목표예요."}
                 </h2>
                 <p className={styles.note}>
-                  대회 날짜와 기존 처방 규칙으로 구분한 기간이에요. 기초·역치
-                  단계의 완료나 체력 준비도를 판정하지 않아요.
+                  거리·대회 중요도·최근 훈련량·입력한 컨디션으로 조정한 계획
+                  기준이에요. 날짜가 지났다고 회복 완료나 준비도 충족으로
+                  판정하지 않아요.
                 </p>
+                <p className={styles.note}>
+                  테이퍼 {race.taperDays}일 · 회복 확인 기준 {race.recoveryDays}
+                  일. 테이퍼에도 근거 있는 짧은 자극 훈련은 허용하고, 마지막
+                  이틀과 피로·통증 상태는 별도로 제한해요.
+                </p>
+                {race.phase === "recovery" && (
+                  <p className={styles.note}>
+                    {!race.affectsCurrentPlan &&
+                    race.recoveryState === "needs_check_in"
+                      ? "현재 평가 범위 밖의 과거 대회예요. 현재 훈련은 최근 기록과 컨디션을 기준으로 확인하며, 이 대회의 회복 완료를 판정하지 않아요."
+                      : race.recoveryState === "needs_check_in"
+                        ? "기준일 이후의 보통·좋음 컨디션 입력과 부담이 작은 복귀 러닝 2일 이상을 확인하기 전에는 고강도·장거리 배치를 보류해요."
+                        : race.recoveryState === "gradual_return"
+                          ? "컨디션 확인 입력과 복귀 러닝이 있어 단계적 복귀 범위예요. 회복 완료를 의미하지 않아요."
+                          : race.recoveryState === "return_recorded"
+                            ? "컨디션 확인 입력과 복귀 주간 기록이 있어요. 의학적 회복 완료 판정은 아니에요."
+                            : "초기 회복 확인 기간이에요. 날짜가 지나면 자동으로 정상 훈련으로 돌아가지 않아요."}
+                  </p>
+                )}
+                {race.phase === "recovery" &&
+                  race.participation === "unconfirmed" && (
+                    <p className={styles.note}>
+                      대회일의 충분한 거리·시간 기록이 없어 실제 참가·완주
+                      여부는 확인되지 않았어요.
+                    </p>
+                  )}
                 <ol className={styles.timeline}>
                   {[
                     {
-                      label: "대회 전 보호 구간",
+                      label: "대회 준비",
+                      date: `테이퍼 시작 전 · ${race.taperStart}부터 테이퍼`,
+                      key: "preparation",
+                    },
+                    {
+                      label: "테이퍼",
                       date: `${race.taperStart} – ${race.taperEnd}`,
                       key: "taper",
                     },
-                    { label: "대회일", date: race.date, key: "race_day" },
+                    { label: "대회", date: race.date, key: "race_day" },
                     {
-                      label: "대회 후 보호 구간",
-                      date: `${race.recoveryStart} – ${race.recoveryEnd}`,
+                      label: "회복·복귀 확인",
+                      date: `${race.recoveryStart}부터 · ${race.recoveryEnd} 이후 상태 재확인`,
                       key: "recovery",
                     },
                   ].map((s) => (
@@ -457,7 +493,7 @@ export function TrainingRoadmap() {
                         <p>{s.date}</p>
                         <h3>{s.label}</h3>
                         {race.phase === s.key && (
-                          <small>현재 날짜가 포함된 구간</small>
+                          <small>현재 표시 단계 · 완료 판정 아님</small>
                         )}
                       </div>
                     </li>
@@ -482,6 +518,7 @@ export function TrainingRoadmap() {
             .filter(
               (r) =>
                 r.id !== race?.id &&
+                r.affectsCurrentPlan &&
                 ["taper", "recovery", "race_day"].includes(r.phase),
             )
             .map((r) => (

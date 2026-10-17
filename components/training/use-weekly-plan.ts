@@ -31,7 +31,7 @@ async function request<T>(
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.any([
       signal,
-      AbortSignal.timeout(body ? 240_000 : 20_000),
+      AbortSignal.timeout(path === "generate" ? 240_000 : 25_000),
     ]),
   });
   const data = await response.json();
@@ -39,7 +39,7 @@ async function request<T>(
     throw new Error(data.error ?? "훈련계획 요청을 완료하지 못했어요.");
   return data;
 }
-export function useWeeklyPlan(week: PlanWeek) {
+export function useWeeklyPlan(week: PlanWeek | "previous") {
   const [data, setData] = useState<PlanState | null>(null),
     [error, setError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
@@ -100,11 +100,12 @@ export function useWeeklyPlan(week: PlanWeek) {
     [],
   );
   async function mutate(
-    kind: "generate" | "complete" | "match",
+    kind: "generate" | "complete" | "match" | "feedback",
     workoutId?: string,
     match?: { revision: string; activityIds: string[] },
+    feedback?: import("@/lib/training/workout-feedback").FeedbackInput,
   ) {
-    if (inFlight.current) return;
+    if (inFlight.current) return false;
     inFlight.current = true;
     read.current?.abort();
     setError(null);
@@ -112,15 +113,19 @@ export function useWeeklyPlan(week: PlanWeek) {
     else setCompleting(true);
     const controller = new AbortController();
     action.current = controller;
+    let saved = false;
     try {
       if (kind === "generate") {
         const result = await request<PlanState>("generate", controller.signal, {
           week,
         });
         if (!controller.signal.aborted) setData(result);
-      } else if (kind === "match")
+      } else if (kind === "feedback")
+        await request("feedback", controller.signal, feedback);
+      else if (kind === "match")
         await request("match", controller.signal, { workoutId, ...match });
       else await request("complete", controller.signal, { workoutId });
+      saved = true;
     } catch (err) {
       if (!controller.signal.aborted)
         setError(
@@ -137,6 +142,7 @@ export function useWeeklyPlan(week: PlanWeek) {
         window.dispatchEvent(new Event(EVENT));
       }
     }
+    return saved;
   }
   return {
     data,
@@ -145,6 +151,9 @@ export function useWeeklyPlan(week: PlanWeek) {
     busy,
     completing,
     refresh,
+    feedback: (
+      input: import("@/lib/training/workout-feedback").FeedbackInput,
+    ) => mutate("feedback", input.workoutId, undefined, input),
     generate: () => mutate("generate"),
     complete: (id: string) => mutate("complete", id),
     match: (id: string, revision: string, activityIds: string[]) =>

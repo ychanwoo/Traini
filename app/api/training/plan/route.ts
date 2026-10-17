@@ -2,7 +2,10 @@ import { requireAdmin } from "@/lib/security/admin";
 import { readPlan } from "@/lib/training/plan-storage";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" };
+const headers = {
+  "Cache-Control": "private, no-store",
+  Vary: "Cookie, Authorization",
+};
 export async function GET(request: Request) {
   const access = await requireAdmin(request);
   if (access.response) {
@@ -11,7 +14,7 @@ export async function GET(request: Request) {
     return access.response;
   }
   const week = new URL(request.url).searchParams.get("week") ?? "current";
-  if (week !== "current" && week !== "next")
+  if (week !== "current" && week !== "next" && week !== "previous")
     return Response.json(
       { error: "주간 범위를 확인해 주세요." },
       { status: 400, headers },

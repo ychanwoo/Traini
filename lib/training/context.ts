@@ -240,10 +240,21 @@ export function buildTrainingContext(
     planningPeriod: { startsOn: period.today, endsOn: goal.targetDate },
     inputs: {
       readyForPlanInput,
+      readyForRecoveryInput:
+        summary.coverage.paceCount > 0 &&
+        issues.every(
+          (i) => i.field === "targetDate" && i.code === "past_date",
+        ) &&
+        !!goal.races?.some(
+          (r) =>
+            r.date <= period.today &&
+            calendarDistance(r.date, period.today) <= 56,
+        ),
       issues,
       limitations,
       assessment: "input_completeness_only",
     },
+    workoutFeedback: [] as import("./workout-feedback").FeedbackEvidence[],
     history: {
       source: "garmin_fit",
       start: period.start,

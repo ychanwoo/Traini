@@ -358,29 +358,250 @@ export function validateCondition(
   return { ...c };
 }
 
-/** Calendar envelopes, not medical recovery predictions. Race participation is user registered. */
-export function raceCalendar(races: RaceGoal[], start: string, end: string) {
+/** Shared, bounded planning rules. These are not recovery diagnoses. */
+export type RaceEvidence = {
+  asOfDate: string;
+  condition?: TrainingCondition | null;
+  weeks: {
+    start: string;
+    end: string;
+    distanceMeters: number | null;
+    activityCount: number;
+    coverage: { distanceCount: number };
+  }[];
+  sessions: {
+    trainingDate: string;
+    distanceMeters: number | null;
+    timerSeconds: number | null;
+    paceSecondsPerKm: number | null;
+  }[];
+};
+export function raceEvidence(
+  context: {
+    asOfDate: string;
+    goal: { condition?: TrainingCondition | null };
+    history: {
+      weeks: RaceEvidence["weeks"];
+      sessions: RaceEvidence["sessions"];
+    };
+  },
+  current?: { activities: RaceEvidence["sessions"] } | null,
+): RaceEvidence {
+  return {
+    asOfDate: context.asOfDate,
+    condition: context.goal.condition,
+    weeks: context.history.weeks,
+    sessions: [
+      ...(context.history.sessions ?? []),
+      ...(current?.activities ?? []),
+    ].filter((s) => s.trainingDate <= context.asOfDate),
+  };
+}
+const shiftRaceDate = (date: string, days: number) =>
+  new Date(Date.parse(`${date}T00:00:00Z`) + days * 86400000)
+    .toISOString()
+    .slice(0, 10);
+export function raceCalendar(
+  races: RaceGoal[],
+  start: string,
+  end: string,
+  evidence?: RaceEvidence,
+) {
+  const today = evidence?.asOfDate ?? start;
+  const complete = (evidence?.weeks ?? [])
+    .filter(
+      (w) =>
+        w.end < today &&
+        w.activityCount > 0 &&
+        w.distanceMeters !== null &&
+        w.distanceMeters > 0 &&
+        w.coverage.distanceCount === w.activityCount,
+    )
+    .slice(-4);
+  const median = (values: number[]) => {
+    const v = [...values].sort((a, b) => a - b);
+    return v.length
+      ? v.length % 2
+        ? v[Math.floor(v.length / 2)]
+        : (v[v.length / 2 - 1] + v[v.length / 2]) / 2
+      : null;
+  };
+  const baseline = median(complete.map((w) => w.distanceMeters! / 1000));
+  const prior = median(
+    complete.slice(0, -1).map((w) => w.distanceMeters! / 1000),
+  );
+  const latest = complete.at(-1);
+  const elevated =
+    complete.length >= 3 &&
+    prior !== null &&
+    latest !== undefined &&
+    latest.distanceMeters! / 1000 > prior * 1.15;
+  const condition = evidence?.condition;
+  const age = condition ? calendarDistance(condition.reportedOn, today) : null;
+  const tired =
+    condition?.feeling === "tired" && age !== null && age >= 0 && age <= 2;
+  const symptoms =
+    condition &&
+    age !== null &&
+    age >= 0 &&
+    ["pain", "unwell"].includes(condition.feeling);
+  const sessions = evidence?.sessions ?? [];
   const events = [...races]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((r) => ({
-      ...r,
-      recoveryDays:
+    .map((r) => {
+      const primary = r.priority === "primary";
+      const base =
+        r.distance === "FULL"
+          ? primary
+            ? 14
+            : 10
+          : r.distance === "HALF"
+            ? primary
+              ? 10
+              : 7
+            : r.distance === "10K"
+              ? primary
+                ? 7
+                : 5
+              : primary
+                ? 7
+                : 3;
+      const taperDays = Math.min(
+        21,
+        base +
+          (r.distance === "FULL" && (baseline ?? 0) >= 65 ? 7 : 0) +
+          (elevated ? (r.distance === "FULL" ? 7 : 3) : 0) +
+          (tired ? 3 : 0),
+      );
+      const baseRecoveryDays =
         r.distance === "FULL"
           ? 14
           : r.distance === "HALF"
             ? 7
             : r.distance === "10K"
               ? 3
-              : 2,
-      taperDays:
-        r.priority === "primary" ? (r.distance === "FULL" ? 14 : 7) : 3,
-    }));
+              : 2;
+      const recoveryDays =
+        baseRecoveryDays +
+        (elevated ? (r.distance === "FULL" ? 3 : 1) : 0) +
+        (tired ? 2 : 0);
+      const restDays =
+        r.distance === "FULL" ? 3 : r.distance === "HALF" ? 2 : 1;
+      const recoveryEnd = shiftRaceDate(r.date, recoveryDays),
+        daysUntil = calendarDistance(today, r.date);
+      const beforeRace = (evidence?.weeks ?? [])
+        .filter(
+          (w) =>
+            w.end < r.date &&
+            w.activityCount > 0 &&
+            w.distanceMeters !== null &&
+            w.coverage.distanceCount === w.activityCount,
+        )
+        .slice(-4);
+      const preRaceBaseline = median(
+        beforeRace.map((w) => w.distanceMeters! / 1000),
+      );
+      const checkIn =
+        !!condition &&
+        ["normal", "good"].includes(condition.feeling) &&
+        condition.reportedOn >= recoveryEnd &&
+        condition.reportedOn <= today &&
+        age !== null &&
+        age >= 0 &&
+        age <= 2;
+      const usualPace = median(
+        sessions
+          .filter(
+            (s) =>
+              s.trainingDate < r.date &&
+              s.paceSecondsPerKm !== null &&
+              s.paceSecondsPerKm > 0,
+          )
+          .map((s) => s.paceSecondsPerKm!),
+      );
+      const returning = sessions.filter(
+        (s) =>
+          s.trainingDate > r.date &&
+          s.trainingDate >= shiftRaceDate(today, -14) &&
+          s.trainingDate <= today &&
+          s.distanceMeters !== null &&
+          s.distanceMeters > 0 &&
+          s.timerSeconds !== null &&
+          s.timerSeconds > 0 &&
+          s.paceSecondsPerKm !== null &&
+          usualPace !== null &&
+          s.paceSecondsPerKm >= usualPace * 0.98 &&
+          s.distanceMeters <= Math.min(12000, (baseline ?? 40) * 250),
+      );
+      const returnDays = new Set(returning.map((s) => s.trainingDate)).size;
+      const rebuildingWeeks = complete.filter(
+        (w) =>
+          condition &&
+          w.start > recoveryEnd &&
+          preRaceBaseline !== null &&
+          w.distanceMeters! / 1000 >= preRaceBaseline * 0.7 &&
+          w.distanceMeters! / 1000 <= preRaceBaseline * 1.1,
+      ).length;
+      const recoveryState =
+        daysUntil >= 0
+          ? "not_started"
+          : today <= recoveryEnd
+            ? "scheduled_window"
+            : !checkIn || returnDays < 2 || symptoms
+              ? "needs_check_in"
+              : rebuildingWeeks >= 2
+                ? "return_recorded"
+                : "gradual_return";
+      const phase =
+        daysUntil === 0
+          ? "race_day"
+          : daysUntil > 0
+            ? daysUntil <= taperDays
+              ? "taper"
+              : "preparation"
+            : "recovery";
+      return {
+        ...r,
+        taperDays,
+        recoveryDays,
+        restDays,
+        taperStart: shiftRaceDate(r.date, -taperDays),
+        taperEnd: shiftRaceDate(r.date, -1),
+        recoveryStart: shiftRaceDate(r.date, 1),
+        recoveryEnd,
+        daysUntil,
+        phase,
+        recoveryState,
+        returnDays,
+        checkInOn: checkIn ? condition!.reportedOn : null,
+        reasons: [
+          ...(elevated ? ["recent_volume_increase"] : []),
+          ...(r.distance === "FULL" && (baseline ?? 0) >= 65
+            ? ["higher_recorded_volume"]
+            : []),
+          ...(tired ? ["reported_tired"] : []),
+          ...(symptoms ? ["reported_symptoms"] : []),
+          ...(!complete.length ? ["load_unknown"] : []),
+        ],
+        affectsCurrentPlan:
+          daysUntil >= 0
+            ? daysUntil <= taperDays
+            : -daysUntil <= 56 && recoveryState !== "return_recorded",
+        participation: sessions.some(
+          (s) =>
+            s.trainingDate === r.date &&
+            s.distanceMeters !== null &&
+            s.distanceMeters >= DISTANCES[r.distance] * 0.85 &&
+            s.timerSeconds !== null &&
+            s.timerSeconds > 0,
+        )
+          ? "race_day_effort_recorded"
+          : "unconfirmed",
+      };
+    });
   const dates = Array.from(
     { length: Math.max(0, calendarDistance(start, end) + 1) },
-    (_, i) =>
-      new Date(Date.parse(`${start}T00:00:00Z`) + i * 86400000)
-        .toISOString()
-        .slice(0, 10),
+    (_, i) => shiftRaceDate(start, i),
   );
   const raceDates = events
     .filter((r) => r.date >= start && r.date <= end)
@@ -388,37 +609,72 @@ export function raceCalendar(races: RaceGoal[], start: string, end: string) {
   const restDates = dates.filter((d) =>
     events.some((r) => {
       const after = calendarDistance(r.date, d);
-      return (
-        after === 0 ||
-        (after > 0 &&
-          after <= (r.distance === "FULL" ? 3 : r.distance === "HALF" ? 2 : 1))
-      );
+      return after === 0 || (after > 0 && after <= r.restDays);
     }),
   );
+  const recoveryActive = (r: (typeof events)[number], d: string) =>
+    d > r.date &&
+    r.date >= shiftRaceDate(today, -56) &&
+    (d <= r.recoveryEnd || r.recoveryState !== "return_recorded");
+  // Taper retains bounded familiar intensity; only the final two days are easy-only.
   const easyOnlyDates = dates.filter((d) =>
     events.some((r) => {
-      const after = calendarDistance(r.date, d);
-      return after >= -r.taperDays && after <= r.recoveryDays;
+      const before = calendarDistance(d, r.date);
+      return (
+        (before > 0 && before <= 2) ||
+        (recoveryActive(r, d) &&
+          (r.recoveryState !== "gradual_return" ||
+            !condition ||
+            calendarDistance(condition.reportedOn, d) > 2))
+      );
     }),
   );
-  let loadFactor = 1;
+  const noLongRunDates = dates.filter((d) =>
+    events.some(
+      (r) => (d >= r.taperStart && d <= r.date) || recoveryActive(r, d),
+    ),
+  );
+  let loadFactor = 1,
+    maxQualitySessions = 2,
+    qualityFactor = 1;
   for (const r of events) {
-    const before = calendarDistance(start, r.date),
-      after = calendarDistance(r.date, start);
-    if (
-      before >= 0 &&
-      before <= r.taperDays + 6 &&
-      r.date <=
-        new Date(Date.parse(`${end}T00:00:00Z`) + r.taperDays * 86400000)
-          .toISOString()
-          .slice(0, 10)
-    )
+    if (start <= r.date && end >= r.taperStart) {
+      const days = calendarDistance(start, r.date);
       loadFactor = Math.min(
         loadFactor,
-        r.priority === "primary" ? (before <= 7 ? 0.5 : 0.75) : 0.85,
+        days <= 7
+          ? r.distance === "FULL"
+            ? r.priority === "primary"
+              ? 0.4
+              : 0.5
+            : r.distance === "HALF"
+              ? r.priority === "primary"
+                ? 0.55
+                : 0.7
+              : 0.75
+          : 0.8,
       );
-    if (after >= 0 && after <= r.recoveryDays)
-      loadFactor = Math.min(loadFactor, r.distance === "FULL" ? 0.6 : 0.8);
+      qualityFactor = Math.min(qualityFactor, days <= 7 ? 0.4 : 0.6);
+      maxQualitySessions = Math.min(maxQualitySessions, 1);
+    }
+    if (dates.some((d) => recoveryActive(r, d))) {
+      loadFactor = Math.min(
+        loadFactor,
+        r.recoveryState === "gradual_return"
+          ? 0.85
+          : r.distance === "FULL"
+            ? 0.6
+            : 0.75,
+      );
+      qualityFactor = Math.min(
+        qualityFactor,
+        r.recoveryState === "gradual_return" ? 0.4 : 0,
+      );
+      maxQualitySessions = Math.min(
+        maxQualitySessions,
+        r.recoveryState === "gradual_return" ? 1 : 0,
+      );
+    }
   }
   const reservations = events
     .filter((r) => r.date >= start && r.date <= end)
@@ -431,13 +687,31 @@ export function raceCalendar(races: RaceGoal[], start: string, end: string) {
         ]
       : [];
   });
+  for (const r of events)
+    if (
+      r.daysUntil < 0 &&
+      r.affectsCurrentPlan &&
+      r.recoveryState === "needs_check_in"
+    )
+      warnings.push(
+        `${r.name || r.distance}: 날짜 경과만으로 회복 완료로 보지 않아요. 회복 확인 기간 이후의 컨디션 입력과 복귀 러닝 기록이 필요해요.`,
+      );
   return {
+    version: 2,
     events,
     raceDates,
     restDates,
     easyOnlyDates,
+    noLongRunDates,
     loadFactor,
+    maxQualitySessions,
+    qualityFactor,
     reservations,
     warnings,
+    load: {
+      baselineWeekKm: baseline,
+      elevated,
+      recordedWeeks: complete.length,
+    },
   };
 }

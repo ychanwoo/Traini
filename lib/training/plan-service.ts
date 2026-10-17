@@ -27,8 +27,11 @@ export async function generatePlan(userId: string, week: PlanWeek) {
   if (existing.plan && !existing.inputsChanged) return existing;
   const context = await readTrainingContext(userId);
   const review = await readApplicableReview(userId, context.timezone);
-  let policy = applyReviewPolicy(planPolicy(context, week), review);
   const evidence = await readPrescriptionEvidence(userId);
+  let policy = applyReviewPolicy(
+    planPolicy(context, week, evidence.current),
+    review,
+  );
   policy = refinePrescription(
     context,
     policy,
@@ -37,7 +40,10 @@ export async function generatePlan(userId: string, week: PlanWeek) {
   ).policy;
   if (week === "current") policy = accountCurrentWeek(policy, evidence.current);
   if (existing.plan) {
-    const completed = existing.plan.workouts.filter((w) => w.completed);
+    const completed = existing.plan.workouts.filter(
+      (w) =>
+        w.completed || w.status === "skipped" || (w.feedback?.version ?? 0) > 0,
+    );
     policy.blockedDates = [
       ...new Set([...policy.blockedDates, ...completed.map((w) => w.date)]),
     ];

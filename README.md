@@ -13,6 +13,8 @@ Garmin 활동은 훈련 날짜·거리·세션 근거로 계획에 연결하며,
 
 여러 대회별 목표 기록과 최근 컨디션을 등록하고, 기록 기반 훈련 처방 기준을 확인할 수 있습니다.
 [다중 대회·훈련 처방 안내](docs/training-prescription-refinement.md)를 참고하세요.
+[대회 단계·테이퍼·복귀 확인 규칙](docs/race-stage-policy.md)과
+[다음 피드백·직접 건너뜀 작업 범위](docs/workout-feedback-plan.md)를 별도로 정리했습니다.
 
 ## Garmin 수집기
 
@@ -325,3 +327,5 @@ Supabase에 원자적으로 저장합니다. 오늘의 러닝 훈련은 직접 �
 주간 훈련 리뷰의 집계 기준, AI 검증·저장, 다음 계획 반영 및 테스트 방법은 [주간 리뷰 문서](docs/weekly-training-review.md)에 정리되어 있습니다.
 
 날씨 조회·예보 범위·규칙 기반 페이스 참고 안내와 테스트 방법은 [날씨 보정 문서](docs/weather-training-adjustment.md)에 정리되어 있습니다. 이 기능은 OpenAI를 호출하지 않으며 저장된 훈련 처방을 변경하지 않습니다.
+
+- [훈련 피드백·직접 건너뜀](docs/workout-feedback.md): 입력, 저장 충돌, 주간 리뷰와 계획 반영, 테스트.

@@ -3,7 +3,7 @@ import {
   buildRunningSummary,
   type RunningSummary,
 } from "@/lib/garmin/running-summary";
-import { calendarDistance, DISTANCES, raceCalendar } from "./goal";
+import { DISTANCES, raceCalendar, raceEvidence } from "./goal";
 import { buildReviewMetrics, type ReviewSnapshot } from "./weekly-review";
 import type { TrainingContext } from "./context";
 import type { StoredPlan } from "./weekly-plan";
@@ -142,24 +142,13 @@ export function buildProgressInsights(
     context.goal.races ?? [],
     context.asOfDate,
     context.asOfDate,
+    raceEvidence(context, current),
   );
   const races = events.events.map((r) => {
-    const daysUntil = calendarDistance(context.asOfDate, r.date),
-      after = -daysUntil;
-    const phase =
-      daysUntil === 0
-        ? "race_day"
-        : daysUntil > 0
-          ? daysUntil <= r.taperDays
-            ? "taper"
-            : "preparation"
-          : after <= r.recoveryDays
-            ? "recovery"
-            : "past";
     return {
       ...r,
-      daysUntil,
-      phase,
+      daysUntil: r.daysUntil,
+      phase: r.phase,
       targetPaceSecondsPerKm:
         r.targetTimeSeconds === null
           ? null
@@ -239,6 +228,7 @@ export function buildProgressInsights(
     current: { ...statistics(currentFiltered), performance },
     races,
     raceWarnings: events.warnings,
+    racePolicy: { version: events.version, load: events.load },
     comparison,
     limitations: [
       "no_recovery_sleep_hrv_assessment",

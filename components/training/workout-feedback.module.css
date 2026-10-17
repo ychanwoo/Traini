@@ -1,0 +1,103 @@
+.details {
+  margin-top: 12px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.details summary {
+  cursor: pointer;
+  color: var(--text-secondary, #625d72);
+  font-weight: 500;
+}
+.fields {
+  border: 0;
+  padding: 12px 0 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.fields label {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-secondary, #625d72);
+  min-width: 0;
+}
+.fields label span {
+  font-size: 11px;
+  font-weight: 400;
+}
+.fields select,
+.fields textarea {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid #e1dee8;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fff;
+  color: #37313f;
+  font: inherit;
+  font-size: 16px;
+}
+.fields textarea {
+  resize: vertical;
+  overflow-wrap: anywhere;
+}
+.fields select:focus-visible,
+.fields textarea:focus-visible,
+.fields button:focus-visible {
+  outline: 2px solid #888092;
+  outline-offset: 2px;
+}
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+.fields button {
+  border: 1px solid #dcd7e5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #f2eff6;
+  color: #51485e;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.fields button:disabled,
+.fields:disabled {
+  opacity: 0.6;
+}
+.help {
+  margin: 8px 0 0;
+  color: #7c7687;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.reason {
+  margin-top: 8px;
+  color: #655b71;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* Expanded forms retain the date/title at the top of the existing schedule card. */
+:global(.schedule-row):has(.details[open]) {
+  align-items: flex-start;
+}
+.details .help,
+.details .reason {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.65;
+}
+.details .reason {
+  white-space: pre-wrap;
+  font-size: 12px;
+}

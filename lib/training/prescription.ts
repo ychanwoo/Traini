@@ -1,4 +1,9 @@
-import { calendarDistance, DISTANCES } from "./goal";
+import {
+  calendarDistance,
+  DISTANCES,
+  raceCalendar,
+  raceEvidence,
+} from "./goal";
 import type { TrainingContext } from "./context";
 import type { PlanPolicy, PlanContent } from "./weekly-plan";
 import type { ReviewMetrics } from "./weekly-review";
@@ -27,6 +32,7 @@ export type PrescriptionRules = {
   tempoMaxWorkKm: number | null;
   tempoPaceKnown: boolean;
   noProgression: boolean;
+  maxQualityRepetitions: number;
 };
 const median = (values: number[]) => {
   const a = [...values].sort((x, y) => x - y);
@@ -48,8 +54,21 @@ export function refinePrescription(
   const policy = {
     ...original,
     blockedDates: [...original.blockedDates],
+    noLongRunDates: [...(original.noLongRunDates ?? [])],
     easyOnlyDates: [...original.easyOnlyDates],
   };
+  // Current-week observations enrich the calendar without changing its dated condition.
+  const calendar = raceCalendar(
+    context.goal.races ?? [],
+    policy.start,
+    policy.end,
+    raceEvidence(context, current),
+  );
+  policy.calendar = calendar;
+  policy.easyOnlyDates = [
+    ...new Set([...policy.easyOnlyDates, ...calendar.easyOnlyDates]),
+  ];
+  policy.noLongRunDates = calendar.noLongRunDates;
   const structured = context.history.sessions.flatMap((s) => {
     const e = s.evidence;
     if (
@@ -176,18 +195,36 @@ export function refinePrescription(
   ).length;
   const executionHold = below >= 2;
   const noProgression = executionHold || policy.calendar.loadFactor < 1;
-  // A race consumes a quality-session slot; it is shown separately in the UI.
-  policy.maxHardSessions = Math.max(
-    0,
-    policy.maxHardSessions - policy.calendar.raceDates.length,
+  // Race effort already consumes a slot in planPolicy; do not deduct twice.
+  policy.maxHardSessions = Math.min(
+    policy.maxHardSessions,
+    calendar.maxQualitySessions,
   );
   if (noProgression) {
     policy.weeklyCeilingKm = Math.min(
       policy.weeklyCeilingKm,
-      policy.referenceWeekKm,
+      policy.referenceWeekKm +
+        policy.calendar.reservations.reduce((sum, r) => sum + r.distanceKm, 0),
     );
     policy.maxWeekKm = Math.min(policy.maxWeekKm, policy.weeklyCeilingKm);
     policy.minWeekKm = Math.min(policy.minWeekKm, policy.maxWeekKm);
+  }
+  const skipped = (context.workoutFeedback ?? []).filter(
+    (r) =>
+      r.outcome === "skipped" &&
+      r.date >= policy.start &&
+      r.date >= policy.today &&
+      r.date <= policy.end,
+  );
+  if (skipped.length) {
+    policy.blockedDates = [
+      ...new Set([...policy.blockedDates, ...skipped.map((r) => r.date)]),
+    ];
+    policy.maxWeekKm = Math.max(
+      0,
+      policy.maxWeekKm - skipped.reduce((n, r) => n + r.plannedDistanceKm, 0),
+    );
+    policy.minWeekKm = 0;
   }
   const condition = context.goal.condition;
   const age = condition
@@ -238,6 +275,24 @@ export function refinePrescription(
       observedDemanding.some((d) => d < date && calendarDistance(d, date) < 2)
     )
       policy.easyOnlyDates.push(date);
+  for (const date of policy.dates) {
+    if (policy.noLongRunDates.includes(date)) {
+      const existing = dayLimits.find((l) => l.date === date);
+      const limit = {
+        date,
+        maxDistanceKm: Math.min(policy.maxRunKm, Math.max(0.5, easyKm * 1.5)),
+        easyOnly: policy.easyOnlyDates.includes(date),
+        minPace: policy.minHardPace,
+      };
+      if (existing) {
+        existing.maxDistanceKm = Math.min(
+          existing.maxDistanceKm,
+          limit.maxDistanceKm,
+        );
+        existing.easyOnly ||= limit.easyOnly;
+      } else dayLimits.push(limit);
+    }
+  }
   policy.blockedDates = [...new Set(policy.blockedDates)];
   policy.easyOnlyDates = [...new Set(policy.easyOnlyDates)];
   const eligible = policy.dates.filter(
@@ -266,11 +321,12 @@ export function refinePrescription(
         policy.minWeekKm,
         Math.max(0, policy.maxWeekKm - eligible.length * 0.1),
       );
-  if (policy.maxWeekKm < 0.5) policy.minWeekKm = 0;
+  if (policy.maxWeekKm < 0.5 || policy.allowAllRest) policy.minWeekKm = 0;
   if (!eligible.some((d) => !policy.easyOnlyDates.includes(d)))
     policy.maxHardSessions = 0;
   const allowedLongRunDates = eligible.filter(
-    (d) => !policy.easyOnlyDates.includes(d),
+    (d) =>
+      !policy.easyOnlyDates.includes(d) && !policy.noLongRunDates.includes(d),
   );
   const bounds: Bound[] = [
     {
@@ -307,10 +363,37 @@ export function refinePrescription(
     bounds,
     dayLimits,
     allowedLongRunDates,
-    intervals,
+    intervals: intervals.map((o) =>
+      calendar.loadFactor < 1
+        ? {
+            ...o,
+            maxRepetitions: Math.max(
+              2,
+              Math.min(
+                8,
+                o.observedRepetitions,
+                Math.floor(
+                  o.observedRepetitions * Math.max(0.4, calendar.qualityFactor),
+                ),
+              ),
+            ),
+            minPace: Math.max(o.minPace, o.observedPace),
+          }
+        : noProgression
+          ? {
+              ...o,
+              maxRepetitions: Math.min(o.maxRepetitions, o.observedRepetitions),
+              minPace: Math.max(o.minPace, o.observedPace),
+            }
+          : o,
+    ),
     tempoPaceKnown: tempoPace !== null,
-    tempoMaxWorkKm: tempoWork.length ? Math.max(...tempoWork) * 1.1 : null,
+    tempoMaxWorkKm: tempoWork.length
+      ? Math.max(...tempoWork) *
+        (calendar.loadFactor < 1 ? calendar.qualityFactor : 1.1)
+      : null,
     noProgression,
+    maxQualityRepetitions: calendar.loadFactor < 1 ? 8 : 20,
   };
   return {
     policy: { ...policy, prescription: rules },
@@ -326,6 +409,7 @@ export function refinePrescription(
       unconfirmedSessions: execution?.unconfirmed ?? null,
       noProgression,
       rules,
+      raceCalendar: calendar,
       goals: (context.goal.races ?? []).map((r) => ({
         ...r,
         targetPaceSecondsPerKm:
@@ -404,6 +488,11 @@ export function validatePrescription(
         return false;
       if (workout.kind === "threshold" && step.kind === "steady")
         tempo += step.distanceMeters / 1000;
+      if (
+        step.kind === "repeats" &&
+        step.repetitions > rules.maxQualityRepetitions
+      )
+        return false;
       if (
         workout.kind === "interval" &&
         step.kind === "repeats" &&
