@@ -4,7 +4,7 @@ import Image from "next/image";
 import { AdminLogin } from "@/components/auth/admin-login";
 import { WeeklySyncCard } from "@/components/garmin/weekly-sync-card";
 import { WeeklyRunningSummary } from "@/components/garmin/weekly-running-summary";
-import { TodayPlan, WeeklySchedule, formatPlanPace } from "@/components/training/weekly-plan-view";
+import { TodayPlan, WeeklySchedule } from "@/components/training/weekly-plan-view";
 import { GoalSettings } from "@/components/training/goal-settings";
 import { TrainingContextCard } from "@/components/training/training-context-card";
 import { timeText } from "@/lib/training/goal";
@@ -12,7 +12,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Activity, ArrowLeft, ArrowLeftRight, BarChart3, BedDouble, CalendarDays, ChevronLeft, ChevronRight, Circle, Footprints, Gauge, HeartPulse, Info, Mail, Moon, PersonStanding, Route, Settings, ShieldCheck, Sun, TrendingUp, UserRound, type LucideIcon } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { applyWeatherPaceAdjustment } from "@/lib/algorithms/pace";
 
 type Screen = "splash" | "login" | "garmin" | "analysis" | "goal" | "schedule" | "today" | "my" | "roadmap" | "my-goals" | "privacy" | "support";
 type Props = { screen: Screen };
@@ -74,33 +73,12 @@ function Schedule() {
   return <div className="app-frame"><Topbar back /><WeeklySchedule /></div>;
 }
 
-type WeatherData = { temperatureC: number; humidityPercent: number; summary: string };
-
-function WeatherPaceCard({basePace}: {basePace:number|null}) {
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [status, setStatus] = useState<"loading" | "unavailable" | "ready">("loading");
-  useEffect(() => {
-    if (!navigator.geolocation) { queueMicrotask(() => setStatus("unavailable")); return; }
-    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-      try {
-        const response = await fetch(`/api/weather?lat=${coords.latitude}&lon=${coords.longitude}`);
-        if (!response.ok) throw new Error("Weather unavailable");
-        setWeather(await response.json() as WeatherData);
-        setStatus("ready");
-      } catch { setStatus("unavailable"); }
-    }, () => setStatus("unavailable"), { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 });
-  }, []);
-  const adjustedPace = weather && basePace !== null ? applyWeatherPaceAdjustment(basePace, weather.temperatureC, weather.humidityPercent) : null;
-  const penalty = adjustedPace !== null && basePace !== null ? adjustedPace - basePace : 0;
-  return <div className="mt-7 flex items-center gap-3 rounded-xl bg-[#f7f4f8] p-3"><Icon>light_mode</Icon><div>{status === "ready" && weather ? <><p className="text-sm font-medium">{weather.temperatureC}°C · 습도 {weather.humidityPercent}%</p><p className="text-[11px] text-[#167ca8]">{penalty > 0 ? `현재 날씨 참고 ${formatPlanPace(adjustedPace)} (+${penalty}초)` : basePace === null ? "페이스 대신 대화 가능한 강도를 참고해 주세요" : "현재 날씨 기준 추가 보정 없음"}</p></> : status === "loading" ? <><p className="text-sm font-medium">날씨 정보를 불러오는 중</p><p className="text-[11px] text-[#756e7c]">위치 권한을 확인해 주세요</p></> : <><p className="text-sm font-medium">날씨 보정 정보를 사용할 수 없어요</p><p className="text-[11px] text-[#756e7c]">{basePace === null ? "대화 가능한 강도를 기준으로 훈련해 주세요" : "기본 목표 페이스를 참고해 주세요"}</p></>}</div></div>;
-}
-
 function Today() {
   return <div className="app-frame"><Topbar back /><main className="page today-page pt-4">
     <section className="mt-6"><h1 className="text-xl font-semibold">오늘의 훈련</h1><p className="mt-1 text-sm text-[#756e7c]">목표와 러닝 기록을 바탕으로 준비한 계획을 확인해요.</p></section>
     <WeeklySyncCard />
     <WeeklyRunningSummary />
-    <TodayPlan weather={(pace)=><WeatherPaceCard basePace={pace}/>} />
+    <TodayPlan />
     <section className="mt-4 grid grid-cols-2 gap-3"><div className="card p-4"><Label>SLEEP SCORE</Label><p className="mono mt-2 text-2xl font-semibold">—</p><p className="mt-2 text-[11px] text-[#756e7c]">수면 데이터 미수집</p></div><div className="card p-4"><Label>RECOVERY</Label><p className="mt-2 text-lg font-semibold">확인 전</p><p className="mt-2 text-[11px] text-[#756e7c]">실제 회복 데이터가 없어요</p></div></section>
   </main></div>;
 }
@@ -111,7 +89,7 @@ function MyGoals() { return <GoalSettings />; }
 
 function Privacy() { const rows = [["수집하는 데이터", "프로필, 훈련 기록, 위치 기반 날씨 정보"], ["데이터 사용 목적", "개인화 훈련 가이드와 서비스 개선"], ["프로필 사진", "내 계정에서 언제든 변경할 수 있어요"]]; return <div className="page app-frame settings-page"><section className="settings-title"><Label>DATA & PRIVACY</Label><h1>데이터 및 개인정보</h1><p>영찬님의 데이터는 더 안전하고 개인화된 훈련을 위해서만 사용돼요.</p></section><section className="settings-list">{rows.map(([title, text]) => <article key={title}><Icon>shield</Icon><div><h2>{title}</h2><p>{text}</p></div></article>)}</section><section className="privacy-note"><Icon>info</Icon><p>Garmin 연결 데이터는 연결 해제 시 이후 분석에 사용되지 않아요. 데이터 삭제 요청은 고객 지원을 통해 접수할 수 있어요.</p></section></div>; }
 
-function Support() { const faqs = [["훈련 일정은 언제 바뀌나요?", "매주 리뷰 후 다음 1~2주 플랜이 새로 발행돼요."], ["날씨 보정은 어떻게 적용되나요?", "현재 기온과 습도를 반영해 목표 페이스를 안내해요."], ["Garmin 연결은 왜 필요한가요?", "실제 활동과 회복 상태를 훈련 계획에 반영하기 위해 필요해요."]]; return <div className="page app-frame settings-page"><section className="settings-title"><Label>SUPPORT</Label><h1>고객 지원</h1><p>Traini 이용 중 궁금한 점을 빠르게 확인해 보세요.</p></section><section className="support-faq">{faqs.map(([q, a]) => <details key={q}><summary>{q}<Icon>chevron_right</Icon></summary><p>{a}</p></details>)}</section><a className="support-contact" href="mailto:support@traini.app"><Icon>mail</Icon><span><b>문의하기</b><small>support@traini.app</small></span><Icon>chevron_right</Icon></a><p className="support-version">Traini · Version 0.1.0</p></div>; }
+function Support() { const faqs = [["훈련 일정은 언제 바뀌나요?", "매주 리뷰 후 다음 1~2주 플랜이 새로 발행돼요."], ["날씨 보정은 어떻게 적용되나요?", "기온·체감온도·습도·바람을 참고해 페이스 또는 운동 강도를 안내해요. 원래 훈련 처방은 유지돼요."], ["Garmin 연결은 왜 필요한가요?", "실제 활동과 회복 상태를 훈련 계획에 반영하기 위해 필요해요."]]; return <div className="page app-frame settings-page"><section className="settings-title"><Label>SUPPORT</Label><h1>고객 지원</h1><p>Traini 이용 중 궁금한 점을 빠르게 확인해 보세요.</p></section><section className="support-faq">{faqs.map(([q, a]) => <details key={q}><summary>{q}<Icon>chevron_right</Icon></summary><p>{a}</p></details>)}</section><a className="support-contact" href="mailto:support@traini.app"><Icon>mail</Icon><span><b>문의하기</b><small>support@traini.app</small></span><Icon>chevron_right</Icon></a><p className="support-version">Traini · Version 0.1.0</p></div>; }
 
 function MyPage() {
   const rows = ["내 목표 및 대회", "Garmin 연결 관리", "알림 설정", "데이터 및 개인정보", "고객 지원"];
