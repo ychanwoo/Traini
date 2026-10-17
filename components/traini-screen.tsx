@@ -7,7 +7,7 @@ import { WeeklyRunningSummary } from "@/components/garmin/weekly-running-summary
 import { TodayPlan, WeeklySchedule } from "@/components/training/weekly-plan-view";
 import { GoalSettings } from "@/components/training/goal-settings";
 import { TrainingContextCard } from "@/components/training/training-context-card";
-import { timeText } from "@/lib/training/goal";
+import { RunningProgressAnalysis, TrainingRoadmap, MyProgressSummary } from "@/components/training/progress-insights";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Activity, ArrowLeft, ArrowLeftRight, BarChart3, BedDouble, CalendarDays, ChevronLeft, ChevronRight, Circle, Footprints, Gauge, HeartPulse, Info, Mail, Moon, PersonStanding, Route, Settings, ShieldCheck, Sun, TrendingUp, UserRound, type LucideIcon } from "lucide-react";
@@ -31,7 +31,6 @@ function Topbar({ back = false, step, settings = false }: { back?: boolean; step
 }
 
 const Label = ({ children }: { children: React.ReactNode }) => <p className="eyebrow">{children}</p>;
-const Metric = ({ label, value, sub }: { label: string; value: string; sub?: string }) => <div><p className="text-[10px] font-semibold tracking-[.08em] text-[#8a8290]">{label}</p><p className="mono mt-1 text-lg font-semibold tracking-[-.06em]">{value}{sub && <span className="ml-1 font-sans text-xs font-medium text-[#756e7c]">{sub}</span>}</p></div>;
 const mySettingRoutes: Record<string, string> = { "내 목표 및 대회": "/my/goals", "Garmin 연결 관리": "/garmin-connect", "데이터 및 개인정보": "/my/privacy", "고객 지원": "/my/support" };
 
 function Splash() {
@@ -55,17 +54,7 @@ function Garmin() {
   </main></div>;
 }
 
-function Analysis() {
-  const router = useRouter();
-  const insights = [["trending_up", "심박 안정성이 좋아지고 있어요", "같은 페이스에서 평균 심박수가 5bpm 감소했습니다. 심폐 기능이 강화되고 있는 긍정적인 신호입니다."], ["bar_chart", "레이스 페이스 적응이 더 필요해요", "목표 페이스로 달리는 훈련 비중이 낮습니다. 주 1회 포인트 훈련으로 페이스 감각을 익혀보세요."], ["dark_mode", "긴 거리 훈련 뒤 회복을 확보하세요", "LSD 훈련 후 수면 점수가 15% 낮아지는 경향이 있어요. 회복 후 훈련 강도를 조정할게요."]];
-  return <div className="app-frame"><Topbar back step="2 / 3" /><main className="analysis-page"><section><h1>영찬님의 러닝 베이스라인</h1><p>최근 8주간의 기록을 분석했어요.</p></section>
-    <section className="analysis-summary"><Label>훈련 준비도 · 양호</Label><h2>탄탄한 유산소 기반 위에 스피드 지구력을<br />더할 타이밍이에요.</h2><p>최근 러닝 24회 · 수면 데이터 42일 분석</p></section>
-    <section className="analysis-metric-grid"><div><Metric label="현재 러닝 레벨" value="44" sub="VDOT"/><small>풀 3:45:20</small></div><div><Metric label="유산소 베이스" value="38.4" sub="KM/주"/><small className="good">안정적</small><em>주간 거리 변동폭이 적어요</em></div><div><Metric label="회복 상태" value="82" sub="/ 100"/><small className="blue">좋음</small><em>HRV 정상 범위 유지</em></div><div><Metric label="훈련 부하" value="적정"/><small className="good">무리 없음</small><em>고강도는 주 2회 이내 권장</em></div></section>
-    <section className="analysis-insights"><Label>COACHING INSIGHTS</Label>{insights.map(([icon, title, text]) => <div key={title}><span><Icon>{icon}</Icon></span><article><h3>{title}</h3><p>{text}</p></article></div>)}</section>
-    <section className="analysis-plan"><h2>그래서, 이렇게 훈련할게요</h2><ol><li>주간 거리 38km → 42km로 천천히 확장</li><li>주 1회 T-Pace 역치주 추가</li><li>장거리주 다음 날 회복 훈련 고정</li></ol><p><Icon>info</Icon>컨디션 변화에 따라 다음 주 계획은 자동으로 조정돼요.</p></section>
-    <button className="primary-button analysis-submit" onClick={() => router.push("/goal-setting")}>내 목표 설정하기</button><p className="analysis-skip">분석 내용을 나중에 볼게요</p>
-  </main></div>;
-}
+function Analysis() { return <div className="app-frame"><Topbar back /><RunningProgressAnalysis /></div>; }
 
 function Goal() { return <div className="app-frame"><Topbar back step="3 / 3" /><GoalSettings onboarding /></div>; }
 
@@ -83,7 +72,6 @@ function Today() {
   </main></div>;
 }
 
-const toTime = (seconds: number | null) => timeText(seconds) || "—";
 
 function MyGoals() { return <GoalSettings />; }
 
@@ -152,30 +140,9 @@ function MyPage() {
     } catch { setLogoutError("로그아웃을 완료하지 못했어요. 다시 시도해 주세요."); }
     finally { setLoggingOut(false); }
   };
-  return <div className="page app-frame"><header className="flex h-10 items-center justify-between"><Brand /><Icon>settings</Icon></header><section className="mt-5 text-center"><input ref={uploadRef} className="sr-only" type="file" accept="image/*" onChange={(event) => void updateProfileImage(event.target.files?.[0])} /><button type="button" className="profile-upload" aria-label="프로필 사진 업로드" onClick={() => uploadRef.current?.click()}><span className="profile-image-clip">{profileImage ? <Image src={profileImage} alt={`${displayName} 프로필`} width={104} height={104} unoptimized /> : <Icon>person</Icon>}</span><span>+</span></button><h1 className="mt-3 text-xl font-semibold">{displayName}</h1><p className="mt-1 text-sm text-[#756e7c]">풀코스 3시간 30분 목표</p><span className="mt-2 inline-block rounded-full bg-[#eaf7ff] px-2 py-1 text-[10px] font-semibold text-[#147eaf]">Garmin 연결됨</span></section><section className="mt-6 grid grid-cols-3 divide-x divide-[#ece8ef] rounded-xl border border-[#ece8ef] py-3 text-center"><Metric label="VDOT" value="44"/><Metric label="훈련 연속" value="6" sub="weeks"/><Metric label="평균 거리" value="38.4" sub="km"/></section><section className="my-insight-card"><div className="my-insight-title"><div><p>최근 4주 훈련 인사이트</p><small>꾸준함이 페이스 향상으로 이어지고 있어요</small></div><Icon>insights</Icon></div><div className="my-insight-metrics"><div><small>평균 페이스</small><strong className="mono">5&apos;42&quot; <i>→</i> <b>5&apos;34&quot;</b></strong><p>km당 8초 향상</p></div><div><small>훈련 완료율</small><strong className="mono"><b>89%</b></strong><p>목표 18회 중 16회</p></div></div><div className="my-insight-weeks" aria-label="최근 4주 훈련 완료율"><div><i style={{height:"66%"}}/><span>1주</span></div><div><i style={{height:"74%"}}/><span>2주</span></div><div><i style={{height:"82%"}}/><span>3주</span></div><div><i className="is-current" style={{height:"92%"}}/><span>이번 주</span></div></div></section><section className="mt-5 divide-y divide-[#ece8ef] border-y border-[#ece8ef]">{rows.map((row)=><button className="flex w-full items-center justify-between py-4 text-sm" key={row}>{row}<Icon>chevron_right</Icon></button>)}</section><button type="button" className="logout-button" onClick={() => setShowLogoutModal(true)}>로그아웃</button>{showLogoutModal && <div className="logout-modal-backdrop" role="presentation" onClick={() => setShowLogoutModal(false)}><section className="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-title" onClick={(event) => event.stopPropagation()}><h2 id="logout-title">로그아웃 하시겠습니까?</h2><p>현재 기기에서 Traini를 로그아웃합니다.</p>{logoutError && <p className="auth-error" role="alert">{logoutError}</p>}<div><button type="button" onClick={() => setShowLogoutModal(false)}>아니오</button><button type="button" disabled={loggingOut} onClick={logout}>{loggingOut ? "로그아웃 중…" : "예, 로그아웃"}</button></div></section></div>}</div>;
+  return <div className="page app-frame"><header className="flex h-10 items-center justify-between"><Brand /><Icon>settings</Icon></header><section className="mt-5 text-center"><input ref={uploadRef} className="sr-only" type="file" accept="image/*" onChange={(event) => void updateProfileImage(event.target.files?.[0])} /><button type="button" className="profile-upload" aria-label="프로필 사진 업로드" onClick={() => uploadRef.current?.click()}><span className="profile-image-clip">{profileImage ? <Image src={profileImage} alt={`${displayName} 프로필`} width={104} height={104} unoptimized /> : <Icon>person</Icon>}</span><span>+</span></button><h1 className="mt-3 text-xl font-semibold">{displayName}</h1></section><MyProgressSummary /><section className="mt-5 divide-y divide-[#ece8ef] border-y border-[#ece8ef]">{rows.map((row)=><button className="flex w-full items-center justify-between py-4 text-sm" key={row}>{row}<Icon>chevron_right</Icon></button>)}</section><button type="button" className="logout-button" onClick={() => setShowLogoutModal(true)}>로그아웃</button>{showLogoutModal && <div className="logout-modal-backdrop" role="presentation" onClick={() => setShowLogoutModal(false)}><section className="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-title" onClick={(event) => event.stopPropagation()}><h2 id="logout-title">로그아웃 하시겠습니까?</h2><p>현재 기기에서 Traini를 로그아웃합니다.</p>{logoutError && <p className="auth-error" role="alert">{logoutError}</p>}<div><button type="button" onClick={() => setShowLogoutModal(false)}>아니오</button><button type="button" disabled={loggingOut} onClick={logout}>{loggingOut ? "로그아웃 중…" : "예, 로그아웃"}</button></div></section></div>}</div>;
 }
 
-function RoadmapProfileSync() {
-  useEffect(() => {
-    const syncRoadmap = async () => {
-      const supabase = getSupabaseBrowserClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from("profiles").select("race_name, target_date, target_time_seconds").eq("id", user.id).maybeSingle();
-      if (!data) return;
-      const overview = document.querySelector(".roadmap-overview");
-      const raceLabel = overview?.previousElementSibling?.querySelector(".eyebrow");
-      const raceDate = data.target_date ? new Date(`${data.target_date}T00:00:00`) : null;
-      const dDay = raceDate ? Math.max(0, Math.ceil((raceDate.getTime() - Date.now()) / 86400000)) : null;
-      if (raceLabel) raceLabel.textContent = `${data.race_name || "나의 목표 대회"} · ${dDay === null ? "D-Day" : `D-${dDay}`}`;
-      const target = overview?.querySelector("div:first-child .mono");
-      if (target) target.textContent = toTime(data.target_time_seconds);
-    };
-    void syncRoadmap();
-  }, []);
-  return null;
-}
-
-function Roadmap() { const phases=[["1–6주차","기초 체력 및 마일리지 확장","완료"],["7–16주차","심폐·역치 강화","진행 중"],["17–21주차","레이스 페이스 적응","예정"],["22–24주차","테이퍼링 & D-Day","예정"]]; return <div className="page app-frame"><RoadmapProfileSync /><header className="flex h-10 items-center justify-between"><Brand /><Icon>settings</Icon></header><section className="mt-6"><Label>2026 SEOUL MARATHON · D-42</Label><h1 className="mt-2 text-[25px] font-semibold tracking-[-.04em]">나의 훈련 로드맵</h1></section><section className="roadmap-overview"><div><Label>GOAL RECORD</Label><p className="mono">03:30:00</p></div><div><Label>ESTIMATED</Label><p className="mono">03:45:20</p></div></section><section className="roadmap-phase"><div className="roadmap-phase-meta"><span>PHASE 2</span><p>심폐 · 역치 강화</p><small>9&nbsp; / &nbsp;24주차 (38%)</small></div><h2>지구력 기반 위에 스피드 지구력을<br/>더하는 단계예요.</h2><div className="roadmap-phase-line"><b /></div></section><section className="roadmap-timeline mt-6">{phases.map(([week,title,status],i)=><div className="roadmap-timeline-row" key={title}><span className={`roadmap-timeline-dot ${i===1?"is-active":i<1?"is-complete":""}`}/><div><p className="text-[11px] text-[#756e7c]">{week}</p><h3>{title}</h3><small className={status==="진행 중"?"is-active":""}>{status}</small></div></div>)}</section><section className="card mt-2 p-5"><h2 className="font-semibold">이번 단계의 핵심 목표</h2><p className="mt-2 text-sm leading-6 text-[#756e7c]">주간 거리 40→48km, 주 1회 역치주, 격주 장거리주</p><div className="mt-4 border-t border-[#ece8ef] pt-4"><Label>이번 주 포커스</Label><p className="mt-1 text-sm font-semibold">T-Pace 역치주 8km</p></div></section></div>; }
+function Roadmap() { return <TrainingRoadmap />; }
 
 export function TrainiScreen({ screen }: Props) { const content = { splash:<Splash/>, login:<AdminLogin/>, garmin:<Garmin/>, analysis:<Analysis/>, goal:<Goal/>, schedule:<Schedule/>, today:<Today/>, my:<MyPage/>, roadmap:<Roadmap/>, "my-goals":<MyGoals/>, privacy:<Privacy/>, support:<Support/> }; return content[screen]; }

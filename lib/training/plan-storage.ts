@@ -8,7 +8,10 @@ import type {
   PlanContent,
 } from "./weekly-plan";
 import { planPeriod, PlanError } from "./weekly-plan";
-import { reconcileWorkoutMatches } from "./matching-storage";
+import {
+  reconcileWorkoutMatches,
+  readWorkoutMatches,
+} from "./matching-storage";
 const timeout = () => AbortSignal.timeout(15_000);
 export async function revision(userId: string) {
   const { data, error } = await getSupabaseAdmin()
@@ -21,6 +24,7 @@ export async function readPlan(
   userId: string,
   week: PlanWeek,
   now = new Date(),
+  options: { reconcile?: boolean } = {},
 ) {
   const timezone = process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles";
   const period = planPeriod(timezone, week, now);
@@ -32,6 +36,7 @@ export async function readPlan(
     )
     .eq("user_id", userId)
     .eq("starts_on", period.start)
+    .eq("timezone", timezone)
     .eq("source_version", 1)
     .abortSignal(timeout())
     .maybeSingle();
@@ -43,7 +48,10 @@ export async function readPlan(
     let matches: Awaited<ReturnType<typeof reconcileWorkoutMatches>> | null =
       null;
     try {
-      matches = await reconcileWorkoutMatches(userId, data.id);
+      matches =
+        options.reconcile === false
+          ? await readWorkoutMatches(userId, data.id)
+          : await reconcileWorkoutMatches(userId, data.id);
     } catch {
       /* Separate status in UI; retry on refresh. */
     }

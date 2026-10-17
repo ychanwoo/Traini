@@ -32,7 +32,9 @@
     "test:weather:provider": "node --env-file=.env.local scripts/test-weather-provider.mjs",
     "test:prescription": "node --test tests/training-prescription.test.mjs",
     "test:prescription:integration": "node --env-file=.env.local scripts/test-training-prescription.mjs",
-    "test:db:races": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/multiple_race_goals.sql --output json --agent no"
+    "test:db:races": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/multiple_race_goals.sql --output json --agent no",
+    "test:progress": "node --test tests/training-progress.test.mjs",
+    "test:progress:integration": "node --env-file=.env.local scripts/test-training-progress.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
