@@ -13,6 +13,7 @@ import { addCalendarDays } from "@/lib/garmin/running-summary";
 import type { WorkoutStep, PlanWeek } from "@/lib/training/weekly-plan";
 import { isoWeekday } from "@/lib/training/weekly-plan";
 import { useWeeklyPlan } from "./use-weekly-plan";
+import { WorkoutMatchDetails } from "./workout-match-details";
 import { TrainingCompleteButton } from "./training-complete-button";
 import { planErrorMessage } from "@/lib/training/plan-errors";
 import styles from "./training.module.css";
@@ -166,10 +167,24 @@ export function TodayPlan({
                 onComplete={() => void state.complete(workout.id)}
               />
             )}
+            <WorkoutMatchDetails
+              key={`${workout.id}:${workout.matching?.revision}`}
+              workout={workout}
+              timezone={state.data!.period.timezone}
+              pending={
+                state.completing || state.busy || !!state.data?.generating
+              }
+              onSave={(revision, ids) =>
+                void state.match(workout.id, revision, ids)
+              }
+            />
             {workout.completed && (
               <p className={styles.note}>
-                직접 완료로 표시했어요. Garmin 활동과의 자동 연결은 아직
-                적용되지 않았어요.
+                {workout.matching?.state === "unavailable"
+                  ? "저장된 완료 상태예요. Garmin 연결 상태는 다시 확인해 주세요."
+                  : workout.matching?.source === "garmin"
+                    ? "Garmin 기록으로 완료를 확인했어요."
+                    : "직접 완료로 표시했어요."}
               </p>
             )}
           </>
@@ -239,7 +254,7 @@ function ScheduleWeek({
         </div>
         <p>
           {plan
-            ? "직접 완료한 계획 거리예요. 실제 러닝 거리는 주간 요약에서 확인해 주세요."
+            ? "완료한 훈련의 계획 거리 합계예요. 실제 러닝 거리는 주간 요약에서 확인해 주세요."
             : "아직 저장된 계획이 없어요."}
         </p>
       </section>
@@ -280,13 +295,30 @@ function ScheduleWeek({
                   >
                     {w
                       ? w.completed
-                        ? "완료 · 직접 표시"
+                        ? w.matching?.state === "unavailable"
+                          ? "완료 · 저장된 상태"
+                          : w.matching?.source === "garmin"
+                            ? "완료 · Garmin 확인"
+                            : "완료 · 직접 표시"
                         : w.kind === "rest"
                           ? w.purpose
                           : `${w.distanceKm.toFixed(1)} km · ${formatPlanPace(w.paceSecondsPerKm)}`
                       : "—"}
                   </small>
                   {w && <SessionSteps steps={w.steps} />}
+                  {w && (
+                    <WorkoutMatchDetails
+                      key={`${w.id}:${w.matching?.revision}`}
+                      workout={w}
+                      timezone={data.period.timezone}
+                      pending={
+                        state.completing || state.busy || !!data.generating
+                      }
+                      onSave={(revision, ids) =>
+                        void state.match(w.id, revision, ids)
+                      }
+                    />
+                  )}
                 </div>
                 <span className="schedule-icon">
                   <Glyph aria-hidden="true" />

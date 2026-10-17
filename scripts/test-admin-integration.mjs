@@ -39,7 +39,7 @@ try {
   expectStatus(await request('/login'),200,'login remains public');
   expectStatus(await request('/icons/google.svg'),200,'login icon remains public');
   for(const path of ['/api/admin/session','/api/training/plan','/api/training/context','/api/training/goal','/api/garmin/sync','/api/garmin/weekly-summary','/api/chatgpt/connection','/api/weather?lat=34&lon=-118','/api/garmin/connect','/api/garmin/callback']) expectStatus(await request(path),401,path);
-  for(const path of ['/api/training/generate','/api/training/complete','/api/training/review','/api/garmin/sync','/api/garmin/webhook','/api/chatgpt/connection']) expectStatus(await request(path,jar(),{method:'POST'}),401,path);
+  for(const path of ['/api/training/generate','/api/training/complete','/api/training/review','/api/training/match','/api/training/match/reconcile','/api/garmin/sync','/api/garmin/webhook','/api/chatgpt/connection']) expectStatus(await request(path,jar(),{method:'POST'}),401,path);
   expectStatus(await request('/api/training/goal',jar(),{method:'PUT'}),401,'goal mutation');
   expectStatus(await request('/api/training/plan',new Map([['sb-kmmutfcgshellvjgpick-auth-token','base64-forged']])),401,'forged cookie');
   console.log('PASS: anonymous pages, APIs and forged cookies');
