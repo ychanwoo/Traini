@@ -8,12 +8,14 @@ import {
   Moon,
   TrendingUp,
   Route,
+  X,
 } from "lucide-react";
 import { addCalendarDays } from "@/lib/garmin/running-summary";
 import type { WorkoutStep, PlanWeek } from "@/lib/training/weekly-plan";
 import { isoWeekday } from "@/lib/training/weekly-plan";
 import { useWeeklyPlan } from "./use-weekly-plan";
 import { WorkoutMatchDetails } from "./workout-match-details";
+import { WorkoutFeedbackForm } from "./workout-feedback-form";
 import { TrainingCompleteButton } from "./training-complete-button";
 import { planErrorMessage } from "@/lib/training/plan-errors";
 import { TrainingWeatherCard, ScheduleWeather } from "./training-weather-card";
@@ -71,7 +73,13 @@ function SessionSteps({ steps }: { steps: WorkoutStep[] }) {
     </details>
   );
 }
-function PlanFeedback({ state }: { state: ReturnType<typeof useWeeklyPlan> }) {
+function PlanFeedback({
+  state,
+  readOnly = false,
+}: {
+  state: ReturnType<typeof useWeeklyPlan>;
+  readOnly?: boolean;
+}) {
   const { data, error, busy, loading } = state;
   return (
     <div className={styles.planFeedback} aria-live="polite">
@@ -91,7 +99,7 @@ function PlanFeedback({ state }: { state: ReturnType<typeof useWeeklyPlan> }) {
           다시 확인
         </button>
       )}
-      {data && (!data.plan || data.inputsChanged) && (
+      {!readOnly && data && (!data.plan || data.inputsChanged) && (
         <>
           <p className={styles.note}>
             {busy || data.generating
@@ -125,10 +133,10 @@ function PlanFeedback({ state }: { state: ReturnType<typeof useWeeklyPlan> }) {
           {data.plan.review.startsOn} 주간 리뷰를 반영한 계획이에요.
         </p>
       )}
-      {data?.inputsChanged && (
+      {!readOnly && data?.inputsChanged && (
         <p className={styles.note}>
-          목표·러닝 기록 또는 주간 리뷰가 바뀌었어요. 최신 데이터로 계획을
-          업데이트할 수 있으며, 완료한 훈련은 유지돼요.
+          목표·러닝 기록·피드백 또는 주간 리뷰가 바뀌었어요. 최신 데이터로
+          계획을 업데이트할 수 있으며, 완료한 훈련은 유지돼요.
         </p>
       )}
     </div>
@@ -192,7 +200,7 @@ export function TodayPlan() {
                 timezone={state.data!.period.timezone}
               />
             )}
-            {workout.kind !== "rest" && (
+            {workout.kind !== "rest" && workout.status !== "skipped" && (
               <TrainingCompleteButton
                 completed={workout.completed}
                 pending={
@@ -211,6 +219,15 @@ export function TodayPlan() {
               onSave={(revision, ids) =>
                 void state.match(workout.id, revision, ids)
               }
+            />
+            <WorkoutFeedbackForm
+              key={`${workout.id}:${workout.feedback?.version}:${workout.completed}:${workout.status}`}
+              workout={workout}
+              today={today!}
+              pending={
+                state.completing || state.busy || !!state.data?.generating
+              }
+              onSave={state.feedback}
             />
             {workout.completed && (
               <p className={styles.note}>
@@ -238,8 +255,8 @@ function ScheduleWeek({
   week,
   setWeek,
 }: {
-  week: PlanWeek;
-  setWeek: (v: PlanWeek) => void;
+  week: PlanWeek | "previous";
+  setWeek: (v: PlanWeek | "previous") => void;
 }) {
   const state = useWeeklyPlan(week),
     data = state.data,
@@ -255,9 +272,9 @@ function ScheduleWeek({
     <main className="schedule-page">
       <header className="schedule-week">
         <button
-          aria-label="이번 주 보기"
-          disabled={week === "current"}
-          onClick={() => setWeek("current")}
+          aria-label={week === "next" ? "이번 주 보기" : "지난주 보기"}
+          disabled={week === "previous"}
+          onClick={() => setWeek(week === "next" ? "current" : "previous")}
         >
           <ChevronLeft />
         </button>
@@ -266,12 +283,14 @@ function ScheduleWeek({
             ? `${data.period.start.slice(5).replace("-", ".")} – ${data.period.end.slice(5).replace("-", ".")}`
             : week === "current"
               ? "이번 주"
-              : "다음 주"}
+              : week === "previous"
+                ? "지난주"
+                : "다음 주"}
         </p>
         <button
-          aria-label="다음 주 보기"
+          aria-label={week === "previous" ? "이번 주 보기" : "다음 주 보기"}
           disabled={week === "next"}
-          onClick={() => setWeek("next")}
+          onClick={() => setWeek(week === "previous" ? "current" : "next")}
         >
           <ChevronRight />
         </button>
@@ -293,8 +312,8 @@ function ScheduleWeek({
             : "아직 저장된 계획이 없어요."}
         </p>
       </section>
-      <PlanFeedback state={state} />
-      <PrescriptionCard week={week} />
+      <PlanFeedback state={state} readOnly={week === "previous"} />
+      {week !== "previous" && <PrescriptionCard week={week} />}
       {data && (
         <section className="schedule-list" aria-label="주간 훈련 일정">
           {Array.from({ length: 7 }, (_, i) => {
@@ -303,13 +322,15 @@ function ScheduleWeek({
               today = date === data.period.today;
             const race = data.races?.find((r) => r.date === date);
             const Glyph =
-              w?.kind === "rest"
-                ? Moon
-                : w?.kind === "long"
-                  ? Route
-                  : w?.kind === "threshold" || w?.kind === "interval"
-                    ? TrendingUp
-                    : Footprints;
+              w?.status === "skipped"
+                ? X
+                : w?.kind === "rest"
+                  ? Moon
+                  : w?.kind === "long"
+                    ? Route
+                    : w?.kind === "threshold" || w?.kind === "interval"
+                      ? TrendingUp
+                      : Footprints;
             return (
               <article
                 key={date}
@@ -335,18 +356,31 @@ function ScheduleWeek({
                     {race
                       ? `${race.distance} · ${race.targetTimeSeconds ? formatRaceTime(race.targetTimeSeconds) : "완주 목표"}`
                       : w
-                        ? w.completed
-                          ? w.matching?.state === "unavailable"
-                            ? "완료 · 저장된 상태"
-                            : w.matching?.source === "garmin"
-                              ? "완료 · Garmin 확인"
-                              : "완료 · 직접 표시"
-                          : w.kind === "rest"
-                            ? w.purpose
-                            : `${w.distanceKm.toFixed(1)} km · ${formatPlanPace(w.paceSecondsPerKm)}`
+                        ? w.status === "skipped"
+                          ? "× 직접 건너뜀"
+                          : w.completed
+                            ? w.matching?.state === "unavailable"
+                              ? "완료 · 저장된 상태"
+                              : w.matching?.source === "garmin"
+                                ? "완료 · Garmin 확인"
+                                : "완료 · 직접 표시"
+                            : w.kind === "rest"
+                              ? w.purpose
+                              : `${date < data.period.today ? "미확인" : "예정"} · ${w.distanceKm.toFixed(1)} km · ${formatPlanPace(w.paceSecondsPerKm)}`
                         : "—"}
                   </small>
                   {w && !race && <SessionSteps steps={w.steps} />}
+                  {w && !race && (
+                    <WorkoutFeedbackForm
+                      key={`${w.id}:${w.feedback?.version}:${w.completed}:${w.status}`}
+                      workout={w}
+                      today={data.period.today}
+                      pending={
+                        state.completing || state.busy || !!data.generating
+                      }
+                      onSave={state.feedback}
+                    />
+                  )}
                   {w && !race && (
                     <WorkoutMatchDetails
                       key={`${w.id}:${w.matching?.revision}`}
@@ -391,6 +425,6 @@ function ScheduleWeek({
   );
 }
 export function WeeklySchedule() {
-  const [week, setWeek] = useState<PlanWeek>("current");
+  const [week, setWeek] = useState<PlanWeek | "previous">("current");
   return <ScheduleWeek key={week} week={week} setWeek={setWeek} />;
 }

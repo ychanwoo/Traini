@@ -5,10 +5,21 @@ import type { ReviewState } from "@/lib/training/review-storage";
 import { reviewErrorMessage } from "@/lib/training/review-errors";
 import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
 import styles from "./training.module.css";
+const fatigueLabels: Record<string, string> = {
+  low: "낮음",
+  moderate: "보통",
+  high: "높음",
+};
+const painLabels: Record<string, string> = {
+  none: "없음",
+  discomfort: "불편감",
+  pain: "통증",
+};
 const EVENT = "traini:plan-changed";
 const limitationLabels: Record<string, string> = {
   activity_absence_unknown: "기록 없는 날의 수행 여부는 확인할 수 없어요.",
-  recovery_unavailable: "수면·HRV·주관적 피로는 평가에 포함되지 않았어요.",
+  recovery_unavailable:
+    "수면·HRV는 없으며, 피드백 미입력을 정상 회복으로 판단하지 않아요.",
   no_plan: "저장된 계획이 없어 계획 대비 수행률은 계산하지 않았어요.",
   unconfirmed_sessions:
     "수동 완료와 미확인 세션은 Garmin 수행 확인과 구분했어요.",
@@ -194,6 +205,53 @@ export function WeeklyReviewCard() {
                 ? ` · 미확인 ${metrics.unconfirmed}개`
                 : ""}
             </p>
+            <p className={styles.help}>
+              직접 건너뜀 {metrics.explicitlySkipped}개 · 피드백 입력{" "}
+              {metrics.feedbackReports ?? 0}개
+            </p>
+            {metrics.sessions.some(
+              (s) => s.feedback?.assessment || s.feedback?.skipReason,
+            ) && (
+              <details className={styles.details}>
+                <summary>훈련 피드백·건너뜀 사유</summary>
+                {metrics.sessions
+                  .filter(
+                    (s) => s.feedback?.assessment || s.feedback?.skipReason,
+                  )
+                  .map((s) => (
+                    <div key={s.date}>
+                      <p className={styles.note}>
+                        {s.date} ·{" "}
+                        {s.completion === "skipped"
+                          ? "직접 건너뜀"
+                          : s.completion === "garmin"
+                            ? "Garmin 확인"
+                            : s.completion === "manual"
+                              ? "직접 완료"
+                              : "미확인"}
+                      </p>
+                      {s.feedback?.skipReason && (
+                        <p className={styles.help}>
+                          사유 · {s.feedback.skipReason}
+                        </p>
+                      )}
+                      <p className={styles.help}>
+                        RPE {s.feedback?.assessment?.rpe ?? "미입력"} · 피로{" "}
+                        {fatigueLabels[s.feedback?.assessment?.fatigue ?? ""] ??
+                          "미입력"}{" "}
+                        · 통증·불편감{" "}
+                        {painLabels[s.feedback?.assessment?.pain ?? ""] ??
+                          "미입력"}
+                      </p>
+                      {s.feedback?.assessment?.memo && (
+                        <p className={styles.help}>
+                          {s.feedback.assessment.memo}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+              </details>
+            )}
             {(metrics.additionalRuns > 0 || metrics.unassignedRuns > 0) && (
               <p className={styles.help}>
                 계획 휴식일 러닝 {metrics.additionalRuns}회 · 세션 미연결 러닝{" "}
