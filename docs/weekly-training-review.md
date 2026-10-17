@@ -1,8 +1,9 @@
 # Weekly training review
 
-The review completes issue #28. It covers one completed Monday–Sunday week in
-`TRAINI_TIMEZONE` (default `America/Los_Angeles`), selectable among the last eight
-completed weeks. The current incomplete week is not reviewable.
+A review covers one Monday–Sunday week in `TRAINI_TIMEZONE` (default
+`America/Los_Angeles`), normally selected among the last eight completed weeks.
+On Sunday, the current week also becomes reviewable after explicit, current
+closeout confirmation. See [weekly closeout](weekly-training-closeout.md).
 
 ## Data and evidence
 
@@ -43,8 +44,9 @@ by Garmin, and actual volume within 90–105% of baseline. Limited records alone
 not authorize reductions. Two quality sessions is an existing planning ceiling,
 not a claim that two high-intensity sessions were measured.
 
-Only a fresh review of the latest completed week informs current/next-week plan
-generation. `applyReviewPolicy` runs before subtracting current-week actual load;
+Current-week planning uses a fresh review of the previous completed week.
+Next-week planning after Sunday closeout uses the closed current week instead.
+The selected source must be fresh; an unrelated older review is not substituted. `applyReviewPolicy` runs before subtracting current-week actual load;
 it cannot raise existing volume, quality, long-run or race taper caps. Historical
 reviews stay available for inspection. Generating a review does not overwrite a
 plan. The existing explicit plan-generation/update action applies it, preserving
@@ -96,6 +98,4 @@ CAS rejection and existing-review preservation.
 
 Manual check: open `/schedule`, inspect the last completed week's real metrics,
 select an earlier week, generate a review when the shared quota permits, inspect
-the observations/limitations, then explicitly update the desired plan. The real
-administrator's AI request was rate-limited during implementation; real-provider
-structured-output acceptance remains a follow-up check once the quota resets.
+the observations/limitations, then explicitly update the desired plan. Actual provider acceptance is a separate opt-in check; do not call inference just to repeat deterministic validation. See [readiness](service-readiness.md).
