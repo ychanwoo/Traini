@@ -444,3 +444,52 @@ test("unconfirmed recovery permits rest without forcing a pre-race mileage minim
     plans.validatePlan({ summary: "회복 확인 중 휴식도 허용", workouts }, p),
   );
 });
+
+test("explicit skip blocks same-day refill without cutting next week's ordinary allowance", () => {
+  const context = fixture("2026-10-16", [race("FULL", "2027-03-07")]);
+  const baselineCurrent = prescriptions.refinePrescription(
+    context,
+    plans.planPolicy(context, "current"),
+    null,
+    null,
+  ).policy;
+  const baselineNext = prescriptions.refinePrescription(
+    context,
+    plans.planPolicy(context, "next"),
+    null,
+    null,
+  ).policy;
+  context.workoutFeedback = [
+    {
+      workoutId: id(90),
+      date: context.asOfDate,
+      outcome: "skipped",
+      version: 1,
+      reportedAt: context.generatedAt,
+      plannedDistanceKm: 7,
+      assessment: null,
+      skipReason: "일정 때문에 휴식",
+    },
+  ];
+  const current = prescriptions.refinePrescription(
+    context,
+    plans.planPolicy(context, "current"),
+    null,
+    null,
+  ).policy;
+  assert.ok(current.blockedDates.includes(context.asOfDate));
+  assert.equal(current.minWeekKm, 0);
+  assert.ok(current.maxWeekKm <= baselineCurrent.maxWeekKm - 7);
+  const next = prescriptions.refinePrescription(
+    context,
+    plans.planPolicy(context, "next"),
+    null,
+    null,
+  ).policy;
+  assert.equal(
+    next.maxWeekKm,
+    baselineNext.maxWeekKm,
+    "no skipped-mileage debt or missing-only cut next week",
+  );
+  assert.equal(next.maxHardSessions, baselineNext.maxHardSessions);
+});

@@ -41,6 +41,7 @@ export type MatchWorkout = {
   distanceKm: number;
   steps: WorkoutStep[];
   manualCompletedAt: string | null;
+  feedback?: import("./workout-feedback").WorkoutFeedback;
   state: string;
   reason: MatchReason;
   dismissed: boolean;

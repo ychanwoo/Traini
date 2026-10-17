@@ -40,7 +40,10 @@ export async function generatePlan(userId: string, week: PlanWeek) {
   ).policy;
   if (week === "current") policy = accountCurrentWeek(policy, evidence.current);
   if (existing.plan) {
-    const completed = existing.plan.workouts.filter((w) => w.completed);
+    const completed = existing.plan.workouts.filter(
+      (w) =>
+        w.completed || w.status === "skipped" || (w.feedback?.version ?? 0) > 0,
+    );
     policy.blockedDates = [
       ...new Set([...policy.blockedDates, ...completed.map((w) => w.date)]),
     ];

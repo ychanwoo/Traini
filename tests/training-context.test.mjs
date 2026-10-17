@@ -338,9 +338,14 @@ function storage({
           profileResult.data
             ? {
                 data:
-                  name === "training_goal_snapshot"
-                    ? { profile: profileResult.data, revision: "a".repeat(32) }
-                    : "b".repeat(32),
+                  name === "training_feedback_evidence"
+                    ? []
+                    : name === "training_goal_snapshot"
+                      ? {
+                          profile: profileResult.data,
+                          revision: "a".repeat(32),
+                        }
+                      : "b".repeat(32),
                 error: null,
               }
             : { data: null, error: { message: "missing" } },
@@ -375,6 +380,7 @@ function storage({
       {
         "@/lib/supabase/admin": { getSupabaseAdmin: () => db },
         "@/lib/garmin/running-summary": running,
+        "./workout-feedback": load("lib/training/workout-feedback.ts"),
         "./context": context,
         "./goal": goals,
       },

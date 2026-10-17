@@ -39,7 +39,7 @@ try {
   expectStatus(await request('/login'),200,'login remains public');
   expectStatus(await request('/icons/google.svg'),200,'login icon remains public');
   for(const path of ['/api/training/progress','/api/training/prescription','/api/admin/session','/api/training/review','/api/training/plan','/api/training/context','/api/training/goal','/api/garmin/sync','/api/garmin/weekly-summary','/api/chatgpt/connection','/api/weather?lat=34&lon=-118','/api/garmin/connect','/api/garmin/callback']) expectStatus(await request(path),401,path);
-  for(const path of ['/api/training/generate','/api/training/complete','/api/training/review','/api/training/match','/api/training/match/reconcile','/api/garmin/sync','/api/garmin/webhook','/api/chatgpt/connection']) expectStatus(await request(path,jar(),{method:'POST'}),401,path);
+  for(const path of ['/api/training/generate','/api/training/feedback','/api/training/complete','/api/training/review','/api/training/match','/api/training/match/reconcile','/api/garmin/sync','/api/garmin/webhook','/api/chatgpt/connection']) expectStatus(await request(path,jar(),{method:'POST'}),401,path);
   expectStatus(await request('/api/training/goal',jar(),{method:'PUT'}),401,'goal mutation');
   expectStatus(await request('/api/training/plan',new Map([['sb-kmmutfcgshellvjgpick-auth-token','base64-forged']])),401,'forged cookie');
   console.log('PASS: anonymous pages, APIs and forged cookies');
@@ -53,6 +53,8 @@ try {
   const outsiderCookies=jar();assert.ifError((await ssr(outsiderCookies).auth.setSession(signed.data.session)).error);
   for(const path of ['/api/training/progress','/api/training/prescription','/api/admin/session','/api/training/review','/api/training/plan','/api/garmin/sync','/api/weather?lat=34&lon=-118'])expectStatus(await request(path,outsiderCookies),403,path);
   expectStatus(await request('/api/training/generate',outsiderCookies,{method:'POST'}),403,'outsider cannot invoke AI');
+  expectStatus(await request('/api/training/feedback',outsiderCookies,{method:'POST'}),403,'outsider cannot save feedback');
+  const feedbackRows=await outsider.from('workout_feedback_events').select('id');assert.ifError(feedbackRows.error);assert.deepEqual(feedbackRows.data,[]);
   const denied=await request('/schedule',outsiderCookies);expectStatus(denied,307,'outsider page');assert.equal(new URL(denied.headers.get('location'),origin).searchParams.get('error'),'admin');
   const records=await outsider.from('profiles').select('id');assert.ifError(records.error);assert.deepEqual(records.data,[]);
   assert.ok((await outsider.from('profiles').insert({id:outsiderId,display_name:'must be denied'})).error,'RLS denies own profile insert');
@@ -67,7 +69,9 @@ try {
   for(const path of ['/today','/schedule','/roadmap','/my','/my/goals','/garmin-connect'])expectStatus(await request(path,adminCookies),200,path);
   for(const path of ['/api/training/progress','/api/training/prescription','/api/admin/session','/api/training/review','/api/training/plan','/api/training/context','/api/training/goal','/api/garmin/weekly-summary','/api/garmin/sync','/api/chatgpt/connection'])expectStatus(await request(path,adminCookies),200,path);
   const unsafe=await request('/login?next=//evil.test',adminCookies);expectStatus(unsafe,307,'authenticated login');assert.equal(new URL(unsafe.headers.get('location'),origin).pathname,'/today');
-  for(const [path,method] of [['/api/training/generate','POST'],['/api/training/goal','PUT'],['/auth/signout','POST']]) expectStatus(await request(path,adminCookies,{method,headers:{origin:'https://evil.test'}}),403,'foreign origin');
+  for(const [path,method] of [['/api/training/feedback','POST'],['/api/training/generate','POST'],['/api/training/goal','PUT'],['/auth/signout','POST']]) expectStatus(await request(path,adminCookies,{method,headers:{origin:'https://evil.test'}}),403,'foreign origin');
+  expectStatus(await request('/api/training/feedback',adminCookies,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({workoutId:'invalid'})}),400,'malformed feedback cannot write');
+  expectStatus(await request('/api/training/plan?week=previous',adminCookies),200,'completed-week plans are readable');
   expectStatus(await request('/auth/callback'),307,'missing OAuth code');
   expectStatus(await request('/auth/callback?code=invalid-code'),307,'invalid OAuth code');
   console.log('PASS: admin pages, read APIs, callback errors and CSRF denial');

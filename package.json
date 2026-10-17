@@ -35,7 +35,10 @@
     "test:db:races": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/multiple_race_goals.sql --output json --agent no",
     "test:progress": "node --test tests/training-progress.test.mjs",
     "test:progress:integration": "node --env-file=.env.local scripts/test-training-progress.mjs",
-    "test:race": "node --test tests/race-stage-policy.test.mjs"
+    "test:race": "node --test tests/race-stage-policy.test.mjs",
+    "test:feedback": "node --test tests/workout-feedback.test.mjs",
+    "test:feedback:integration": "node --env-file=.env.local scripts/test-workout-feedback.mjs",
+    "test:db:feedback": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/workout_feedback.sql --output json --agent no"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

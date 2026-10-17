@@ -254,6 +254,7 @@ export function buildTrainingContext(
       limitations,
       assessment: "input_completeness_only",
     },
+    workoutFeedback: [] as import("./workout-feedback").FeedbackEvidence[],
     history: {
       source: "garmin_fit",
       start: period.start,

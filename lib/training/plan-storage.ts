@@ -22,7 +22,7 @@ export async function revision(userId: string) {
 }
 export async function readPlan(
   userId: string,
-  week: PlanWeek,
+  week: PlanWeek | "previous",
   now = new Date(),
   options: { reconcile?: boolean } = {},
 ) {
@@ -32,7 +32,7 @@ export async function readPlan(
   const { data, error } = await db
     .from("training_plans")
     .select(
-      "id,starts_on,ends_on,summary,target_distance_km,created_at,model,input_revision,review_context,workouts(id,scheduled_on,kind,status,title,purpose,distance_km,pace_seconds_per_km,effort,steps)",
+      "id,starts_on,ends_on,summary,target_distance_km,created_at,model,input_revision,review_context,workouts(id,scheduled_on,kind,status,feedback_version,feedback_reported_at,workout_assessment,skip_reason,title,purpose,distance_km,pace_seconds_per_km,effort,steps)",
     )
     .eq("user_id", userId)
     .eq("starts_on", period.start)
@@ -58,6 +58,13 @@ export async function readPlan(
     const workouts: StoredWorkout[] = data.workouts
       .map((w) => ({
         id: w.id,
+        status: w.status,
+        feedback: {
+          version: w.feedback_version,
+          reportedAt: w.feedback_reported_at,
+          assessment: w.workout_assessment,
+          skipReason: w.skip_reason,
+        },
         date: w.scheduled_on,
         kind: w.kind as StoredWorkout["kind"],
         completed: matches?.has(w.id)

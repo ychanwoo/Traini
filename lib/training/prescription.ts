@@ -209,6 +209,23 @@ export function refinePrescription(
     policy.maxWeekKm = Math.min(policy.maxWeekKm, policy.weeklyCeilingKm);
     policy.minWeekKm = Math.min(policy.minWeekKm, policy.maxWeekKm);
   }
+  const skipped = (context.workoutFeedback ?? []).filter(
+    (r) =>
+      r.outcome === "skipped" &&
+      r.date >= policy.start &&
+      r.date >= policy.today &&
+      r.date <= policy.end,
+  );
+  if (skipped.length) {
+    policy.blockedDates = [
+      ...new Set([...policy.blockedDates, ...skipped.map((r) => r.date)]),
+    ];
+    policy.maxWeekKm = Math.max(
+      0,
+      policy.maxWeekKm - skipped.reduce((n, r) => n + r.plannedDistanceKm, 0),
+    );
+    policy.minWeekKm = 0;
+  }
   const condition = context.goal.condition;
   const age = condition
     ? calendarDistance(condition.reportedOn, policy.today)

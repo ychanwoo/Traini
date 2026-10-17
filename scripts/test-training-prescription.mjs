@@ -61,6 +61,7 @@ const contexts = load("lib/training/context.ts", {
   "./goal": goal,
 });
 const storage = load("lib/training/storage.ts", {
+  "./workout-feedback": load("lib/training/workout-feedback.ts"),
   "@/lib/supabase/admin": { getSupabaseAdmin: () => db },
   "@/lib/garmin/running-summary": running,
   "./context": contexts,
