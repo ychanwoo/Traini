@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestJson, ReadRequestGate } from "@/lib/http/client-request";
 import { addCalendarDays } from "@/lib/garmin/running-summary";
-import type { ReviewState } from "@/lib/training/review-storage";
+import type { CoachingReviewState as ReviewState } from "@/lib/training/coaching-storage";
 import { reviewErrorMessage } from "@/lib/training/review-errors";
 import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
+import { coachingText } from "@/lib/training/coaching-copy";
 import styles from "./training.module.css";
 const fatigueLabels: Record<string, string> = {
   low: "낮음",
@@ -23,7 +24,7 @@ const limitationLabels: Record<string, string> = {
     "수면·HRV는 없으며, 피드백 미입력을 정상 회복으로 판단하지 않아요.",
   no_plan: "저장된 계획이 없어 계획 대비 수행률은 계산하지 않았어요.",
   unconfirmed_sessions:
-    "수동 완료와 미확인 세션은 Garmin 수행 확인과 구분했어요.",
+    "직접 완료 표시와 수행 미확인 훈련은 Garmin 기록으로 확인한 훈련과 구분했어요.",
   missing_metrics: "일부 활동에 거리나 시간이 없어 합계가 부분적일 수 있어요.",
   limited_history: "평소 훈련량을 비교할 이전 주 기록이 충분하지 않아요.",
   no_recorded_activities: "이 주에 확인된 러닝 기록이 없어요.",
@@ -202,74 +203,111 @@ export function WeeklyReviewCard() {
                 </dd>
               </div>
             </dl>
-            <p className={styles.note}>
-              {metrics.activityCount}회 러닝 · Garmin 수행 확인{" "}
-              {metrics.garminCompleted}개 · 수동 완료 {metrics.manualCompleted}
-              개
-              {metrics.unconfirmed !== null
-                ? ` · 미확인 ${metrics.unconfirmed}개`
-                : ""}
-            </p>
-            <p className={styles.help}>
-              직접 건너뜀 {metrics.explicitlySkipped}개 · 피드백 입력{" "}
-              {metrics.feedbackReports ?? 0}개
-            </p>
-            {metrics.sessions.some(
-              (s) => s.feedback?.assessment || s.feedback?.skipReason,
-            ) && (
-              <details className={styles.details}>
-                <summary>훈련 피드백·건너뜀 사유</summary>
-                {metrics.sessions
-                  .filter(
-                    (s) => s.feedback?.assessment || s.feedback?.skipReason,
-                  )
-                  .map((s) => (
-                    <div key={s.date}>
-                      <p className={styles.note}>
-                        {s.date} ·{" "}
-                        {s.completion === "skipped"
-                          ? "직접 건너뜀"
-                          : s.completion === "garmin"
-                            ? "Garmin 확인"
-                            : s.completion === "manual"
-                              ? "직접 완료"
-                              : "미확인"}
-                      </p>
-                      {s.feedback?.skipReason && (
-                        <p className={styles.help}>
-                          사유 · {s.feedback.skipReason}
-                        </p>
-                      )}
-                      <p className={styles.help}>
-                        RPE {s.feedback?.assessment?.rpe ?? "미입력"} · 피로{" "}
-                        {fatigueLabels[s.feedback?.assessment?.fatigue ?? ""] ??
-                          "미입력"}{" "}
-                        · 통증·불편감{" "}
-                        {painLabels[s.feedback?.assessment?.pain ?? ""] ??
-                          "미입력"}
-                      </p>
-                      {s.feedback?.assessment?.memo && (
-                        <p className={styles.help}>
-                          {s.feedback.assessment.memo}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-              </details>
-            )}
-            {(metrics.additionalRuns > 0 || metrics.unassignedRuns > 0) && (
-              <p className={styles.help}>
-                계획 휴식일 러닝 {metrics.additionalRuns}회 · 세션 미연결 러닝{" "}
-                {metrics.unassignedRuns}회
-              </p>
-            )}
-            {!metrics.hasPlan && (
+            <details className={styles.details}>
+              <summary>수행 기록·피드백</summary>
               <p className={styles.note}>
-                이 주의 저장된 계획이 없어 실제 기록을 중심으로 검토해요. 미연결
-                기록이 모두 추가 훈련을 뜻하지는 않아요.
+                {metrics.activityCount}회 러닝 · Garmin으로 확인한 계획 훈련{" "}
+                {metrics.garminCompleted}개 · 직접 완료 표시{" "}
+                {metrics.manualCompleted}개
+                {metrics.unconfirmed !== null
+                  ? ` · 수행 미확인 ${metrics.unconfirmed}개`
+                  : ""}
               </p>
-            )}
+              <p className={styles.help}>
+                직접 건너뜀 {metrics.explicitlySkipped}개 · 피드백 입력{" "}
+                {metrics.feedbackReports ?? 0}개
+              </p>
+              {metrics.sessions.some(
+                (s) => s.feedback?.assessment || s.feedback?.skipReason,
+              ) && (
+                <details className={styles.details}>
+                  <summary>훈련 피드백·건너뜀 사유</summary>
+                  {metrics.sessions
+                    .filter(
+                      (s) => s.feedback?.assessment || s.feedback?.skipReason,
+                    )
+                    .map((s) => (
+                      <div key={s.date}>
+                        <p className={styles.note}>
+                          {s.date} ·{" "}
+                          {s.completion === "skipped"
+                            ? "직접 건너뜀"
+                            : s.completion === "garmin"
+                              ? "Garmin 확인"
+                              : s.completion === "manual"
+                                ? "직접 완료"
+                                : "미확인"}
+                        </p>
+                        {s.feedback?.skipReason && (
+                          <p className={styles.help}>
+                            사유 · {s.feedback.skipReason}
+                          </p>
+                        )}
+                        <p className={styles.help}>
+                          체감 강도(RPE){" "}
+                          {s.feedback?.assessment?.rpe ?? "미입력"} · 피로{" "}
+                          {fatigueLabels[
+                            s.feedback?.assessment?.fatigue ?? ""
+                          ] ?? "미입력"}{" "}
+                          · 통증·불편감{" "}
+                          {painLabels[s.feedback?.assessment?.pain ?? ""] ??
+                            "미입력"}
+                        </p>
+                        {s.feedback?.assessment?.memo && (
+                          <p className={styles.help}>
+                            {s.feedback.assessment.memo}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                </details>
+              )}
+              {(metrics.additionalRuns > 0 || metrics.unassignedRuns > 0) && (
+                <p className={styles.help}>
+                  계획된 휴식일의 러닝 {metrics.additionalRuns}회 · 계획과
+                  연결되지 않은 러닝 {metrics.unassignedRuns}회
+                </p>
+              )}
+              {!metrics.hasPlan && (
+                <p className={styles.note}>
+                  이 주의 저장된 계획이 없어 실제 기록을 중심으로 검토해요.
+                  미연결 기록이 모두 추가 훈련을 뜻하지는 않아요.
+                </p>
+              )}
+            </details>
           </>
+        )}
+        {data?.coaching && (
+          <div className={styles.reviewContent}>
+            <p className={styles.reviewDirection}>{data.coaching.headline}</p>
+            <p className={styles.note}>{data.coaching.summary}</p>
+            <ul className={styles.reviewObservations}>
+              {data.coaching.observations.map((text, i) => (
+                <li key={i}>{text}</li>
+              ))}
+            </ul>
+            <p className={styles.reviewDirection}>현재 계획에서는</p>
+            <p className={styles.note}>{data.coaching.recommendation}</p>
+            {data.coaching.condition && (
+              <p className={styles.note}>{data.coaching.condition}</p>
+            )}
+            {data.coaching.reflections.map((item) => (
+              <p
+                key={item.week}
+                className={
+                  ["conflict", "stale"].includes(item.status)
+                    ? styles.error
+                    : styles.note
+                }
+              >
+                {item.text}
+              </p>
+            ))}
+            <p className={styles.help}>
+              핵심 평가와 계획 반영 설명은 확인된 기록·피드백·저장된 일정으로
+              정리했어요. AI 분석 원문은 아래에서 따로 확인할 수 있어요.
+            </p>
+          </div>
         )}
         {review && (
           <div className={styles.reviewContent}>
@@ -287,24 +325,20 @@ export function WeeklyReviewCard() {
                   : `${review.metrics.actualKm.toFixed(1)}km`}
               </p>
             )}
-            <p className={styles.note}>{review.content.summary}</p>
-            <ul className={styles.reviewObservations}>
-              {review.content.observations.map((o, i) => (
-                <li key={i}>{o.text}</li>
-              ))}
-            </ul>
-            <p className={styles.reviewDirection}>
-              다음 계획 ·{" "}
-              {review.content.nextWeek.direction === "reduce"
-                ? "훈련량 조정"
-                : review.content.nextWeek.direction === "progress"
-                  ? "점진적 증가"
-                  : "훈련량 유지"}{" "}
-              {review.content.nextWeek.volumeChangePercent !== 0
-                ? `(${review.content.nextWeek.volumeChangePercent > 0 ? "+" : ""}${review.content.nextWeek.volumeChangePercent}%)`
-                : ""}
-            </p>
-            <p className={styles.note}>{review.content.nextWeek.rationale}</p>
+            <details className={styles.details}>
+              <summary>저장된 AI 리뷰 원문</summary>
+              <p className={styles.note}>
+                {coachingText(review.content.summary)}
+              </p>
+              <ul className={styles.reviewObservations}>
+                {review.content.observations.map((o, i) => (
+                  <li key={i}>{coachingText(o.text)}</li>
+                ))}
+              </ul>
+              <p className={styles.note}>
+                {coachingText(review.content.nextWeek.rationale)}
+              </p>
+            </details>
             <details className={styles.details}>
               <summary>평가 범위와 제한</summary>
               {review.content.limitations.map((k) => (

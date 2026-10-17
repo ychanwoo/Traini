@@ -76,7 +76,12 @@ try {
     throw new Error(
       "Generation currently busy or limited; no inference requested",
     );
-  const existing = await request("/api/training/review");
+  const selected = process.env.TRAINI_LIVE_REVIEW_START;
+  if (selected && !/^\d{4}-\d{2}-\d{2}$/.test(selected))
+    throw new Error("Use an explicit Monday date for the live review test");
+  const existing = await request(
+    `/api/training/review${selected ? `?start=${encodeURIComponent(selected)}` : ""}`,
+  );
   const result = existing.review?.fresh
     ? existing
     : await request("/api/training/review", {
@@ -86,6 +91,8 @@ try {
     result.review?.fresh,
     "Saved review must validate against the current inputs",
   );
+  assert.equal(result.coaching?.source, "recorded_evidence_and_saved_plans");
+  assert.ok(result.coaching.headline && result.coaching.summary);
   const after = await request("/api/training/generation-status");
   assert.ok(
     after.quota.used - quota.quota.used <= 1,
@@ -105,6 +112,7 @@ try {
   console.log(
     JSON.stringify({
       reviewSavedAndFresh: true,
+      selectedWeek: result.period.startsOn,
       newGenerationRequests: after.quota.used - quota.quota.used,
       remaining: after.quota.remaining,
       existingPlansPreserved: true,

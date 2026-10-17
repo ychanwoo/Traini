@@ -96,6 +96,7 @@ export async function readReview(userId: string, start?: string | null) {
     review: data
       ? {
           id: data.id,
+          revision: data.input_revision,
           content: validateReview(data.content, data.metrics as ReviewMetrics),
           metrics: data.metrics as ReviewMetrics,
           model: data.model,
