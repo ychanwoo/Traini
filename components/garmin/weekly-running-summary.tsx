@@ -9,7 +9,7 @@ import { dateInZone, distanceLabel, durationLabel, paceLabel, periodLabel, timez
 import styles from "./weekly-running-summary.module.css";
 import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
 
-type State = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: RunningSummary };
+type State = { status: "loading"; data?: RunningSummary } | { status: "error"; message: string; data?: RunningSummary } | { status: "ready"; data: RunningSummary };
 const weekdays = ["월", "화", "수", "목", "금", "토", "일"];
 class SummaryRequestError extends Error {}
 
@@ -32,7 +32,7 @@ export function WeeklyRunningSummary({ detailed = false, initialWeek = "current"
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState<State>({ status: "loading" });
   const refresh = useCallback(() => {
-    setState({ status: "loading" });
+    setState((previous) => ({ status: "loading", data: previous.data }));
     setRevision((value) => value + 1);
   }, []);
 
@@ -46,8 +46,8 @@ export function WeeklyRunningSummary({ detailed = false, initialWeek = "current"
     void loadSummary(week, controller.signal).then((data) => {
       if (!controller.signal.aborted) setState({ status: "ready", data });
     }).catch((error: unknown) => {
-      if (!controller.signal.aborted) setState({ status: "error",
-        message: error instanceof SummaryRequestError ? error.message : "연결이 지연되거나 끊겼어요. 다시 확인해 주세요." });
+      if (!controller.signal.aborted) setState((previous) => ({ status: "error", data: previous.data,
+        message: error instanceof SummaryRequestError ? error.message : "연결이 지연되거나 끊겼어요. 다시 확인해 주세요." }));
     });
     return () => controller.abort();
   }, [week, revision]);
@@ -67,7 +67,7 @@ export function WeeklyRunningSummary({ detailed = false, initialWeek = "current"
     setState({ status: "loading" });
     setWeek(next);
   };
-  const summary = state.status === "ready" ? state.data : null;
+  const summary = state.data ?? null;
   const count = summary?.totals.activityCount ?? 0;
 
   return <section className={styles.card} aria-label="주간 러닝 요약" aria-busy={state.status === "loading"}>
@@ -85,7 +85,7 @@ export function WeeklyRunningSummary({ detailed = false, initialWeek = "current"
     </header>
     <div aria-live="polite" aria-atomic="true">
       {state.status === "loading" && <p className={styles.message} role="status">저장된 러닝 기록을 확인하고 있어요.</p>}
-      {state.status === "error" && <div className={styles.error}><p role="alert">{state.message}</p><button type="button" onClick={refresh}>다시 확인</button></div>}
+      {state.status === "error" && <div className={styles.error}><p role="alert">{state.message}{state.data ? " 아래는 마지막으로 확인한 기록이에요." : ""}</p><button type="button" onClick={refresh}>다시 확인</button></div>}
       {summary && <p className="sr-only">{week === "current" ? "이번 주" : "지난주"} 러닝 {count}개를 불러왔어요.</p>}
     </div>
     {summary && <>
