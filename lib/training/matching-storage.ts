@@ -41,6 +41,27 @@ async function apply(
     );
   return parseMatchSnapshot(data);
 }
+export async function readWorkoutMatches(userId: string, planId: string) {
+  const current = await snapshot(userId, planId);
+  const valid = new Set(
+    current.activities
+      .filter(
+        (a) =>
+          a.verified &&
+          a.distanceMeters !== null &&
+          a.distanceMeters > 0 &&
+          a.timerSeconds !== null &&
+          a.timerSeconds > 0 &&
+          Date.parse(a.startedAt) <= Date.now(),
+      )
+      .map((a) => a.id),
+  );
+  return projectWorkoutMatches({
+    ...current,
+    links: current.links.filter((l) => valid.has(l.activityId)),
+  });
+}
+
 export async function reconcileWorkoutMatches(userId: string, planId: string) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const current = await snapshot(userId, planId);
@@ -87,9 +108,8 @@ export async function saveWorkoutMatch(
 }
 
 export async function reconcileRecentWorkoutMatches(userId: string) {
-  const { runningPeriod, addCalendarDays } = await import(
-    "@/lib/garmin/running-summary"
-  );
+  const { runningPeriod, addCalendarDays } =
+    await import("@/lib/garmin/running-summary");
   const period = runningPeriod(
     process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles",
     "current",

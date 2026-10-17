@@ -38,7 +38,7 @@ try {
   }
   expectStatus(await request('/login'),200,'login remains public');
   expectStatus(await request('/icons/google.svg'),200,'login icon remains public');
-  for(const path of ['/api/training/prescription','/api/admin/session','/api/training/review','/api/training/plan','/api/training/context','/api/training/goal','/api/garmin/sync','/api/garmin/weekly-summary','/api/chatgpt/connection','/api/weather?lat=34&lon=-118','/api/garmin/connect','/api/garmin/callback']) expectStatus(await request(path),401,path);
+  for(const path of ['/api/training/progress','/api/training/prescription','/api/admin/session','/api/training/review','/api/training/plan','/api/training/context','/api/training/goal','/api/garmin/sync','/api/garmin/weekly-summary','/api/chatgpt/connection','/api/weather?lat=34&lon=-118','/api/garmin/connect','/api/garmin/callback']) expectStatus(await request(path),401,path);
   for(const path of ['/api/training/generate','/api/training/complete','/api/training/review','/api/training/match','/api/training/match/reconcile','/api/garmin/sync','/api/garmin/webhook','/api/chatgpt/connection']) expectStatus(await request(path,jar(),{method:'POST'}),401,path);
   expectStatus(await request('/api/training/goal',jar(),{method:'PUT'}),401,'goal mutation');
   expectStatus(await request('/api/training/plan',new Map([['sb-kmmutfcgshellvjgpick-auth-token','base64-forged']])),401,'forged cookie');
@@ -51,7 +51,7 @@ try {
   assert.ifError(created.error);outsiderId=created.data.user.id;
   const outsider=anon();const signed=await outsider.auth.signInWithPassword({email,password});assert.ifError(signed.error);
   const outsiderCookies=jar();assert.ifError((await ssr(outsiderCookies).auth.setSession(signed.data.session)).error);
-  for(const path of ['/api/training/prescription','/api/admin/session','/api/training/review','/api/training/plan','/api/garmin/sync','/api/weather?lat=34&lon=-118'])expectStatus(await request(path,outsiderCookies),403,path);
+  for(const path of ['/api/training/progress','/api/training/prescription','/api/admin/session','/api/training/review','/api/training/plan','/api/garmin/sync','/api/weather?lat=34&lon=-118'])expectStatus(await request(path,outsiderCookies),403,path);
   expectStatus(await request('/api/training/generate',outsiderCookies,{method:'POST'}),403,'outsider cannot invoke AI');
   const denied=await request('/schedule',outsiderCookies);expectStatus(denied,307,'outsider page');assert.equal(new URL(denied.headers.get('location'),origin).searchParams.get('error'),'admin');
   const records=await outsider.from('profiles').select('id');assert.ifError(records.error);assert.deepEqual(records.data,[]);
@@ -65,7 +65,7 @@ try {
   const signedAdmin=await anon().auth.verifyOtp({type:'magiclink',token_hash:link.data.properties.hashed_token});assert.ifError(signedAdmin.error);
   assert.ifError((await ssr(adminCookies).auth.setSession(signedAdmin.data.session)).error);
   for(const path of ['/today','/schedule','/roadmap','/my','/my/goals','/garmin-connect'])expectStatus(await request(path,adminCookies),200,path);
-  for(const path of ['/api/training/prescription','/api/admin/session','/api/training/review','/api/training/plan','/api/training/context','/api/training/goal','/api/garmin/weekly-summary','/api/garmin/sync','/api/chatgpt/connection'])expectStatus(await request(path,adminCookies),200,path);
+  for(const path of ['/api/training/progress','/api/training/prescription','/api/admin/session','/api/training/review','/api/training/plan','/api/training/context','/api/training/goal','/api/garmin/weekly-summary','/api/garmin/sync','/api/chatgpt/connection'])expectStatus(await request(path,adminCookies),200,path);
   const unsafe=await request('/login?next=//evil.test',adminCookies);expectStatus(unsafe,307,'authenticated login');assert.equal(new URL(unsafe.headers.get('location'),origin).pathname,'/today');
   for(const [path,method] of [['/api/training/generate','POST'],['/api/training/goal','PUT'],['/auth/signout','POST']]) expectStatus(await request(path,adminCookies,{method,headers:{origin:'https://evil.test'}}),403,'foreign origin');
   expectStatus(await request('/auth/callback'),307,'missing OAuth code');

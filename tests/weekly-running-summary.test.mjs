@@ -117,7 +117,7 @@ function reader(pages, env = {}) {
   const database = { from: (table) => {
     calls.push(["from", table]);
     const query = {};
-    for (const method of ["select", "eq", "gte", "lt", "order", "range"]) query[method] = (...args) => {
+    for (const method of ["select", "eq", "not", "gte", "lt", "order", "range"]) query[method] = (...args) => {
       calls.push([method, ...args]); return query;
     };
     query.abortSignal = () => Promise.resolve(pages[index++]);
@@ -190,3 +190,5 @@ test("invalid selections reject and database failures do not look like empty wee
   assert.equal(result.status, 503);
   assert.doesNotMatch(await result.text(), /private|schema|database/);
 });
+
+test("progress opts into verified import metadata without changing the public summary contract",async()=>{const api=reader([{data:[],count:0}]);await api.readRunningSummary("owner","current",now,{verifiedOnly:true});for(const expected of [["not","source_sha256","is",null],["not","normalized_sha256","is",null],["eq","normalized_schema_version",1]])assert.ok(api.calls.some(call=>JSON.stringify(call)===JSON.stringify(expected)));});
