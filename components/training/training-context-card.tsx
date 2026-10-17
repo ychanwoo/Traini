@@ -11,6 +11,8 @@ import styles from "./training.module.css";
 export function issueLabel(issue: GoalIssue): string {
   const names = {
     raceName: "대회명",
+    races: "대회 목록 (날짜·거리·주목표를 확인해 주세요)",
+    condition: "현재 컨디션",
     targetDistance: "목표 거리",
     targetDate: "목표 날짜",
     targetTimeSeconds: "목표 기록",

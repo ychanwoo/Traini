@@ -331,6 +331,21 @@ function storage({
   const calls = [];
   let index = 0;
   const db = {
+    rpc(name, args) {
+      calls.push(["rpc", name, args]);
+      return {
+        abortSignal: async () =>
+          profileResult.data
+            ? {
+                data:
+                  name === "training_goal_snapshot"
+                    ? { profile: profileResult.data, revision: "a".repeat(32) }
+                    : "b".repeat(32),
+                error: null,
+              }
+            : { data: null, error: { message: "missing" } },
+      };
+    },
     from(table) {
       calls.push(["from", table]);
       const query = {};
@@ -426,22 +441,18 @@ test("goal reads and writes preserve unrelated profile fields and never upsert",
   const api = storage();
   await api.readTrainingGoal("owner", now);
   await api.saveTrainingGoal("owner", goal());
-  const update = api.calls.find((c) => c[1] === "update")[2];
+  const update = api.calls.find(
+    (c) => c[0] === "rpc" && c[1] === "save_training_preferences",
+  )[2];
+  assert.equal(update.p_user_id, "owner");
+  assert.equal(update.p_goal.raceName, goal().raceName);
   assert.doesNotMatch(
-    JSON.stringify(update),
-    /display_name|avatar|created_at|"id"/,
+    JSON.stringify(update.p_goal),
+    /display_name|avatar|created_at/,
   );
-  assert.deepEqual(
-    Object.keys(update).sort(),
-    [
-      "long_run_day",
-      "race_name",
-      "target_date",
-      "target_distance",
-      "target_time_seconds",
-      "training_days",
-      "updated_at",
-    ].sort(),
+  assert.equal(
+    api.calls.some((c) => c[0] === "from"),
+    false,
   );
   await assert.rejects(
     storage({ profileResult: { data: null } }).saveTrainingGoal(
@@ -576,24 +587,26 @@ test("database failures never masquerade as successful empty data or successful 
   }
 });
 
-test('numeric mobile input formats six digits without requiring a colon key', () => {
-  assert.equal(goals.formatTimeInput('031313'), '03:13:13');
-  assert.equal(goals.formatTimeInput('03:13:13'), '03:13:13');
-  assert.equal(goals.formatTimeInput('031'), '03:1');
-  assert.equal(goals.formatTimeInput(''), '');
-  assert.equal(goals.parseTimeText(goals.formatTimeInput('031313')), 11593);
-  assert.throws(() => goals.parseTimeText(goals.formatTimeInput('036000')));
+test("numeric mobile input formats six digits without requiring a colon key", () => {
+  assert.equal(goals.formatTimeInput("031313"), "03:13:13");
+  assert.equal(goals.formatTimeInput("03:13:13"), "03:13:13");
+  assert.equal(goals.formatTimeInput("031"), "03:1");
+  assert.equal(goals.formatTimeInput(""), "");
+  assert.equal(goals.parseTimeText(goals.formatTimeInput("031313")), 11593);
+  assert.throws(() => goals.parseTimeText(goals.formatTimeInput("036000")));
 });
 
-test('eight observed weeks retain explicit coverage without a limited-history warning', () => {
-  const period = context.historyPeriod('America/Los_Angeles', now);
-  const rows = Array.from({length: 8}, (_, index) => row(index + 1, {
-    started_at: `${running.addCalendarDays(period.start, index * 7)}T12:00:00Z`,
-  }));
+test("eight observed weeks retain explicit coverage without a limited-history warning", () => {
+  const period = context.historyPeriod("America/Los_Angeles", now);
+  const rows = Array.from({ length: 8 }, (_, index) =>
+    row(index + 1, {
+      started_at: `${running.addCalendarDays(period.start, index * 7)}T12:00:00Z`,
+    }),
+  );
   const data = build(profile(), rows);
   assert.equal(data.history.weeksWithActivities, 8);
   assert.equal(data.history.coverage.heartRateCount, 8);
   assert.equal(data.inputs.readyForPlanInput, true);
-  assert.equal(data.inputs.limitations.includes('limited_history'), false);
-  assert.ok(data.history.weeks.every(week => week.runningDays === 1));
+  assert.equal(data.inputs.limitations.includes("limited_history"), false);
+  assert.ok(data.history.weeks.every((week) => week.runningDays === 1));
 });

@@ -1,0 +1,33 @@
+begin;
+do $$
+declare uid uuid:=gen_random_uuid(); rev text; body jsonb; snapshot jsonb; old_review text; monday date; d date;
+begin
+ insert into auth.users(id,email) values(uid,'multiple-races-fixture@example.invalid');
+ insert into public.profiles(id,display_name) values(uid,'Untouched fixture name');
+ d:=(now() at time zone 'America/Los_Angeles')::date;
+ body:=jsonb_build_object('raceName','Full','targetDistance','FULL','targetDate',d+140,'targetTimeSeconds',12600,'trainingDays','[1,3,5,7]'::jsonb,'longRunDay',7,'timezone','America/Los_Angeles','races',jsonb_build_array(jsonb_build_object('id',gen_random_uuid(),'name','Half','distance','HALF','date',d+70,'targetTimeSeconds',5400,'priority','supporting'),jsonb_build_object('id',gen_random_uuid(),'name','Full','distance','FULL','date',d+140,'targetTimeSeconds',12600,'priority','primary')),'condition',null);
+ rev:=public.training_goal_revision(uid);
+ perform public.save_training_preferences(uid,body,rev);
+ if (select jsonb_array_length(race_goals) from public.profiles where id=uid)<>2 then raise exception 'goals not saved';end if;
+ if (select display_name from public.profiles where id=uid)<>'Untouched fixture name' then raise exception 'profile overwritten';end if;
+ begin perform public.save_training_preferences(uid,body,rev);raise exception 'stale save accepted';exception when raise_exception then if sqlerrm<>'goal_conflict' then raise;end if;end;
+ snapshot:=public.training_goal_snapshot(uid);
+ if snapshot->>'revision' is distinct from public.training_goal_revision(uid) then raise exception 'inconsistent goal snapshot';end if;
+ monday:=date_trunc('week',now() at time zone 'America/Los_Angeles')::date-7;
+ old_review:=public.weekly_review_snapshot(uid,monday,'America/Los_Angeles')->>'revision';
+ rev:=public.training_input_revision(uid);
+ body:=jsonb_set(body,'{condition}',jsonb_build_object('reportedOn',d,'feeling','tired'));
+ perform public.save_training_preferences(uid,body,public.training_goal_revision(uid));
+ if public.training_input_revision(uid)=rev then raise exception 'condition omitted from plan revision';end if;
+ if public.weekly_review_snapshot(uid,monday,'America/Los_Angeles')->>'revision'<>old_review then raise exception 'today condition invalidated historical review';end if;
+ body:=jsonb_set(body,'{races,0,targetTimeSeconds}','5300');
+ perform public.save_training_preferences(uid,body,public.training_goal_revision(uid));
+ if public.weekly_review_snapshot(uid,monday,'America/Los_Angeles')->>'revision'=old_review then raise exception 'race change omitted from review revision';end if;
+ begin update public.profiles set race_goals='[{"id":"invalid"}]' where id=uid;raise exception 'invalid goals accepted';exception when check_violation then null;end;
+ if public.training_condition_phase(jsonb_build_object('reportedOn',d,'feeling','tired'),d+2)<>'active' or public.training_condition_phase(jsonb_build_object('reportedOn',d,'feeling','tired'),d+3)<>'expired' then raise exception 'condition expiry boundary';end if;
+ if public.training_condition_phase(jsonb_build_object('reportedOn',d,'feeling','pain'),d+30)<>'unchanged' then raise exception 'pain automatically cleared';end if;
+ if (select training_timezone from public.profiles where id=uid)<>'America/Los_Angeles' then raise exception 'timezone not persisted';end if;
+ if has_function_privilege('authenticated','public.save_training_preferences(uuid,jsonb,text)','execute') or has_function_privilege('anon','public.training_goal_snapshot(uuid)','execute') then raise exception 'private RPC exposed';end if;
+end $$;
+rollback;
+select 'multiple race goals: persistence, CAS, fingerprints, validation and permissions passed; fixtures rolled back' result;

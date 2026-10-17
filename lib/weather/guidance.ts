@@ -138,7 +138,7 @@ export function weatherGuidance(
     Number.isInteger(pace) &&
     pace >= 100 &&
     pace <= 3600 &&
-    ["easy", "long"].includes(workout.kind)
+    ["recovery", "easy", "long"].includes(workout.kind)
   )
     return {
       ...base,

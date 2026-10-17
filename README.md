@@ -10,6 +10,9 @@ Garmin 활동은 훈련 날짜·거리·세션 근거로 계획에 연결하며,
 수면·회복 데이터가 없으면 오늘 화면에서 미수집 상태로 표시합니다.
 [Garmin 완료 연결과 검증 안내](docs/garmin-workout-matching.md)를 참고하세요.
 
+여러 대회별 목표 기록과 최근 컨디션을 등록하고, 기록 기반 훈련 처방 기준을 확인할 수 있습니다.
+[다중 대회·훈련 처방 안내](docs/training-prescription-refinement.md)를 참고하세요.
+
 ## Garmin 수집기
 
 ```sh

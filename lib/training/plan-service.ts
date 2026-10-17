@@ -1,8 +1,9 @@
 import "server-only";
+import { readPrescriptionEvidence } from "./prescription-storage";
+import { refinePrescription } from "./prescription";
 import { readApplicableReview } from "./review-storage";
 import { applyReviewPolicy } from "./weekly-review";
 import { generateWithSubscription } from "@/scripts/lib/chatgpt-inference.mjs";
-import { readRunningSummary } from "@/lib/garmin/read-running-summary";
 import { readTrainingContext } from "./storage";
 import {
   readPlan,
@@ -27,11 +28,14 @@ export async function generatePlan(userId: string, week: PlanWeek) {
   const context = await readTrainingContext(userId);
   const review = await readApplicableReview(userId, context.timezone);
   let policy = applyReviewPolicy(planPolicy(context, week), review);
-  if (week === "current")
-    policy = accountCurrentWeek(
-      policy,
-      await readRunningSummary(userId, "current"),
-    );
+  const evidence = await readPrescriptionEvidence(userId);
+  policy = refinePrescription(
+    context,
+    policy,
+    evidence.execution,
+    evidence.current,
+  ).policy;
+  if (week === "current") policy = accountCurrentWeek(policy, evidence.current);
   if (existing.plan) {
     const completed = existing.plan.workouts.filter((w) => w.completed);
     policy.blockedDates = [

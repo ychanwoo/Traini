@@ -528,7 +528,7 @@ export function reviewPrompt(metrics: ReviewMetrics, context: TrainingContext) {
         role: "user",
         content: JSON.stringify({
           metrics,
-          goal: context.goal,
+          goal: { ...context.goal, condition: null },
           history: context.history.weeks,
           reportedBaseline: context.reportedBaseline,
         }),

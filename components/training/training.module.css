@@ -368,3 +368,33 @@
   font-weight: 600;
   color: #51465a;
 }
+.raceList {
+  min-width: 0;
+}
+.raceItem {
+  min-width: 0;
+  margin: 18px 0;
+  padding: 14px;
+  border: 1px solid #eae5ed;
+  border-radius: 12px;
+}
+.raceItem legend {
+  padding: 0 6px;
+  font-size: 12px;
+  color: #665c6d;
+}
+.raceItem .settings-field {
+  margin-top: 14px;
+}
+.racePrimary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: #665c6d;
+}
+.racePrimary input {
+  width: 14px;
+  height: 14px;
+  accent-color: #75538d;
+}

@@ -48,6 +48,7 @@ const matching = load("lib/training/workout-matching.ts", {
 const reviews = load("lib/training/weekly-review.ts", {
   "@/lib/garmin/running-summary": running,
   "./goal": goal,
+  "./prescription": { validatePrescription: () => true },
   "./workout-matching": matching,
 });
 const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
@@ -517,10 +518,12 @@ test("plan generation passes the fresh review and reduced server policy to infer
   const contexts = load("lib/training/context.ts", {
     "@/lib/garmin/running-summary": running,
     "./goal": goal,
+    "./prescription": { validatePrescription: () => true },
   });
   const plans = load("lib/training/weekly-plan.ts", {
     "@/lib/garmin/running-summary": running,
     "./goal": goal,
+    "./prescription": { validatePrescription: () => true },
   });
   const rows = [0, 1, 2, 3].flatMap((w) =>
     [0, 2, 4, 6].map((d, i) => ({
@@ -560,6 +563,13 @@ test("plan generation passes the fresh review and reduced server policy to infer
   };
   let prompt;
   const svc = load("lib/training/plan-service.ts", {
+    "./prescription-storage": {
+      readPrescriptionEvidence: async () => ({
+        execution: null,
+        current: null,
+      }),
+    },
+    "./prescription": { refinePrescription: (_c, policy) => ({ policy }) },
     "server-only": {},
     "./review-storage": { readApplicableReview: async () => applied },
     "./weekly-review": reviews,

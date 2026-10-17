@@ -45,10 +45,12 @@ const running = load("lib/garmin/running-summary.ts"),
 const contexts = load("lib/training/context.ts", {
   "@/lib/garmin/running-summary": running,
   "./goal": goal,
+  "./prescription": { validatePrescription: () => true },
 });
 const plans = load("lib/training/weekly-plan.ts", {
   "@/lib/garmin/running-summary": running,
   "./goal": goal,
+  "./prescription": { validatePrescription: () => true },
 });
 function context() {
   return contexts.buildTrainingContext(
@@ -439,8 +441,22 @@ test("pipeline reuses an existing plan and does not call AI; failed generation n
           ),
       },
       "./plan-storage": store,
-      "./review-storage": {readApplicableReview: async()=>null},
-      "./weekly-review": {applyReviewPolicy:(policy)=>policy},
+      "./prescription-storage": {
+        readPrescriptionEvidence: async () => ({
+          execution: null,
+          current: await running.buildRunningSummary(
+            [],
+            plans.planPeriod(
+              "America/Los_Angeles",
+              "current",
+              new Date("2026-10-16T18:00:00Z"),
+            ),
+          ),
+        }),
+      },
+      "./prescription": { refinePrescription: (_c, policy) => ({ policy }) },
+      "./review-storage": { readApplicableReview: async () => null },
+      "./weekly-review": { applyReviewPolicy: (policy) => policy },
       "./weekly-plan": plans,
     });
   await service().generatePlan("owner", "current");
@@ -486,8 +502,22 @@ test("input changes and concurrent reservations stop before AI; invalid output c
           ),
       },
       "./plan-storage": store,
-      "./review-storage": {readApplicableReview: async()=>null},
-      "./weekly-review": {applyReviewPolicy:(policy)=>policy},
+      "./prescription-storage": {
+        readPrescriptionEvidence: async () => ({
+          execution: null,
+          current: await running.buildRunningSummary(
+            [],
+            plans.planPeriod(
+              "America/Los_Angeles",
+              "current",
+              new Date("2026-10-16T18:00:00Z"),
+            ),
+          ),
+        }),
+      },
+      "./prescription": { refinePrescription: (_c, policy) => ({ policy }) },
+      "./review-storage": { readApplicableReview: async () => null },
+      "./weekly-review": { applyReviewPolicy: (policy) => policy },
       "./weekly-plan": plans,
     });
   await assert.rejects(
