@@ -18,6 +18,7 @@ import {
   trainingRequest,
 } from "@/lib/training/client";
 import { TrainingContextCard, issueLabel } from "./training-context-card";
+import { PrescriptionCard } from "./prescription-card";
 import { RaceGoalsEditor } from "./race-goals-editor";
 import styles from "./training.module.css";
 type SavedGoal = {
@@ -211,11 +212,7 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
                     ? {
                         reportedOn: loaded!.today,
                         feeling: e.target.value as
-                          | "good"
-                          | "normal"
-                          | "tired"
-                          | "unwell"
-                          | "pain",
+                          "good" | "normal" | "tired" | "unwell" | "pain",
                       }
                     : null,
                 )
@@ -230,10 +227,25 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
             </select>
             <small className={styles.help}>
               {goal?.condition ? `${goal.condition.reportedOn} 입력 · ` : ""}
-              최근 3일 이내 입력만 반영해요. 좋은 컨디션만으로 훈련량을 늘리지
-              않아요. 통증·몸 상태 이상 시 회복과 재확인을 우선해요.
+              최근 3일 이내 피로 입력을 반영해요. 좋은 컨디션만으로 훈련량을
+              늘리지 않아요. 통증·몸 상태 이상 입력은 직접 변경할 때까지 러닝
+              배치를 보류해요.
             </small>
           </label>
+          {goal?.condition && goal.condition.reportedOn !== loaded?.today && (
+            <button
+              type="button"
+              className={styles.planAction}
+              onClick={() =>
+                edit("condition", {
+                  ...goal.condition!,
+                  reportedOn: loaded!.today,
+                })
+              }
+            >
+              같은 컨디션으로 오늘 다시 기록
+            </button>
+          )}
           <fieldset className={styles.availability}>
             <legend>훈련 가능 요일</legend>
             <div className={styles.days}>
@@ -276,7 +288,7 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
             </div>
           </fieldset>
           <label className={`settings-field ${styles.select}`}>
-            장거리 훈련 요일
+            선호 장거리 훈련 요일
             <select
               aria-label="장거리 훈련 요일"
               value={goal?.longRunDay ?? ""}
@@ -334,6 +346,7 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
         </button>
       </form>
       {!onboarding && <ChatGPTConnectionCard />}
+      <PrescriptionCard />
       <TrainingContextCard settings />
     </div>
   );

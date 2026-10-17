@@ -24,6 +24,9 @@ begin
  perform public.save_training_preferences(uid,body,public.training_goal_revision(uid));
  if public.weekly_review_snapshot(uid,monday,'America/Los_Angeles')->>'revision'=old_review then raise exception 'race change omitted from review revision';end if;
  begin update public.profiles set race_goals='[{"id":"invalid"}]' where id=uid;raise exception 'invalid goals accepted';exception when check_violation then null;end;
+ if public.training_condition_phase(jsonb_build_object('reportedOn',d,'feeling','tired'),d+2)<>'active' or public.training_condition_phase(jsonb_build_object('reportedOn',d,'feeling','tired'),d+3)<>'expired' then raise exception 'condition expiry boundary';end if;
+ if public.training_condition_phase(jsonb_build_object('reportedOn',d,'feeling','pain'),d+30)<>'unchanged' then raise exception 'pain automatically cleared';end if;
+ if (select training_timezone from public.profiles where id=uid)<>'America/Los_Angeles' then raise exception 'timezone not persisted';end if;
  if has_function_privilege('authenticated','public.save_training_preferences(uuid,jsonb,text)','execute') or has_function_privilege('anon','public.training_goal_snapshot(uuid)','execute') then raise exception 'private RPC exposed';end if;
 end $$;
 rollback;

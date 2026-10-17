@@ -17,6 +17,7 @@ import { WorkoutMatchDetails } from "./workout-match-details";
 import { TrainingCompleteButton } from "./training-complete-button";
 import { planErrorMessage } from "@/lib/training/plan-errors";
 import { TrainingWeatherCard, ScheduleWeather } from "./training-weather-card";
+import { PrescriptionCard } from "./prescription-card";
 import { WeeklyReviewCard } from "./weekly-review-card";
 import styles from "./training.module.css";
 const formatRaceTime = (seconds: number) =>
@@ -55,6 +56,15 @@ function SessionSteps({ steps }: { steps: WorkoutStep[] }) {
             {s.kind === "repeats"
               ? ` / 회복 ${s.recoveryMeters ? `${s.recoveryMeters}m` : `${s.recoverySeconds}초`}${s.recoveryAfterLast ? " (마지막 반복 후 포함)" : ""}`
               : ""}
+            {s.kind === "repeats" && (
+              <span>
+                {" "}
+                · 회복{" "}
+                {s.recoveryPaceSecondsPerKm != null
+                  ? formatPlanPace(s.recoveryPaceSecondsPerKm)
+                  : "편한 조깅·강도 기준"}
+              </span>
+            )}
           </li>
         ))}
       </ol>
@@ -140,6 +150,7 @@ export function TodayPlan() {
               (state.loading ? "훈련 확인 중" : "오늘의 계획이 없어요"))}
         </h2>
         <PlanFeedback state={state} />
+        <PrescriptionCard week="current" />
         {race && (
           <p className={styles.note}>
             {race.distance} ·{" "}
@@ -283,6 +294,7 @@ function ScheduleWeek({
         </p>
       </section>
       <PlanFeedback state={state} />
+      <PrescriptionCard week={week} />
       {data && (
         <section className="schedule-list" aria-label="주간 훈련 일정">
           {Array.from({ length: 7 }, (_, i) => {

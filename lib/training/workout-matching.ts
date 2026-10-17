@@ -115,7 +115,7 @@ export function parseMatchSnapshot(value: unknown): MatchSnapshot {
       !uuid(w.id) ||
       typeof w.date !== "string" ||
       !/^\d{4}-\d{2}-\d{2}$/.test(w.date) ||
-      !["rest", "easy", "long", "threshold", "interval"].includes(
+      !["rest", "recovery", "easy", "long", "threshold", "interval"].includes(
         String(w.kind),
       ) ||
       !["scheduled", "today", "completed", "skipped"].includes(
@@ -221,7 +221,7 @@ function plausiblePace(actual: number, expected: number | null) {
 }
 function sessionSupported(w: MatchWorkout, a: MatchActivity) {
   const laps = structuredLaps(a);
-  if (w.kind === "easy" || w.kind === "long") {
+  if (w.kind === "easy" || w.kind === "recovery" || w.kind === "long") {
     if (!laps) return true;
     const expected = w.steps.find((s) => s.kind === "steady")?.paceSecondsPerKm;
     const work = laps.filter((l) => l.intensity === "active");
