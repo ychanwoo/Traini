@@ -42,7 +42,9 @@
     "service:check": "node --env-file=.env.local scripts/check-service.mjs",
     "test:reliability": "node --test tests/service-reliability.test.mjs",
     "test:reliability:integration": "node --env-file=.env.local scripts/test-service-reliability.mjs",
-    "test:subscription:live": "node --env-file=.env.local scripts/test-live-review.mjs"
+    "test:subscription:live": "node --env-file=.env.local scripts/test-live-review.mjs",
+    "test:plan:personal": "node --env-file=.env.local scripts/test-personal-plan.mjs",
+    "test:plan:acceptance": "node --test tests/personal-plan-validation.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

@@ -286,6 +286,89 @@ test("unresolved pain requires recheck and produces a valid all-rest envelope", 
   assert.equal(r.guidance.condition.fresh, false);
   assert.equal(r.guidance.condition.requiresRecheck, true);
 });
+test("pain and illness block every running kind in current and next weeks despite quality history", () => {
+  for (const feeling of ["pain", "unwell"]) {
+    for (const reportedOn of ["2026-10-16", "2026-10-01"]) {
+      for (const week of ["current", "next"]) {
+        const c = withQuality();
+        c.goal.condition = { reportedOn, feeling };
+        const r = refined(c, week);
+        assert.equal(r.policy.maxWeekKm, 0);
+        assert.equal(r.policy.maxRunKm, 0);
+        assert.equal(r.policy.maxHardSessions, 0);
+        assert.equal(r.guidance.condition.requiresRecheck, true);
+        const rest = {
+          summary: "통증·몸 상태를 다시 확인하기 전 러닝을 배치하지 않아요.",
+          workouts: r.policy.dates.map((date) => ({
+            date,
+            kind: "rest",
+            title: "휴식",
+            purpose: "상태 재확인",
+            distanceKm: 0,
+            paceSecondsPerKm: null,
+            effort: "rest",
+            steps: [],
+          })),
+        };
+        plans.validatePlan(rest, r.policy);
+        for (const kind of [
+          "recovery",
+          "easy",
+          "long",
+          "threshold",
+          "interval",
+        ]) {
+          const changed = structuredClone(rest);
+          const w = changed.workouts.find((w) =>
+            c.goal.trainingDays.includes(plans.isoWeekday(w.date)),
+          );
+          assert.ok(w);
+          Object.assign(w, {
+            kind,
+            distanceKm: 1,
+            effort: "conversational",
+            steps: [step("steady", 1000, null)],
+          });
+          assert.throws(
+            () => plans.validatePlan(changed, r.policy),
+            /invalid_output/,
+          );
+          assert.equal(
+            prescriptions.validatePrescription(changed, r.guidance.rules),
+            false,
+          );
+        }
+      }
+    }
+  }
+});
+test("symptom-blocked dates never become evidence of recorded runs in the AI input", () => {
+  const c = context();
+  c.goal.condition = { reportedOn: "2026-10-16", feeling: "pain" };
+  const summary = running.buildRunningSummary(
+    ["2026-10-12", "2026-10-14"].map((date, i) => ({
+      garmin_activity_id: String(9000 + i),
+      started_at: date + "T19:00:00Z",
+      updated_at: date + "T20:00:00Z",
+      distance_meters: 7000,
+      duration_seconds: 2400,
+      average_pace_seconds_per_km: 343,
+    })),
+    running.runningPeriod(
+      "America/Los_Angeles",
+      "current",
+      new Date(c.generatedAt),
+    ),
+  );
+  const policy = plans.accountCurrentWeek(refined(c).policy, summary);
+  assert.ok(policy.blockedDates.includes("2026-10-16"));
+  assert.equal(policy.observedRunDates.join(","), "2026-10-12,2026-10-14");
+  assert.ok(!policy.observedRunDates.includes("2026-10-16"));
+  const prompt = plans.trainingPrompt(c, policy);
+  const input = JSON.parse(prompt.input[0].content);
+  assert.deepEqual(input.policy.observedRunDates, ["2026-10-12", "2026-10-14"]);
+  assert.equal(refined(c, "next").policy.observedRunDates.length, 0);
+});
 test("unknown and good condition do not invent recovery metrics or raise original load caps", () => {
   const c = context(),
     a = refined(c);
