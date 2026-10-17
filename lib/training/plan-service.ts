@@ -27,8 +27,11 @@ export async function generatePlan(userId: string, week: PlanWeek) {
   if (existing.plan && !existing.inputsChanged) return existing;
   const context = await readTrainingContext(userId);
   const review = await readApplicableReview(userId, context.timezone);
-  let policy = applyReviewPolicy(planPolicy(context, week), review);
   const evidence = await readPrescriptionEvidence(userId);
+  let policy = applyReviewPolicy(
+    planPolicy(context, week, evidence.current),
+    review,
+  );
   policy = refinePrescription(
     context,
     policy,

@@ -139,6 +139,11 @@ export function PrescriptionCard({ week = "next" }: { week?: PlanWeek }) {
                 </p>
               ))}
               <p>목표 페이스는 현재 수행 능력으로 간주하지 않아요.</p>
+              <p>
+                대회 준비 → 테이퍼 → 대회 → 회복·복귀 확인. 테이퍼는 훈련량을
+                줄이되 허용된 짧은 자극까지 모두 막지는 않아요. 회복 확인
+                기준일은 자동 복귀일이 아니에요.
+              </p>
               {data.guidance.rules.bounds.map((b) => (
                 <p key={b.kind}>
                   {labels[b.kind]} · 거리 상한{" "}

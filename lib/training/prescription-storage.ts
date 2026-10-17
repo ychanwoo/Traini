@@ -25,7 +25,7 @@ export async function readPrescriptionPreview(userId: string, week: PlanWeek) {
       review = await readApplicableReview(userId, context.timezone);
     const result = refinePrescription(
       context,
-      applyReviewPolicy(planPolicy(context, week), review),
+      applyReviewPolicy(planPolicy(context, week, evidence.current), review),
       evidence.execution,
       evidence.current,
     );

@@ -418,7 +418,9 @@ test("long-run dates are flexible within training availability and never overlap
   const c = context("2027-01-11"),
     r = refined(c);
   assert.ok(!r.guidance.rules.allowedLongRunDates.includes("2027-01-17"));
-  assert.ok(r.guidance.rules.allowedLongRunDates.length > 0);
+  assert.equal(r.guidance.rules.allowedLongRunDates.length, 0);
+  const ordinary = refined(context());
+  assert.ok(ordinary.guidance.rules.allowedLongRunDates.length > 1);
   assert.ok(
     r.guidance.rules.allowedLongRunDates.every(
       (d) =>

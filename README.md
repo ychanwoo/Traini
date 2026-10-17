@@ -13,6 +13,8 @@ Garmin 활동은 훈련 날짜·거리·세션 근거로 계획에 연결하며,
 
 여러 대회별 목표 기록과 최근 컨디션을 등록하고, 기록 기반 훈련 처방 기준을 확인할 수 있습니다.
 [다중 대회·훈련 처방 안내](docs/training-prescription-refinement.md)를 참고하세요.
+[대회 단계·테이퍼·복귀 확인 규칙](docs/race-stage-policy.md)과
+[다음 피드백·직접 건너뜀 작업 범위](docs/workout-feedback-plan.md)를 별도로 정리했습니다.
 
 ## Garmin 수집기
 

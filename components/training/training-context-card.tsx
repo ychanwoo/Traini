@@ -115,7 +115,10 @@ export function TrainingContextCard({
               <ul className={styles.issues}>
                 {data.inputs.issues.map((issue) => (
                   <li key={`${issue.field}-${issue.code}`}>
-                    {issueLabel(issue)}
+                    {data.inputs.readyForRecoveryInput &&
+                    issue.code === "past_date"
+                      ? "대회일이 지났어요. 회복 계획 입력은 사용할 수 있어요."
+                      : issueLabel(issue)}
                   </li>
                 ))}
               </ul>
@@ -169,7 +172,9 @@ export function TrainingContextCard({
             <p className={styles.note}>
               {data.inputs.readyForPlanInput
                 ? "목표와 러닝 기록을 훈련 입력 데이터로 정리했어요."
-                : "부족한 입력을 확인한 뒤 훈련 입력 데이터를 완성할 수 있어요."}{" "}
+                : data.inputs.readyForRecoveryInput
+                  ? "대회 후 회복 계획을 위한 입력 데이터가 준비됐어요. 회복 완료 판정은 아니에요."
+                  : "부족한 입력을 확인한 뒤 훈련 입력 데이터를 완성할 수 있어요."}{" "}
               훈련계획은 아직 생성하지 않아요.
             </p>
             {!settings && (

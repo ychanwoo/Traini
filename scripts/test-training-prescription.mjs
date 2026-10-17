@@ -214,7 +214,7 @@ try {
       generateWithSubscription: async (_uid, prompt) => {
         calls++;
         const input = JSON.parse(prompt.input[0].content);
-        assert.equal(input.goal.races.length, 2);
+        assert.ok(input.goal.races.length >= 1);
         assert.ok(input.policy.prescription);
         const p = input.policy;
         const days = p.dates.filter(
@@ -230,7 +230,8 @@ try {
           content: {
             summary: "Deterministic integration fixture; no AI call",
             workouts: p.dates.map((date) => {
-              const run = days.includes(date) && p.maxWeekKm >= 0.5;
+              const run =
+                days.includes(date) && p.maxWeekKm >= 0.5 && km >= 0.5;
               return {
                 date,
                 kind: run ? "easy" : "rest",
@@ -325,8 +326,59 @@ try {
   const paused = await inputs.readPrescriptionPreview(uid, "next");
   assert.equal(paused.limits.maxWeekKm, 0);
   assert.equal(paused.guidance.condition.requiresRecheck, true);
+  const recoveryRace = {
+    ...races[1],
+    date: running.addCalendarDays(today, -20),
+  };
+  check(
+    await db
+      .from("profiles")
+      .update({
+        race_goals: [recoveryRace],
+        target_date: recoveryRace.date,
+        training_condition: { reportedOn: today, feeling: "normal" },
+      })
+      .eq("id", uid),
+  );
+  const recoveryPreview = await inputs.readPrescriptionPreview(uid, "current");
+  assert.equal(
+    recoveryPreview.guidance.raceCalendar.events[0].phase,
+    "recovery",
+  );
+  assert.ok(
+    ["needs_check_in", "gradual_return"].includes(
+      recoveryPreview.guidance.raceCalendar.events[0].recoveryState,
+    ),
+  );
+  check(
+    await db
+      .from("training_generation_requests")
+      .update({ started_at: new Date(Date.now() - 120000).toISOString() })
+      .eq("user_id", uid),
+  );
+  const recoveryResult = await service.generatePlan(uid, "current");
+  assert.ok(
+    recoveryResult.plan,
+    "a final past race must not prevent a recovery plan from being saved",
+  );
+  assert.equal(recoveryResult.inputsChanged, false);
+  assert.equal(calls, 2, "only deterministic fixture inference was called");
+  check(await db.from("profiles").update({ race_goals: [] }).eq("id", uid));
+  check(
+    await db
+      .from("training_generation_requests")
+      .update({ started_at: new Date(Date.now() - 120000).toISOString() })
+      .eq("user_id", uid),
+  );
+  const legacyRecovery = await service.generatePlan(uid, "current");
+  assert.ok(
+    legacyRecovery.plan,
+    "legacy scalar goals also support post-race recovery without rewriting the profile",
+  );
+  assert.equal(legacyRecovery.inputsChanged, false);
+  assert.equal(calls, 3);
   console.log(
-    "PASS: real DB multi-goal save/CAS, evidence preview, mocked inference + atomic plan save/reuse, recovery matching and condition gating. Actual OpenAI calls: 0.",
+    "PASS: real DB multi-goal save/CAS, evidence preview, mocked inference + atomic plan save/reuse, recovery matching, condition gating and post-final-race plan persistence. Actual OpenAI calls: 0.",
   );
 } finally {
   if (uid) {

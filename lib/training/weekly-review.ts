@@ -560,14 +560,21 @@ export function applyReviewPolicy(
   };
   if (!next.maxHardSessions) next.maxQualityKm = 0;
   if (n.direction === "reduce") {
+    const reservedRaceKm = (policy.calendar?.reservations ?? [])
+      .filter((r) => r.date >= policy.today)
+      .reduce((sum, r) => sum + r.distanceKm, 0);
+    const trainingCeiling = Math.max(
+      0,
+      policy.weeklyCeilingKm - reservedRaceKm,
+    );
     const ceiling = Math.min(
-      policy.weeklyCeilingKm,
+      trainingCeiling,
       Math.floor(
         policy.referenceWeekKm * (1 + n.volumeChangePercent / 100) * 10,
       ) / 10,
     );
-    const ratio = ceiling / policy.weeklyCeilingKm;
-    next.weeklyCeilingKm = ceiling;
+    const ratio = trainingCeiling > 0 ? ceiling / trainingCeiling : 0;
+    next.weeklyCeilingKm = ceiling + reservedRaceKm;
     next.maxWeekKm = Math.floor(policy.maxWeekKm * ratio * 10) / 10;
     next.minWeekKm = Math.min(
       next.maxWeekKm,
@@ -581,7 +588,8 @@ export function applyReviewPolicy(
     next.maxQualityKm = Math.floor(next.maxQualityKm * ratio * 10) / 10;
   } else if (
     n.direction === "progress" &&
-    policy.weeklyCeilingKm >= policy.referenceWeekKm
+    policy.weeklyCeilingKm >= policy.referenceWeekKm &&
+    (policy.calendar?.loadFactor ?? 1) >= 1
   ) {
     const fraction = policy.maxWeekKm / policy.weeklyCeilingKm;
     next.minWeekKm = Math.min(
