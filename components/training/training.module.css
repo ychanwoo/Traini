@@ -327,3 +327,44 @@
 .matchDetails[open] .matchChoices small {
   font-size: 10px;
 }
+.reviewWeek {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  color: #827888;
+  font-size: 11px;
+}
+.reviewWeek select {
+  min-width: 0;
+  max-width: 72%;
+  border: 1px solid #eae5ed;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  color: #51465a;
+  font: inherit;
+}
+.reviewContent {
+  border-top: 1px solid #f0ecf2;
+  margin-top: 16px;
+  padding-top: 4px;
+  overflow-wrap: anywhere;
+}
+.reviewObservations {
+  margin: 12px 0;
+  padding-left: 16px;
+  font-size: 11px;
+  line-height: 1.8;
+  color: #665c6d;
+}
+.reviewObservations li + li {
+  margin-top: 6px;
+}
+.reviewDirection {
+  margin: 16px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #51465a;
+}

@@ -24,7 +24,10 @@
     "test:admin:integration": "node --env-file=.env.local scripts/test-admin-integration.mjs",
     "test:matching": "node --test tests/workout-matching.test.mjs",
     "test:matching:integration": "node --env-file=.env.local scripts/test-workout-matching.mjs",
-    "test:db:matching": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/workout_matching.sql --output json --agent no"
+    "test:db:matching": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/workout_matching.sql --output json --agent no",
+    "test:review": "node --test tests/weekly-training-review.test.mjs",
+    "test:db:review": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/weekly_training_reviews.sql --output json --agent no",
+    "test:review:integration": "node --env-file=.env.local scripts/test-weekly-review.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

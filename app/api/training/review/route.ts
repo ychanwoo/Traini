@@ -1,22 +1,72 @@
 import { requireAdmin } from "@/lib/security/admin";
-import { getRecoveryLabel } from "@/lib/algorithms/fatigue";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import type { GarminSnapshot } from "@/types/garmin";
-
-export async function POST(request: Request) {
+import { readMutation, RequestInputError } from "@/lib/security/json-request";
+import { readReview } from "@/lib/training/review-storage";
+import { generateReview } from "@/lib/training/review-service";
+import { ReviewError } from "@/lib/training/weekly-review";
+import { reviewErrorMessage } from "@/lib/training/review-errors";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+const headers = {
+  "Cache-Control": "private, no-store",
+  Vary: "Cookie, Authorization",
+};
+async function handle(request: Request, mutate: boolean) {
   const access = await requireAdmin(request);
-  if (access.response) return access.response;
-  const userId = access.userId;
-
+  if (access.response) {
+    for (const [k, v] of Object.entries(headers))
+      access.response.headers.set(k, v);
+    return access.response;
+  }
   try {
-    const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase.from("garmin_snapshots").select("*").eq("user_id", userId).order("recorded_on", { ascending: false }).limit(1).single();
-    if (error || !data) return Response.json({ error: "No Garmin snapshot exists for this user." }, { status: 404, headers: { "Cache-Control": "private, no-store" } });
-    const snapshot: GarminSnapshot = { vo2Max: data.vo2_max, averageHeartRate: data.average_heart_rate, averagePaceSecondsPerKm: data.average_pace_seconds_per_km, sleepScore: data.sleep_score, hrvStatus: data.hrv_status, weeklyDistanceKm: data.weekly_distance_km, updatedAt: data.created_at };
-    const recovery = getRecoveryLabel(snapshot);
-    const adjustment = recovery === "좋음" ? "다음 주 거리와 페이스를 최대 6% 상향할 수 있어요." : "다음 주 고강도 훈련 1회를 가벼운 조깅으로 변경하세요.";
-    return Response.json({ recovery, adjustment, shouldReduceIntensity: recovery !== "좋음" }, { headers: { "Cache-Control": "private, no-store" } });
-  } catch {
-    return Response.json({ error: "훈련 리뷰를 불러오지 못했습니다." }, { status: 500, headers: { "Cache-Control": "private, no-store" } });
+    let start: string | undefined;
+    if (mutate) {
+      const body = await readMutation(request);
+      if (
+        Object.keys(body).some((k) => k !== "startsOn") ||
+        (body.startsOn !== undefined && typeof body.startsOn !== "string")
+      )
+        throw new RequestInputError(400, "대상 주를 확인해 주세요.");
+      start = body.startsOn as string | undefined;
+    } else {
+      const params = new URL(request.url).searchParams;
+      if (
+        [...params.keys()].some((k) => k !== "start") ||
+        params.getAll("start").length > 1
+      )
+        throw new RequestInputError(400, "대상 주를 확인해 주세요.");
+      start = params.get("start") ?? undefined;
+    }
+    return Response.json(
+      await (mutate
+        ? generateReview(access.userId, start)
+        : readReview(access.userId, start)),
+      { headers },
+    );
+  } catch (error) {
+    if (error instanceof RequestInputError)
+      return Response.json(
+        { error: error.message },
+        { status: error.status, headers },
+      );
+    const code = error instanceof ReviewError ? error.code : "review_storage";
+    return Response.json(
+      { error: reviewErrorMessage(code), code },
+      {
+        status:
+          code === "review_period"
+            ? 400
+            : code === "review_history"
+              ? 422
+              : code === "busy" || code === "review_changed"
+                ? 409
+                : code === "limited"
+                  ? 429
+                  : 503,
+        headers,
+      },
+    );
   }
 }
+export const GET = (request: Request) => handle(request, false);
+export const POST = (request: Request) => handle(request, true);
