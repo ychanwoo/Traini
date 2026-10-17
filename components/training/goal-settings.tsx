@@ -1,14 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { ChatGPTConnectionCard } from "@/components/chatgpt/chatgpt-connection-card";
-import { Info, Route } from "lucide-react";
-import { addCalendarDays } from "@/lib/garmin/running-summary";
+import { Info } from "lucide-react";
 import {
-  DISTANCES,
   GoalValidationError,
-  formatTimeInput,
   parseTimeText,
   timeText,
+  focusRace,
+  type RaceGoal,
   validateGoalInput,
   type GoalIssue,
   type TrainingGoal,
@@ -19,18 +18,20 @@ import {
   trainingRequest,
 } from "@/lib/training/client";
 import { TrainingContextCard, issueLabel } from "./training-context-card";
+import { RaceGoalsEditor } from "./race-goals-editor";
 import styles from "./training.module.css";
 type SavedGoal = {
   goal: TrainingGoal;
   issues: GoalIssue[];
   today: string;
   timezone: string;
+  revision: string;
 };
 const weekdays = ["월", "화", "수", "목", "금", "토", "일"];
 export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
   const [loaded, setLoaded] = useState<SavedGoal | null>(null);
   const [goal, setGoal] = useState<TrainingGoal | null>(null);
-  const [time, setTime] = useState("");
+  const [raceTimes, setRaceTimes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -46,7 +47,14 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
         if (controller.signal.aborted) return;
         setLoaded(data);
         setGoal(data.goal);
-        setTime(timeText(data.goal.targetTimeSeconds));
+        setRaceTimes(
+          Object.fromEntries(
+            (data.goal.races ?? []).map((r) => [
+              r.id,
+              timeText(r.targetTimeSeconds),
+            ]),
+          ),
+        );
         setIssues(data.issues);
         setMessage(null);
         setLoading(false);
@@ -78,7 +86,15 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
     let input: TrainingGoal;
     try {
       input = validateGoalInput(
-        { ...goal, targetTimeSeconds: parseTimeText(time) },
+        {
+          ...goal,
+          races: (goal.races ?? []).map((r) => ({
+            ...r,
+            targetTimeSeconds: parseTimeText(
+              raceTimes[r.id] ?? timeText(r.targetTimeSeconds),
+            ),
+          })),
+        },
         loaded.today,
       );
     } catch (error) {
@@ -91,14 +107,24 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
     const controller = new AbortController();
     writeController.current = controller;
     try {
-      const result = await trainingRequest<{ goal: TrainingGoal }>(
-        "goal",
-        controller.signal,
-        input,
-      );
+      const result = await trainingRequest<{
+        goal: TrainingGoal;
+        revision: string;
+      }>("goal", controller.signal, {
+        ...input,
+        expectedRevision: loaded.revision,
+      });
       if (controller.signal.aborted) return;
       setGoal(result.goal);
-      setTime(timeText(result.goal.targetTimeSeconds));
+      setRaceTimes(
+        Object.fromEntries(
+          (result.goal.races ?? []).map((r) => [
+            r.id,
+            timeText(r.targetTimeSeconds),
+          ]),
+        ),
+      );
+      setLoaded({ ...loaded, goal: result.goal, revision: result.revision });
       setSaved(true);
       window.dispatchEvent(new Event(GOAL_SAVED_EVENT));
     } catch (error) {
@@ -144,66 +170,68 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
       )}
       <form onSubmit={(event) => void save(event)} noValidate>
         <fieldset disabled={unavailable} className={styles.fields}>
-          <label className="goal-race-card">
-            <span>
-              <Route aria-hidden="true" />
-            </span>
-            <div>
-              <input
-                aria-label="대회명"
-                value={goal?.raceName ?? ""}
-                maxLength={120}
-                placeholder="대회명 (선택)"
-                onChange={(e) => edit("raceName", e.target.value || null)}
-              />
-              <small>{goal?.targetDate ?? "목표 날짜를 설정해 주세요"}</small>
-            </div>
-          </label>
-          <label className="settings-field">
-            목표 날짜
-            <input
-              type="date"
-              value={goal?.targetDate ?? ""}
-              min={loaded ? addCalendarDays(loaded.today, 1) : undefined}
-              onChange={(e) => edit("targetDate", e.target.value || null)}
-            />
-          </label>
-          <div className="goal-segments" role="group" aria-label="목표 거리">
-            {Object.keys(DISTANCES).map((distance) => (
-              <button
-                type="button"
-                key={distance}
-                aria-pressed={goal?.targetDistance === distance}
-                className={goal?.targetDistance === distance ? "active" : ""}
-                onClick={() =>
-                  edit(
-                    "targetDistance",
-                    distance as TrainingGoal["targetDistance"],
-                  )
-                }
-              >
-                {distance}
-              </button>
-            ))}
-          </div>
-          <label className="settings-field">
-            목표 기록 (선택)
-            <input
-              aria-label="목표 기록"
-              className="mono"
-              value={time}
-              inputMode="numeric"
-              placeholder="HH:MM:SS"
-              maxLength={8}
-              onChange={(e) => {
-                setTime(formatTimeInput(e.target.value));
-                setSaved(false);
-                setMessage(null);
-                setIssues([]);
-              }}
-            />
+          <RaceGoalsEditor
+            races={goal?.races ?? []}
+            times={raceTimes}
+            today={loaded?.today ?? ""}
+            onChange={(races: RaceGoal[]) => {
+              const focus = focusRace(races, loaded!.today);
+              setGoal((previous) =>
+                previous
+                  ? {
+                      ...previous,
+                      races,
+                      raceName: focus?.name ?? null,
+                      targetDistance: focus?.distance ?? null,
+                      targetDate: focus?.date ?? null,
+                      targetTimeSeconds: focus?.targetTimeSeconds ?? null,
+                    }
+                  : previous,
+              );
+              setSaved(false);
+              setMessage(null);
+              setIssues([]);
+            }}
+            onTime={(id, value) => {
+              setRaceTimes((old) => ({ ...old, [id]: value }));
+              setSaved(false);
+              setMessage(null);
+              setIssues([]);
+            }}
+          />
+          <label className={`settings-field ${styles.select}`}>
+            최근 컨디션 (직접 입력)
+            <select
+              aria-label="최근 컨디션"
+              value={goal?.condition?.feeling ?? ""}
+              onChange={(e) =>
+                edit(
+                  "condition",
+                  e.target.value
+                    ? {
+                        reportedOn: loaded!.today,
+                        feeling: e.target.value as
+                          | "good"
+                          | "normal"
+                          | "tired"
+                          | "unwell"
+                          | "pain",
+                      }
+                    : null,
+                )
+              }
+            >
+              <option value="">미입력 · 상태를 추정하지 않음</option>
+              <option value="good">좋음</option>
+              <option value="normal">보통</option>
+              <option value="tired">피로함</option>
+              <option value="unwell">몸 상태가 좋지 않음</option>
+              <option value="pain">통증 있음</option>
+            </select>
             <small className={styles.help}>
-              완주가 목표라면 비워두세요. 시간:분:초로 입력해 주세요.
+              {goal?.condition ? `${goal.condition.reportedOn} 입력 · ` : ""}
+              최근 3일 이내 입력만 반영해요. 좋은 컨디션만으로 훈련량을 늘리지
+              않아요. 통증·몸 상태 이상 시 회복과 재확인을 우선해요.
             </small>
           </label>
           <fieldset className={styles.availability}>
@@ -270,8 +298,9 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
           <section className="goal-hint">
             <Info aria-hidden="true" />
             <p>
-              입력한 목표와 실제 러닝 기록을 훈련계획의 기준으로 사용해요. 예상
-              기록이나 훈련 강도는 아직 산출하지 않아요.
+              여러 대회의 준비·대회일·회복 구간과 실제 러닝 기록을 함께
+              반영해요. 목표 기록 달성을 보장하거나 미입력 컨디션을 추정하지
+              않아요.
             </p>
           </section>
         </fieldset>

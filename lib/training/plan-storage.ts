@@ -1,4 +1,5 @@
 import "server-only";
+import { readTrainingGoal } from "./storage";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type {
   PlanWeek,
@@ -96,7 +97,11 @@ export async function readPlan(
   if (jobError) throw new PlanError("storage");
   const generating =
     job?.state === "running" && Date.parse(job.lease_expires_at) > Date.now();
+  const settings = await readTrainingGoal(userId, now);
   return {
+    races: (settings.goal.races ?? []).filter(
+      (r) => r.date >= period.start && r.date <= period.end,
+    ),
     period,
     plan,
     generating,

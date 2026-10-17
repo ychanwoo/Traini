@@ -19,6 +19,8 @@ import { planErrorMessage } from "@/lib/training/plan-errors";
 import { TrainingWeatherCard, ScheduleWeather } from "./training-weather-card";
 import { WeeklyReviewCard } from "./weekly-review-card";
 import styles from "./training.module.css";
+const formatRaceTime = (seconds: number) =>
+  `${Math.floor(seconds / 3600)}:${String(Math.floor((seconds % 3600) / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 const days = ["월", "화", "수", "목", "금", "토", "일"];
 export function formatPlanPace(seconds: number | null) {
   return seconds === null
@@ -126,16 +128,28 @@ export function TodayPlan() {
   const state = useWeeklyPlan("current");
   const today = state.data?.period.today;
   const workout = state.data?.plan?.workouts.find((w) => w.date === today);
+  const race = state.data?.races?.find((r) => r.date === today);
   return (
     <>
       <section className="card mt-4 p-6">
         <p className="eyebrow">TODAY’S SESSION</p>
         <h2 className="mt-2 text-xl font-semibold">
-          {workout?.title ??
-            (state.loading ? "훈련 확인 중" : "오늘의 계획이 없어요")}
+          {race
+            ? `대회 · ${race.name || race.distance}`
+            : (workout?.title ??
+              (state.loading ? "훈련 확인 중" : "오늘의 계획이 없어요"))}
         </h2>
         <PlanFeedback state={state} />
-        {workout && (
+        {race && (
+          <p className={styles.note}>
+            {race.distance} ·{" "}
+            {race.targetTimeSeconds
+              ? formatRaceTime(race.targetTimeSeconds)
+              : "완주 목표"}{" "}
+            · 등록된 대회 일정이에요.
+          </p>
+        )}
+        {workout && !race && (
           <>
             <div className="mt-7 grid grid-cols-2 items-end gap-3">
               <div>
@@ -275,6 +289,7 @@ function ScheduleWeek({
             const date = addCalendarDays(data.period.start, i),
               w = plan?.workouts.find((w) => w.date === date),
               today = date === data.period.today;
+            const race = data.races?.find((r) => r.date === date);
             const Glyph =
               w?.kind === "rest"
                 ? Moon
@@ -294,29 +309,33 @@ function ScheduleWeek({
                 </div>
                 <div className="schedule-copy">
                   <p>
-                    {w
-                      ? w.title
-                      : date < data.period.today
-                        ? "이전 날짜 · 계획 없음"
-                        : "계획 없음"}
+                    {race
+                      ? `대회 · ${race.name || race.distance}`
+                      : w
+                        ? w.title
+                        : date < data.period.today
+                          ? "이전 날짜 · 계획 없음"
+                          : "계획 없음"}
                   </p>
                   <small
                     className={w?.completed ? "complete" : today ? "focus" : ""}
                   >
-                    {w
-                      ? w.completed
-                        ? w.matching?.state === "unavailable"
-                          ? "완료 · 저장된 상태"
-                          : w.matching?.source === "garmin"
-                            ? "완료 · Garmin 확인"
-                            : "완료 · 직접 표시"
-                        : w.kind === "rest"
-                          ? w.purpose
-                          : `${w.distanceKm.toFixed(1)} km · ${formatPlanPace(w.paceSecondsPerKm)}`
-                      : "—"}
+                    {race
+                      ? `${race.distance} · ${race.targetTimeSeconds ? formatRaceTime(race.targetTimeSeconds) : "완주 목표"}`
+                      : w
+                        ? w.completed
+                          ? w.matching?.state === "unavailable"
+                            ? "완료 · 저장된 상태"
+                            : w.matching?.source === "garmin"
+                              ? "완료 · Garmin 확인"
+                              : "완료 · 직접 표시"
+                          : w.kind === "rest"
+                            ? w.purpose
+                            : `${w.distanceKm.toFixed(1)} km · ${formatPlanPace(w.paceSecondsPerKm)}`
+                        : "—"}
                   </small>
-                  {w && <SessionSteps steps={w.steps} />}
-                  {w && (
+                  {w && !race && <SessionSteps steps={w.steps} />}
+                  {w && !race && (
                     <WorkoutMatchDetails
                       key={`${w.id}:${w.matching?.revision}`}
                       workout={w}

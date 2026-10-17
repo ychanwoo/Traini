@@ -4,7 +4,10 @@ import { GoalValidationError, validateGoalInput } from "@/lib/training/goal";
 import { readTrainingGoal, saveTrainingGoal } from "@/lib/training/storage";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" };
+const headers = {
+  "Cache-Control": "private, no-store",
+  Vary: "Cookie, Authorization",
+};
 export async function GET(request: Request) {
   const access = await requireAdmin(request);
   if (access.response) {
@@ -79,10 +82,58 @@ export async function PUT(request: Request) {
       new Date(),
       process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles",
     );
+    let expectedRevision: string | undefined;
+    if (
+      body &&
+      typeof body === "object" &&
+      !Array.isArray(body) &&
+      Object.hasOwn(body, "expectedRevision")
+    ) {
+      const raw = body as Record<string, unknown>;
+      if (
+        typeof raw.expectedRevision !== "string" ||
+        !/^[a-f0-9]{32}$/.test(raw.expectedRevision)
+      )
+        return Response.json(
+          { error: "저장 버전을 확인해 주세요." },
+          { status: 400, headers },
+        );
+      expectedRevision = raw.expectedRevision;
+      body = Object.fromEntries(
+        Object.entries(raw).filter(([key]) => key !== "expectedRevision"),
+      );
+    }
+    if (
+      body &&
+      typeof body === "object" &&
+      Object.hasOwn(body, "races") &&
+      !expectedRevision
+    )
+      return Response.json(
+        { error: "목표를 다시 불러온 뒤 저장해 주세요." },
+        { status: 409, headers },
+      );
     const goal = validateGoalInput(body, today);
-    await saveTrainingGoal(access.userId, goal);
-    return Response.json({ goal }, { headers });
+    const revision = await saveTrainingGoal(
+      access.userId,
+      goal,
+      expectedRevision,
+    );
+    return Response.json({ goal, revision }, { headers });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      ["goal_conflict", "past_race"].includes(error.message)
+    )
+      return Response.json(
+        {
+          error:
+            error.message === "goal_conflict"
+              ? "다른 화면에서 목표가 변경됐어요. 입력을 확인한 뒤 새로고침해 주세요."
+              : "새 대회는 오늘 이후 날짜로 등록해 주세요.",
+        },
+        { status: error.message === "goal_conflict" ? 409 : 400, headers },
+      );
     if (error instanceof GoalValidationError)
       return Response.json(
         { error: "목표 입력값을 확인해 주세요.", issues: error.issues },

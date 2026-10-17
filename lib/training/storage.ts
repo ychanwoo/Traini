@@ -9,20 +9,23 @@ import type { TrainingGoal } from "./goal";
 import { goalFromProfile } from "./goal";
 import { dateInZone } from "@/lib/garmin/running-summary";
 const profileColumns =
-  "race_name,target_distance,target_date,target_time_seconds,training_days,long_run_day,training_baseline";
+  "race_name,target_distance,target_date,target_time_seconds,training_days,long_run_day,training_baseline,race_goals,training_condition";
 const activityColumns =
   "garmin_activity_id,started_at,updated_at,distance_meters,duration_seconds,average_pace_seconds_per_km,average_heart_rate,activity_training_details(evidence)";
 export async function readTrainingGoal(userId: string, now = new Date()) {
   const timezone = process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles";
   const today = dateInZone(now, timezone);
   const { data, error } = await getSupabaseAdmin()
-    .from("profiles")
-    .select(profileColumns)
-    .eq("id", userId)
-    .abortSignal(AbortSignal.timeout(15_000))
-    .maybeSingle();
-  if (error || !data) throw new Error("Profile unavailable");
-  return { ...goalFromProfile(data, today), today, timezone };
+    .rpc("training_goal_snapshot", { p_user_id: userId })
+    .abortSignal(AbortSignal.timeout(15000));
+  if (error || !data?.profile || typeof data.revision !== "string")
+    throw new Error("Goal snapshot unavailable");
+  return {
+    ...goalFromProfile(data.profile, today),
+    today,
+    timezone,
+    revision: data.revision,
+  };
 }
 export async function readTrainingContext(userId: string, now = new Date()) {
   const timezone = process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles";
@@ -70,22 +73,28 @@ export async function readTrainingContext(userId: string, now = new Date()) {
   }
   return buildTrainingContext(profile.data, rows, timezone, now);
 }
-export async function saveTrainingGoal(userId: string, goal: TrainingGoal) {
+export async function saveTrainingGoal(
+  userId: string,
+  goal: TrainingGoal,
+  expectedRevision?: string,
+) {
   const { data, error } = await getSupabaseAdmin()
-    .from("profiles")
-    .update({
-      race_name: goal.raceName,
-      target_distance: goal.targetDistance,
-      target_date: goal.targetDate,
-      target_time_seconds: goal.targetTimeSeconds,
-      training_days: goal.trainingDays,
-      long_run_day: goal.longRunDay,
-      updated_at: new Date().toISOString(),
+    .rpc("save_training_preferences", {
+      p_user_id: userId,
+      p_goal: {
+        ...goal,
+        timezone: process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles",
+      },
+      p_expected_revision: expectedRevision ?? null,
     })
-    .eq("id", userId)
-    .select(profileColumns)
-    .abortSignal(AbortSignal.timeout(15_000))
-    .maybeSingle();
-  if (error || !data) throw new Error("Goal save failed");
+    .abortSignal(AbortSignal.timeout(15000));
+  if (error || typeof data !== "string")
+    throw new Error(
+      error?.message.includes("goal_conflict")
+        ? "goal_conflict"
+        : error?.message.includes("past_race")
+          ? "past_race"
+          : "Goal save failed",
+    );
   return data;
 }

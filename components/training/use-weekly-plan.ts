@@ -5,6 +5,7 @@ import type { PlanWeek, StoredPlan } from "@/lib/training/weekly-plan";
 export type PlanState = {
   period: { start: string; end: string; today: string; timezone: string };
   plan: StoredPlan | null;
+  races?: import("@/lib/training/goal").RaceGoal[];
   generating: boolean;
   generationError: string | null;
   inputsChanged: boolean;
