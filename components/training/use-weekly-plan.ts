@@ -9,6 +9,7 @@ export type PlanState = {
   generationError: string | null;
   inputsChanged: boolean;
 };
+import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
 const EVENT = "traini:plan-changed";
 async function request<T>(
   path: string,
@@ -40,6 +41,7 @@ async function request<T>(
 export function useWeeklyPlan(week: PlanWeek) {
   const [data, setData] = useState<PlanState | null>(null),
     [error, setError] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
     [completing, setCompleting] = useState(false);
@@ -59,11 +61,12 @@ export function useWeeklyPlan(week: PlanWeek) {
       if (!controller.signal.aborted) {
         setData(result);
         setLoading(false);
+        setReadError(null);
       }
     } catch (err) {
       if (!controller.signal.aborted) {
         setLoading(false);
-        setError(
+        setReadError(
           err instanceof Error ? err.message : "계획을 불러오지 못했어요.",
         );
       }
@@ -79,12 +82,14 @@ export function useWeeklyPlan(week: PlanWeek) {
     const listener = () => void refresh();
     window.addEventListener("focus", listener);
     window.addEventListener(EVENT, listener);
+    window.addEventListener(IMPORT_FINISHED_EVENT, listener);
     return () => {
       mounted = false;
       clearInterval(timer);
       read.current?.abort();
       window.removeEventListener("focus", listener);
       window.removeEventListener(EVENT, listener);
+      window.removeEventListener(IMPORT_FINISHED_EVENT, listener);
     };
   }, [refresh, generating]);
   useEffect(
@@ -93,7 +98,11 @@ export function useWeeklyPlan(week: PlanWeek) {
     },
     [],
   );
-  async function mutate(kind: "generate" | "complete", workoutId?: string) {
+  async function mutate(
+    kind: "generate" | "complete" | "match",
+    workoutId?: string,
+    match?: { revision: string; activityIds: string[] },
+  ) {
     if (inFlight.current) return;
     inFlight.current = true;
     read.current?.abort();
@@ -108,7 +117,9 @@ export function useWeeklyPlan(week: PlanWeek) {
           week,
         });
         if (!controller.signal.aborted) setData(result);
-      } else await request("complete", controller.signal, { workoutId });
+      } else if (kind === "match")
+        await request("match", controller.signal, { workoutId, ...match });
+      else await request("complete", controller.signal, { workoutId });
     } catch (err) {
       if (!controller.signal.aborted)
         setError(
@@ -128,12 +139,14 @@ export function useWeeklyPlan(week: PlanWeek) {
   }
   return {
     data,
-    error,
+    error: error ?? readError,
     loading,
     busy,
     completing,
     refresh,
     generate: () => mutate("generate"),
     complete: (id: string) => mutate("complete", id),
+    match: (id: string, revision: string, activityIds: string[]) =>
+      mutate("match", id, { revision, activityIds }),
   };
 }

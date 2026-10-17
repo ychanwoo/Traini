@@ -93,15 +93,49 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
     return () => { mounted.current = false; controller.abort(); };
   }, [refresh]);
 
+  const [matchingState, setMatchingState] = useState<
+    "checking" | "done" | "error" | null
+  >(null);
+  const reconcileMatches = useCallback(async (signal?: AbortSignal) => {
+    if (mounted.current) setMatchingState("checking");
+    try {
+      const response = await fetch("/api/training/match/reconcile", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(60_000)])
+          : AbortSignal.timeout(60_000),
+      });
+      if (!response.ok) throw new Error();
+      const result = await response.json();
+      if (result.failed !== 0) throw new Error();
+      if (mounted.current && !signal?.aborted) {
+        setMatchingState("done");
+        window.dispatchEvent(new Event("traini:plan-changed"));
+      }
+    } catch {
+      if (mounted.current && !signal?.aborted) setMatchingState("error");
+    }
+  }, []);
   const running = snapshot?.job?.status === "running";
   const latestJob = snapshot?.job;
+  const importedJobId =
+    latestJob && latestJob.status !== "running" && latestJob.uploadStarted
+      ? latestJob.id
+      : null;
   useEffect(() => {
-    if (!latestJob || latestJob.status === "running" || !latestJob.uploadStarted || notified.current === latestJob.id) return;
-    notified.current = latestJob.id;
-    // Refresh even after a failed upload: a lost acknowledgement may follow a
-    // committed RPC. The summary API remains the authority for saved totals.
+    if (!importedJobId || notified.current === importedJobId) return;
+    notified.current = importedJobId;
     window.dispatchEvent(new Event(IMPORT_FINISHED_EVENT));
-  }, [latestJob]);
+    const controller = new AbortController();
+    void reconcileMatches(controller.signal);
+    return () => {
+      controller.abort();
+      notified.current = null;
+    };
+  }, [importedJobId, reconcileMatches]);
 
   useEffect(() => {
     const onFocus = () => { if (inFlight.current) return; void refresh().catch(() => {}); };
@@ -192,6 +226,22 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
         : current?.version === 1 ? <p>이전 원본 다운로드 결과예요. 다시 가져오면 분석과 저장까지 진행해요.</p>
         : <p>러닝 기록을 가져와 분석하고 주간 요약에 반영해요.</p>}
     </div>
+      {matchingState && (
+        <div className={styles.status} aria-live="polite">
+          <p role={matchingState === "error" ? "alert" : undefined}>
+            {matchingState === "checking"
+              ? "저장된 러닝과 최근 훈련계획을 연결하고 있어요."
+              : matchingState === "done"
+                ? "훈련계획과 Garmin 기록의 연결을 확인했어요."
+                : "훈련 연결 확인이 지연됐어요. 가져오기 결과는 유지돼요."}
+          </p>
+          {matchingState === "error" && (
+            <button type="button" onClick={() => void reconcileMatches()}>
+              훈련 연결 다시 확인
+            </button>
+          )}
+        </div>
+      )}
     <button type="button" className={styles.button} disabled={checking || busy || !snapshot?.available} onClick={() => void start()} aria-busy={Boolean(busy)}>
       {busy ? <RefreshCw className={styles.spinning} aria-hidden="true" /> : <ArrowDownToLine aria-hidden="true" />}
       {checking ? "상태 확인 중" : busy ? "지난주 기록 가져오는 중" : "지난주 가져오기"}

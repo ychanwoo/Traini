@@ -72,3 +72,10 @@ FIT lap labels are not automatically training classifications. Generic `interval
 The reference routine the user supplied is stored separately as `profiles.training_baseline`, with source `user_reported` and a report date. The generator can choose repetition structure using actual evidence and explain that choice. It does not require the user to specify each upcoming workout. Missing RPE, symptoms, sleep and recovery are not inferred from training effect or lap pace. Current-week automatic activity matching remains a separate issue.
 
 References: [Garmin FIT activity/lap structure](https://developer.garmin.com/fit/articles/file-types/activity.html), [ACSM discussion of interval and recovery variables](https://acsm.org/high-intensity-interval-training-fitness/).
+
+## Garmin completion matching
+
+Today and Schedule now distinguish manual completion from verified Garmin activity matches.
+See [matching rules, confirmation and reimport behavior](garmin-workout-matching.md).
+Future generation prompts cover recovery/easy, tempo, interval and long-run purposes individually;
+validation also rejects a tempo without sustained work and misordered warmup/cooldown.

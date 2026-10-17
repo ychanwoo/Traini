@@ -7,6 +7,7 @@ import type {
   PlanContent,
 } from "./weekly-plan";
 import { planPeriod, PlanError } from "./weekly-plan";
+import { reconcileWorkoutMatches } from "./matching-storage";
 const timeout = () => AbortSignal.timeout(15_000);
 export async function revision(userId: string) {
   const { data, error } = await getSupabaseAdmin()
@@ -36,12 +37,33 @@ export async function readPlan(
   if (error) throw new PlanError("storage");
   let plan: StoredPlan | null = null;
   if (data) {
+    // Reconcile lazily after import / generation. Failed matching must not hide a
+    // usable plan or turn an already saved completion into an unchecked state.
+    let matches: Awaited<ReturnType<typeof reconcileWorkoutMatches>> | null =
+      null;
+    try {
+      matches = await reconcileWorkoutMatches(userId, data.id);
+    } catch {
+      /* Separate status in UI; retry on refresh. */
+    }
     const workouts: StoredWorkout[] = data.workouts
       .map((w) => ({
         id: w.id,
         date: w.scheduled_on,
         kind: w.kind as StoredWorkout["kind"],
-        completed: w.status === "completed",
+        completed: matches?.has(w.id)
+          ? !!matches.get(w.id)?.source
+          : w.status === "completed",
+        matching: matches?.get(w.id) ?? {
+          state: "unavailable",
+          reason: "unavailable",
+          revision: "",
+          source: null,
+          method: null,
+          actualDistanceKm: null,
+          actualTimerSeconds: null,
+          activities: [],
+        },
         title: w.title,
         purpose: w.purpose,
         distanceKm: Number(w.distance_km),

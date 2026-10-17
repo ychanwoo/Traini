@@ -699,3 +699,81 @@ test("lap context projects numeric evidence without GPS, device identifiers or g
   assert.equal(c.reportedBaseline, null);
   assert.equal(plans.planPolicy(c, "next").maxHardSessions, 0);
 });
+
+test("recovery, easy, tempo and long plans validate their own purpose, effort, pace and full session distance", () => {
+  const p = {
+    ...plans.planPolicy(context(), "next"),
+    trainingDays: [1, 3, 4, 5, 7],
+    longRunDay: 7,
+    minWeekKm: 0,
+    maxWeekKm: 60,
+    maxRunKm: 21,
+    maxHardSessions: 2,
+    maxQualityKm: 12,
+    minEasyPace: 300,
+    minHardPace: 225,
+  };
+  const v = valid(p);
+  const step = (kind, distanceMeters, paceSecondsPerKm) => ({
+    kind,
+    distanceMeters,
+    paceSecondsPerKm,
+    repetitions: 1,
+    recoveryMeters: 0,
+    recoverySeconds: null,
+    recoveryAfterLast: false,
+  });
+  Object.assign(v.workouts[0], {
+    title: "회복런",
+    purpose: "앞선 부하를 고려해 대화 가능한 편안한 회복",
+    distanceKm: 7,
+    paceSecondsPerKm: 350,
+    steps: [step("steady", 7000, 350)],
+  });
+  Object.assign(v.workouts[2], {
+    title: "이지런",
+    distanceKm: 8,
+    paceSecondsPerKm: 330,
+    steps: [step("steady", 8000, 330)],
+  });
+  Object.assign(v.workouts[4], {
+    title: "템포런",
+    kind: "threshold",
+    effort: "controlled",
+    distanceKm: 10,
+    steps: [
+      step("warmup", 1500, 340),
+      step("steady", 7000, 255),
+      step("cooldown", 1500, 350),
+    ],
+  });
+  Object.assign(v.workouts[6], {
+    title: "롱런",
+    kind: "long",
+    distanceKm: 20,
+    paceSecondsPerKm: 335,
+    steps: [step("steady", 20000, 335)],
+  });
+  assert.doesNotThrow(() => plans.validatePlan(v, p));
+  for (const index of [0, 2, 4, 6]) {
+    const bad = structuredClone(v);
+    bad.workouts[index].steps[0].distanceMeters += 1000;
+    assert.throws(() => plans.validatePlan(bad, p), /invalid_output/);
+  }
+  const hardEasy = structuredClone(v);
+  hardEasy.workouts[0].steps[0].paceSecondsPerKm = 250;
+  assert.throws(() => plans.validatePlan(hardEasy, p), /invalid_output/);
+  const missingTempo = structuredClone(v);
+  missingTempo.workouts[4].steps = [
+    step("warmup", 5000, 340),
+    step("cooldown", 5000, 350),
+  ];
+  assert.throws(() => plans.validatePlan(missingTempo, p), /invalid_output/);
+  const reverse = structuredClone(v);
+  reverse.workouts[4].steps.reverse();
+  assert.throws(() => plans.validatePlan(reverse, p), /invalid_output/);
+  const prompt = plans.trainingPrompt(context(), p).instructions;
+  assert.match(prompt, /distinguish recovery runs/);
+  assert.match(prompt, /sustained active laps/);
+  assert.match(prompt, /measured endurance/);
+});
