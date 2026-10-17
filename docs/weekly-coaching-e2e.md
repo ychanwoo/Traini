@@ -96,7 +96,7 @@ week. No layout, training prescription, saved user data or AI behavior changed.
 
 On 2026-10-17, all nine shared scenarios passed in the Codex browser driver,
 including the expanded mobile layouts; no browser console errors were observed.
-The Playwright configuration discovers the same nine tests. All 288 existing
+The Playwright configuration discovers the same nine tests. All 294
 Node tests and the actual administrator, feedback and review integration checks
 also passed without inference calls. See the current check output for lint,
 types and build results rather than treating this dated record as a future pass.

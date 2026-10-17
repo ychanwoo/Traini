@@ -86,11 +86,11 @@ npm run test:admin:integration
 DB 테스트는 모든 데이터를 롤백하며 실제 훈련 완료 상태를 변경하지 않습니다.
 
 Next.js와 eslint-config-next는 16.4.2로 맞추고 Supabase SDK는 SSR의 peer dependency와
-호환되는 2.118.0으로 고정했습니다. 프로덕션 의존성 `npm audit --omit=dev`는 취약점 0건입니다.
-전체 audit에는 ESLint의 braces → micromatch → fast-glob 경로 개발 의존성 경고 5건이 남습니다.
+호환되는 2.118.0으로 고정했습니다. 인증 변경 구현 당시 프로덕션 의존성 `npm audit --omit=dev`는 취약점 0건이었습니다.
+같은 시점의 전체 audit에는 ESLint의 braces → micromatch → fast-glob 경로 개발 의존성 경고 5건이 남아 있었습니다. 현재 결과는 의존성·보안 데이터 갱신에 따라 달라질 수 있습니다.
 공식 수정 버전 없이 eslint-config-next 14로 강제 다운그레이드하는 자동 제안은 적용하지 않았습니다.
 
-## 이번 브랜치 검증 결과
+## 구현 당시 검증 기록
 
 Node 117개와 Python 103개 테스트, 관리자 접근·활동 저장·훈련 요일·주간 계획·랩 데이터
 SQL 회귀 검증, lint, TypeScript와 프로덕션 빌드를 통과했습니다. 실제 HTTP 검증에서
