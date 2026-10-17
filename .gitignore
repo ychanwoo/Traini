@@ -56,3 +56,7 @@ __pycache__/
 **/upload-validation.json
 **/normalized/*.json
 .env.local.*.tmp
+
+# Browser regression artifacts (may contain synthetic UI snapshots)
+/test-results/
+/playwright-report/

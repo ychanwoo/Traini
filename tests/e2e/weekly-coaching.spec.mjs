@@ -1,0 +1,15 @@
+import { test } from "@playwright/test";
+import { coachingScenarios } from "./weekly-coaching.browser.mjs";
+for (const name of ["importedHistory", "history", "feedback", "skip", "readFailures", "dataStates", "saveFailures", "responsive"]) {
+  test(name, async ({page}) => {
+    const errors = [];
+    page.on("pageerror", error => errors.push(error.message));
+    page.on("request", request => {
+      if (new URL(request.url()).origin !== "http://127.0.0.1:3027") errors.push("Unexpected external request");
+    });
+    await page.goto("/schedule");
+    const tab = { playwright: page, goto: url => page.goto(url), reload: () => page.reload(), getAXState: async () => {} };
+    await coachingScenarios(tab, {set: size => page.setViewportSize(size)})[name]();
+    if (errors.length) throw new Error(errors.join("\n"));
+  });
+}

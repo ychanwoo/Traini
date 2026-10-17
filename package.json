@@ -44,7 +44,9 @@
     "test:reliability:integration": "node --env-file=.env.local scripts/test-service-reliability.mjs",
     "test:subscription:live": "node --env-file=.env.local scripts/test-live-review.mjs",
     "test:plan:personal": "node --env-file=.env.local scripts/test-personal-plan.mjs",
-    "test:plan:acceptance": "node --test tests/personal-plan-validation.test.mjs"
+    "test:plan:acceptance": "node --test tests/personal-plan-validation.test.mjs",
+    "test:e2e:serve": "node tests/e2e/server.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
@@ -56,10 +58,12 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
