@@ -163,7 +163,7 @@ export function WeeklyReviewCard() {
       <div aria-live="polite">
         {loading && (
           <p className={styles.note}>
-            완료된 주의 계획과 러닝 기록을 확인하고 있어요.
+            완료·마감된 주의 계획과 러닝 기록을 확인하고 있어요.
           </p>
         )}
         {displayError && (
@@ -347,7 +347,7 @@ export function WeeklyReviewCard() {
             </details>
             {review.fresh && data?.period.startsOn !== data.latestStartsOn && (
               <p className={styles.note}>
-                이전 주 리뷰예요. 현재 계획에는 가장 최근 완료된 주의 최신
+                이전 주 리뷰예요. 계획에는 최근 완료·마감된 주의 최신
                 리뷰를 반영해요.
               </p>
             )}
@@ -359,7 +359,7 @@ export function WeeklyReviewCard() {
             </p>
             {review.fresh && data?.period.startsOn === data.latestStartsOn && (
               <p className={styles.note}>
-                최근 완료된 주의 리뷰는 일정의 ‘최신 기록으로 계획 업데이트’
+                최근 완료·마감된 주의 리뷰는 일정의 ‘최신 기록으로 계획 업데이트’
                 또는 다음 주 계획 생성에 반영돼요. 기존 계획은 자동으로 바뀌지
                 않아요.
               </p>
@@ -375,6 +375,7 @@ export function WeeklyReviewCard() {
               {reviewErrorMessage(data.generationError)}
             </p>
           )}
+        {data?.closeout && !data.closeout.fresh && <p className={styles.error}>일요일 마감 이후 기록이 바뀌었어요. 주간 마감을 갱신한 뒤 리뷰를 생성해 주세요.</p>}
         {data && (!review || !review.fresh) && (
           <button
             type="button"
@@ -382,6 +383,7 @@ export function WeeklyReviewCard() {
             disabled={
               busy ||
               generating ||
+              (data.closeout !== null && data.closeout !== undefined && !data.closeout.fresh) ||
               (!metrics?.hasPlan && !metrics?.activityCount)
             }
             onClick={() => void generate()}

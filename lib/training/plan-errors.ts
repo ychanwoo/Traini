@@ -1,4 +1,5 @@
 export const planErrorMessages: Record<string, string> = {
+  closeout_changed: "마감 이후 기록·피드백이 바뀌었어요. 주간 마감을 갱신한 뒤 계획을 확인해 주세요.",
   local_runtime:
     "ChatGPT 구독 기반 생성은 연결을 설정한 Mac에서 Traini 서버를 실행해야 사용할 수 있어요.",
   inputs: "목표와 훈련 가능 요일·장거리 요일을 먼저 설정해 주세요.",

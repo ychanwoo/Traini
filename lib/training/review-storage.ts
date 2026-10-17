@@ -1,4 +1,5 @@
 import "server-only";
+import { reviewSelection } from "./closeout-storage";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { addCalendarDays } from "@/lib/garmin/running-summary";
 import { readTrainingContext } from "./storage";
@@ -6,7 +7,6 @@ import { reconcileWorkoutMatches } from "./matching-storage";
 import {
   buildReviewMetrics,
   parseReviewSnapshot,
-  reviewPeriod,
   ReviewError,
   validateReview,
   type AppliedReview,
@@ -35,10 +35,12 @@ export async function reviewSnapshot(
   return parseReviewSnapshot(data);
 }
 export async function reviewInputs(userId: string, start?: string | null) {
-  const period = reviewPeriod(
+  const selection = await reviewSelection(
+    userId,
     process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles",
     start,
   );
+  const period = selection.period;
   for (let attempt = 0; attempt < 2; attempt++) {
     let before = await reviewSnapshot(userId, period.startsOn, period.timezone);
     if (before.source.planId) {
@@ -57,6 +59,17 @@ export async function reviewInputs(userId: string, start?: string | null) {
     if (before.revision === after.revision)
       return {
         period,
+        latestStartsOn: selection.latestStartsOn,
+        closeout:
+          selection.closeout && period.startsOn === selection.latestStartsOn
+            ? {
+                closedAt: selection.closeout.closed_at,
+                revision: selection.closeout.snapshot_revision,
+                fresh:
+                  selection.closeout.snapshot_revision ===
+                  (after.closeoutRevision ?? after.revision),
+              }
+            : null,
         snapshot: after,
         context,
         metrics: buildReviewMetrics(after, context),
@@ -90,7 +103,8 @@ export async function readReview(userId: string, start?: string | null) {
   const generating =
     job?.state === "running" && Date.parse(job.lease_expires_at) > Date.now();
   return {
-    latestStartsOn: reviewPeriod(inputs.period.timezone).startsOn,
+    latestStartsOn: inputs.latestStartsOn,
+    closeout: inputs.closeout,
     period: inputs.period,
     metrics: inputs.metrics,
     review: data
@@ -117,8 +131,14 @@ export type ReviewState = Awaited<ReturnType<typeof readReview>>;
 export async function readApplicableReview(
   userId: string,
   timezone: string,
+  week: "current" | "next" = "current",
 ): Promise<AppliedReview | null> {
-  const period = reviewPeriod(timezone);
+  const { period, closeout } = await reviewSelection(
+    userId,
+    timezone,
+    undefined,
+    week === "next",
+  );
   const { data, error } = await getSupabaseAdmin()
     .from("weekly_training_reviews")
     .select("id,starts_on,input_revision,metrics,content")
@@ -130,7 +150,13 @@ export async function readApplicableReview(
   if (error) throw new ReviewError("review_storage");
   if (!data) return null;
   const snapshot = await reviewSnapshot(userId, period.startsOn, timezone);
-  if (snapshot.revision !== data.input_revision) return null;
+  if (
+    snapshot.revision !== data.input_revision ||
+    (closeout &&
+      closeout.snapshot_revision !==
+        (snapshot.closeoutRevision ?? snapshot.revision))
+  )
+    return null;
   const content = validateReview(data.content, data.metrics as ReviewMetrics);
   return {
     id: data.id,

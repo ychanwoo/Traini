@@ -1,6 +1,7 @@
 import { planErrorMessage } from "./plan-errors";
 export function reviewErrorMessage(code: string): string {
   const messages: Record<string, string> = {
+    closeout_changed: "마감 이후 기록·피드백이 바뀌었어요. 주간 마감을 다시 확인해 주세요.",
     busy: "계획 또는 리뷰를 생성하고 있어요. 잠시 후 결과를 확인해 주세요.",
     limited:
       "생성 요청은 1분 간격, 최근 24시간 동안 계획·리뷰 합계 5회까지 가능해요. ChatGPT 자체 사용 한도도 적용될 수 있어요.",
