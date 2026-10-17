@@ -11,6 +11,7 @@ import {
   revision,
   savePlan,
   failGeneration,
+  generationState,
 } from "./plan-storage";
 import {
   planPolicy,
@@ -64,6 +65,7 @@ export async function generatePlan(userId: string, week: PlanWeek) {
   if (claim.state !== "started" || !claim.requestId)
     throw new PlanError(claim.state);
   let usage: unknown = null;
+  let saveAttempted = false;
   try {
     const result = await generateWithSubscription(
       userId,
@@ -73,6 +75,7 @@ export async function generatePlan(userId: string, week: PlanWeek) {
       },
     );
     const content = validatePlan(result.content, policy);
+    saveAttempted = true;
     await savePlan(
       claim.requestId,
       content,
@@ -80,7 +83,6 @@ export async function generatePlan(userId: string, week: PlanWeek) {
       context.timezone,
       usage,
     );
-    return await readPlan(userId, week);
   } catch (error) {
     const code = error instanceof Error ? error.message : "generation";
     // Keep a bounded code only; never persist provider messages, input text or credentials.
@@ -109,7 +111,20 @@ export async function generatePlan(userId: string, week: PlanWeek) {
     ].includes(code)
       ? code
       : "generation";
+    // A timed-out response does not prove the transaction rolled back.
+    // If the outcome cannot be read, keep its lease rather than permit another paid request.
+    if (saveAttempted) {
+      let state: string | null = null;
+      try {
+        state = await generationState(userId, claim.requestId);
+      } catch {
+        throw new PlanError("storage");
+      }
+      if (state === "completed") return readPlan(userId, week);
+    }
     await failGeneration(claim.requestId, safe, usage).catch(() => {});
     throw new PlanError(safe);
   }
+  // A read failure after commit must never be recorded as a generation failure.
+  return readPlan(userId, week);
 }

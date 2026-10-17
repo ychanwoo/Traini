@@ -102,7 +102,7 @@ export async function readPlan(
   }
   const { data: job, error: jobError } = await db
     .from("training_generation_requests")
-    .select("state,lease_expires_at,failure_code,started_at")
+    .select("state,lease_expires_at,failure_code,started_at,starts_on")
     .eq("kind", "plan")
     .eq("user_id", userId)
     .order("started_at", { ascending: false })
@@ -121,9 +121,11 @@ export async function readPlan(
     plan,
     generating,
     generationError:
-      job?.state === "failed"
+      job?.starts_on === period.start && job?.state === "failed"
         ? job.failure_code
-        : job?.state === "running" && !generating
+        : job?.starts_on === period.start &&
+            job?.state === "running" &&
+            !generating
           ? "interrupted"
           : null,
     inputsChanged: data
@@ -144,7 +146,9 @@ export async function reserveGeneration(
     })
     .abortSignal(timeout());
   if (error || !data || typeof data.state !== "string")
-    throw new PlanError("storage");
+    throw new PlanError(
+      error?.message.includes("input_changed") ? "input_changed" : "storage",
+    );
   return data as {
     state: "started" | "existing" | "busy" | "limited";
     requestId?: string;
@@ -194,4 +198,17 @@ export async function completeWorkout(userId: string, workoutId: string) {
     .abortSignal(timeout());
   if (error) throw new PlanError("storage");
   if (data !== true) throw new PlanError("workout");
+}
+
+/** Read back a possibly committed request after a lost save response. Never retry inference. */
+export async function generationState(userId: string, requestId: string) {
+  const { data, error } = await getSupabaseAdmin()
+    .from("training_generation_requests")
+    .select("state")
+    .eq("user_id", userId)
+    .eq("id", requestId)
+    .abortSignal(timeout())
+    .maybeSingle();
+  if (error) throw new PlanError("storage");
+  return data?.state ?? null;
 }

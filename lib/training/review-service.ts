@@ -6,6 +6,7 @@ import {
   reserveReview,
   saveReview,
   failReview,
+  generationState,
 } from "./review-storage";
 import { ReviewError, reviewPrompt, validateReview } from "./weekly-review";
 export async function generateReview(userId: string, start?: string | null) {
@@ -27,6 +28,7 @@ export async function generateReview(userId: string, start?: string | null) {
   if (claim.state !== "started" || !claim.requestId)
     throw new ReviewError(claim.state);
   let usage: unknown = null;
+  let saveAttempted = false;
   try {
     const result = await generateWithSubscription(
       userId,
@@ -36,6 +38,7 @@ export async function generateReview(userId: string, start?: string | null) {
       },
     );
     const content = validateReview(result.content, metrics);
+    saveAttempted = true;
     await saveReview(
       claim.requestId,
       period.timezone,
@@ -71,6 +74,15 @@ export async function generateReview(userId: string, start?: string | null) {
     ].includes(code)
       ? code
       : "generation";
+    if (saveAttempted) {
+      let state: string | null = null;
+      try {
+        state = await generationState(userId, claim.requestId);
+      } catch {
+        throw new ReviewError("review_storage");
+      }
+      if (state === "completed") return readReview(userId, period.startsOn);
+    }
     await failReview(claim.requestId, safe, usage).catch(() => {});
     throw new ReviewError(safe);
   }

@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { requestJson, ReadRequestGate } from "@/lib/http/client-request";
 import { addCalendarDays } from "@/lib/garmin/running-summary";
 import type { ReviewState } from "@/lib/training/review-storage";
 import { reviewErrorMessage } from "@/lib/training/review-errors";
@@ -33,38 +34,38 @@ export function WeeklyReviewCard() {
     [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true);
-  const read = useRef<AbortController | null>(null),
+  const [readError, setReadError] = useState<string | null>(null);
+  const read = useRef(new ReadRequestGate()),
     action = useRef<AbortController | null>(null),
     inFlight = useRef(false);
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
-    read.current?.abort();
-    const c = new AbortController();
-    read.current = c;
+    const c = read.current.start();
+    if (!c) return;
     try {
-      const r = await fetch(
+      const body = await requestJson<ReviewState>(
         `/api/training/review${start ? `?start=${start}` : ""}`,
-        {
-          cache: "no-store",
-          signal: AbortSignal.any([c.signal, AbortSignal.timeout(25000)]),
-        },
+        { signal: c.signal },
       );
-      const body = await r.json();
-      if (!r.ok) throw new Error(body.error);
       if (!c.signal.aborted) {
         setData(body);
-        setError(null);
+        setReadError(null);
         setLoading(false);
       }
     } catch (e) {
       if (!c.signal.aborted) {
-        setError(e instanceof Error ? e.message : "리뷰를 확인하지 못했어요.");
+        setReadError(
+          e instanceof Error ? e.message : "리뷰를 확인하지 못했어요.",
+        );
         setLoading(false);
       }
+    } finally {
+      read.current.finish(c);
     }
   }, [start]);
   const generating = !!data?.generating;
   useEffect(() => {
+    const reads = read.current;
     let active = true;
     queueMicrotask(() => {
       if (active) void refresh();
@@ -77,7 +78,7 @@ export function WeeklyReviewCard() {
     return () => {
       active = false;
       clearInterval(timer);
-      read.current?.abort();
+      reads.abort();
       window.removeEventListener("focus", listener);
       window.removeEventListener(EVENT, listener);
       window.removeEventListener(IMPORT_FINISHED_EVENT, listener);
@@ -87,20 +88,18 @@ export function WeeklyReviewCard() {
   async function generate() {
     if (inFlight.current || !data) return;
     inFlight.current = true;
-    read.current?.abort();
+    read.current.abort();
     setBusy(true);
     setError(null);
     const c = new AbortController();
     action.current = c;
     try {
-      const r = await fetch("/api/training/review", {
+      const body = await requestJson<ReviewState>("/api/training/review", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startsOn: data.period.startsOn }),
-        signal: AbortSignal.any([c.signal, AbortSignal.timeout(240000)]),
+        body: { startsOn: data.period.startsOn },
+        signal: c.signal,
+        timeoutMs: 240_000,
       });
-      const body = await r.json();
-      if (!r.ok) throw new Error(body.error);
       if (!c.signal.aborted) {
         setData(body);
         window.dispatchEvent(new Event(EVENT));
@@ -114,9 +113,14 @@ export function WeeklyReviewCard() {
         );
     } finally {
       inFlight.current = false;
-      if (!c.signal.aborted) setBusy(false);
+      if (!c.signal.aborted) {
+        setBusy(false);
+        void refresh();
+        window.dispatchEvent(new Event(EVENT));
+      }
     }
   }
+  const displayError = error ?? readError;
   const metrics = data?.metrics,
     review = data?.review;
   const label = (s: string) =>
@@ -142,6 +146,7 @@ export function WeeklyReviewCard() {
               setData(null);
               setLoading(true);
               setError(null);
+              setReadError(null);
             }}
           >
             {Array.from({ length: 8 }, (_, i) =>
@@ -160,9 +165,9 @@ export function WeeklyReviewCard() {
             완료된 주의 계획과 러닝 기록을 확인하고 있어요.
           </p>
         )}
-        {error && (
+        {displayError && (
           <p className={styles.error} role="alert">
-            {error}
+            {displayError}
           </p>
         )}
         {!data && !loading && (
@@ -327,11 +332,15 @@ export function WeeklyReviewCard() {
             )}
           </div>
         )}
-        {data && !error && !busy && !generating && data.generationError && (
-          <p className={styles.error}>
-            {reviewErrorMessage(data.generationError)}
-          </p>
-        )}
+        {data &&
+          !displayError &&
+          !busy &&
+          !generating &&
+          data.generationError && (
+            <p className={styles.error}>
+              {reviewErrorMessage(data.generationError)}
+            </p>
+          )}
         {data && (!review || !review.fresh) && (
           <button
             type="button"

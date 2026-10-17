@@ -202,6 +202,8 @@ try {
   assert.equal(preview.guidance.goals.length, 2);
   assert.equal(preview.guidance.source, "rules_and_recorded_evidence");
   let calls = 0;
+  let lostResponse = true,
+    lastSave;
   const service = load("lib/training/plan-service.ts", {
     "server-only": {},
     "./prescription-storage": inputs,
@@ -209,7 +211,17 @@ try {
     "./review-storage": rs,
     "./weekly-review": review,
     "./storage": storage,
-    "./plan-storage": ps,
+    "./plan-storage": {
+      ...ps,
+      savePlan: async (...args) => {
+        lastSave = args;
+        await ps.savePlan(...args);
+        if (lostResponse) {
+          lostResponse = false;
+          throw new plans.PlanError("storage");
+        }
+      },
+    },
     "./weekly-plan": plans,
     "@/scripts/lib/chatgpt-inference.mjs": {
       generateWithSubscription: async (_uid, prompt) => {
@@ -263,6 +275,8 @@ try {
   });
   const result = await service.generatePlan(uid, "next");
   assert.ok(result.plan);
+  await ps.savePlan(...lastSave); // Replay the committed RPC: no new inference or replacement.
+  assert.equal(await ps.generationState(uid, lastSave[0]), "completed");
   assert.equal(result.inputsChanged, false);
   await service.generatePlan(uid, "next");
   assert.equal(calls, 1);

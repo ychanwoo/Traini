@@ -16,7 +16,9 @@ export async function consumeResponse(response, onUsage = () => {}) {
         ? "limited"
         : response.status === 401
           ? "reconnect"
-          : "provider",
+          : response.status === 403
+            ? "permission"
+            : "provider",
     );
   const contentType = response.headers.get("content-type");
   if (
@@ -168,9 +170,14 @@ export async function generateWithSubscription(ownerId, prompt, onUsage) {
       throw new ConnectionError("network");
     }
     // No automatic retries and no paid API-key fallback.
-    const content = await consumeResponse(response, (usage) =>
-      onUsage?.({ ...usage, model: model.id }),
-    );
-    return { content, model: model.id };
+    try {
+      const content = await consumeResponse(response, (usage) =>
+        onUsage?.({ ...usage, model: model.id }),
+      );
+      return { content, model: model.id };
+    } catch (error) {
+      if (error instanceof ConnectionError) throw error;
+      throw new ConnectionError("network");
+    }
   });
 }

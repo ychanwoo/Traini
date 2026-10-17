@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { requestJson, ReadRequestGate } from "@/lib/http/client-request";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { PlanWeek, StoredPlan } from "@/lib/training/weekly-plan";
 export type PlanState = {
@@ -21,23 +22,12 @@ async function request<T>(
     data: { session },
   } = await getSupabaseBrowserClient().auth.getSession();
   if (!session) throw new Error("관리자 로그인 상태를 확인해 주세요.");
-  const response = await fetch(`/api/training/${path}`, {
-    method: body ? "POST" : "GET",
-    cache: "no-store",
-    credentials: "same-origin",
-    headers: {
-      ...(body ? { "Content-Type": "application/json" } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.any([
-      signal,
-      AbortSignal.timeout(path === "generate" ? 240_000 : 25_000),
-    ]),
+  return requestJson<T>(`/api/training/${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    body,
+    signal,
+    timeoutMs: path === "generate" ? 240_000 : 25_000,
   });
-  const data = await response.json();
-  if (!response.ok)
-    throw new Error(data.error ?? "훈련계획 요청을 완료하지 못했어요.");
-  return data;
 }
 export function useWeeklyPlan(week: PlanWeek | "previous") {
   const [data, setData] = useState<PlanState | null>(null),
@@ -47,13 +37,12 @@ export function useWeeklyPlan(week: PlanWeek | "previous") {
     [busy, setBusy] = useState(false),
     [completing, setCompleting] = useState(false);
   const action = useRef<AbortController | null>(null),
-    read = useRef<AbortController | null>(null),
+    read = useRef(new ReadRequestGate()),
     inFlight = useRef(false);
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
-    read.current?.abort();
-    const controller = new AbortController();
-    read.current = controller;
+    const controller = read.current.start();
+    if (!controller) return;
     try {
       const result = await request<PlanState>(
         `plan?week=${week}`,
@@ -71,10 +60,13 @@ export function useWeeklyPlan(week: PlanWeek | "previous") {
           err instanceof Error ? err.message : "계획을 불러오지 못했어요.",
         );
       }
+    } finally {
+      read.current.finish(controller);
     }
   }, [week]);
   const generating = Boolean(data?.generating);
   useEffect(() => {
+    const reads = read.current;
     let mounted = true;
     queueMicrotask(() => {
       if (mounted) void refresh();
@@ -87,7 +79,7 @@ export function useWeeklyPlan(week: PlanWeek | "previous") {
     return () => {
       mounted = false;
       clearInterval(timer);
-      read.current?.abort();
+      reads.abort();
       window.removeEventListener("focus", listener);
       window.removeEventListener(EVENT, listener);
       window.removeEventListener(IMPORT_FINISHED_EVENT, listener);
@@ -107,7 +99,7 @@ export function useWeeklyPlan(week: PlanWeek | "previous") {
   ) {
     if (inFlight.current) return false;
     inFlight.current = true;
-    read.current?.abort();
+    read.current.abort();
     setError(null);
     if (kind === "generate") setBusy(true);
     else setCompleting(true);
