@@ -21,6 +21,7 @@ import { planErrorMessage } from "@/lib/training/plan-errors";
 import { TrainingWeatherCard, ScheduleWeather } from "./training-weather-card";
 import { PrescriptionCard } from "./prescription-card";
 import { WeeklyReviewCard } from "./weekly-review-card";
+import { coachingText, coachingCopy } from "@/lib/training/coaching-copy";
 import styles from "./training.module.css";
 const formatRaceTime = (seconds: number) =>
   `${Math.floor(seconds / 3600)}:${String(Math.floor((seconds % 3600) / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
@@ -130,7 +131,7 @@ function PlanFeedback({
       )}
       {data?.plan?.review && (
         <p className={styles.note}>
-          {data.plan.review.startsOn} 주간 리뷰를 반영한 계획이에요.
+          {data.plan.review.startsOn} {coachingCopy.appliedReview}
         </p>
       )}
       {!readOnly && data?.inputsChanged && (
@@ -156,7 +157,11 @@ export function TodayPlan() {
           {race
             ? `대회 · ${race.name || race.distance}`
             : (workout?.title ??
-              (state.loading ? "훈련 확인 중" : "오늘의 계획이 없어요"))}
+              (state.loading
+                ? "훈련 확인 중"
+                : state.data
+                  ? "오늘의 계획이 없어요"
+                  : "훈련을 불러오지 못했어요"))}
         </h2>
         <PlanFeedback state={state} />
         <PrescriptionCard week="current" />
@@ -181,7 +186,9 @@ export function TodayPlan() {
               </div>
               <div>
                 <p className={styles.note}>
-                  {formatPlanPace(workout.paceSecondsPerKm)}
+                  {workout.kind === "rest"
+                    ? "러닝 없음"
+                    : formatPlanPace(workout.paceSecondsPerKm)}
                 </p>
                 <p className={styles.note}>
                   {workout.effort === "rest"
@@ -192,7 +199,7 @@ export function TodayPlan() {
                 </p>
               </div>
             </div>
-            <p className={styles.note}>{workout.purpose}</p>
+            <p className={styles.note}>{coachingText(workout.purpose)}</p>
             <SessionSteps steps={workout.steps} />
             {workout.kind !== "rest" && (
               <TrainingWeatherCard
@@ -244,7 +251,7 @@ export function TodayPlan() {
         {state.data?.plan && (
           <details className={styles.details}>
             <summary>이번 주 계획 근거</summary>
-            <p>{state.data.plan.summary}</p>
+            <p>{coachingText(state.data.plan.summary)}</p>
           </details>
         )}
       </section>
@@ -310,7 +317,11 @@ function ScheduleWeek({
         <p>
           {plan
             ? "완료한 훈련의 계획 거리 합계예요. 실제 러닝 거리는 주간 요약에서 확인해 주세요."
-            : "아직 저장된 계획이 없어요."}
+            : state.loading
+              ? "저장된 계획을 확인하고 있어요."
+              : data
+                ? "이 주에 저장된 계획이 없어요."
+                : "저장된 계획을 확인하지 못했어요."}
         </p>
       </section>
       <PlanFeedback state={state} readOnly={week === "previous"} />
@@ -366,7 +377,7 @@ function ScheduleWeek({
                                 ? "완료 · Garmin 확인"
                                 : "완료 · 직접 표시"
                             : w.kind === "rest"
-                              ? w.purpose
+                              ? coachingText(w.purpose)
                               : `${date < data.period.today ? "미확인" : "예정"} · ${w.distanceKm.toFixed(1)} km · ${formatPlanPace(w.paceSecondsPerKm)}`
                         : "—"}
                   </small>
@@ -407,9 +418,16 @@ function ScheduleWeek({
       {plan && (
         <section className={styles.card}>
           <div className={styles.heading}>
-            <h2>이번 주 훈련 방향</h2>
+            <h2>
+              {week === "next"
+                ? "다음 주"
+                : week === "previous"
+                  ? "지난주"
+                  : "이번 주"}{" "}
+              훈련 방향
+            </h2>
           </div>
-          <p className={styles.note}>{plan.summary}</p>
+          <p className={styles.note}>{coachingText(plan.summary)}</p>
           <p className={styles.help}>ChatGPT · {plan.model}</p>
         </section>
       )}

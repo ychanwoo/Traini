@@ -469,8 +469,8 @@ function route(admin = true) {
             },
     },
     "@/lib/security/json-request": requestInput,
-    "@/lib/training/review-storage": {
-      readReview: async (uid, start) => {
+    "@/lib/training/coaching-storage": {
+      readCoachingReview: async (uid, start) => {
         reviews.reviewPeriod(
           "America/Los_Angeles",
           start,

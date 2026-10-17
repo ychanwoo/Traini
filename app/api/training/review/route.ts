@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/security/admin";
 import { readMutation, RequestInputError } from "@/lib/security/json-request";
-import { readReview } from "@/lib/training/review-storage";
+import { readCoachingReview } from "@/lib/training/coaching-storage";
 import { generateReview } from "@/lib/training/review-service";
 import { ReviewError } from "@/lib/training/weekly-review";
 import { reviewErrorMessage } from "@/lib/training/review-errors";
@@ -37,12 +37,10 @@ async function handle(request: Request, mutate: boolean) {
         throw new RequestInputError(400, "대상 주를 확인해 주세요.");
       start = params.get("start") ?? undefined;
     }
-    return Response.json(
-      await (mutate
-        ? generateReview(access.userId, start)
-        : readReview(access.userId, start)),
-      { headers },
-    );
+    if (mutate) await generateReview(access.userId, start);
+    return Response.json(await readCoachingReview(access.userId, start), {
+      headers,
+    });
   } catch (error) {
     if (error instanceof RequestInputError)
       return Response.json(

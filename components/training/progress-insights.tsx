@@ -7,6 +7,7 @@ import { GOAL_SAVED_EVENT } from "@/lib/training/client";
 import { distanceLabel, paceLabel } from "@/lib/garmin/running-summary";
 import { timeText } from "@/lib/training/goal";
 import type { ProgressInsights } from "@/lib/training/progress";
+import { coachingCopy } from "@/lib/training/coaching-copy";
 import styles from "./progress-insights.module.css";
 const phases: Record<string, string> = {
   preparation: "대회 준비",
@@ -106,7 +107,7 @@ function Metrics({ data }: { data: ProgressInsights }) {
           {distanceLabel(t.averageRecordedWeekMeters)}
           <small> km/주</small>
         </dd>
-        <p>거리 누락 없는 {t.completeDistanceWeeks}주 기준</p>
+        <p>러닝 기록의 거리가 모두 확인된 {t.completeDistanceWeeks}주 기준</p>
       </div>
       <div>
         <dt>기록 전체 평균 페이스</dt>
@@ -163,8 +164,8 @@ function WeeklyHistory({ data }: { data: ProgressInsights }) {
         ))}
       </div>
       <p className={styles.note}>
-        기록 없음은 0km 훈련이나 휴식을 뜻하지 않아요. 거리 일부 누락은 확인된
-        합계만 표시해요.
+        기록이 없는 주는 실제로 쉬었거나 0km를 달린 주로 판단하지 않아요. 거리
+        일부가 누락된 주는 확인된 거리만 합산해요.
       </p>
       <details className={styles.details}>
         <summary>주별 거리·페이스·최장 거리</summary>
@@ -226,12 +227,13 @@ function Performance({ data }: { data: ProgressInsights }) {
       {p ? (
         <>
           <p className={styles.note}>
-            Garmin 확인 {p.garminCompleted}개 · 수동 완료 {p.manualCompleted}개
-            · 미확인 {p.unconfirmed}개
+            Garmin 확인 {p.garminCompleted}개 · 직접 완료 표시{" "}
+            {p.manualCompleted}개 · 수행 미확인 {p.unconfirmed}개
             {p.unavailable ? ` · 연결 조회 불가 ${p.unavailable}개` : ""}
           </p>
           <p className={styles.note}>
-            오늘까지 계획 {p.dueSessions}개 · 이후 예정 {p.upcomingSessions}개
+            오늘까지 예정된 훈련 {p.dueSessions}개 · 이후 예정{" "}
+            {p.upcomingSessions}개
           </p>
           {p.inputsChanged && (
             <p className={styles.note}>
@@ -244,10 +246,7 @@ function Performance({ data }: { data: ProgressInsights }) {
           이번 주 저장된 계획이 없어 계획 대비 수행을 계산하지 않아요.
         </p>
       )}
-      <p className={styles.note}>
-        수동 완료는 실측 거리가 아니에요. 미확인 활동을 실패로 간주하거나
-        완료율로 목표 기록 달성 가능성을 예측하지 않아요.
-      </p>
+      <p className={styles.note}>{coachingCopy.manualCompletion}</p>
       <details className={styles.details}>
         <summary>완료된 8주 계획 대비 수행</summary>
         <ul className={styles.list}>
@@ -267,14 +266,14 @@ function Performance({ data }: { data: ProgressInsights }) {
                     {w.performance.plannedSessions}개
                   </p>
                   <p>
-                    Garmin 확인 {w.performance.garminCompleted} · 수동{" "}
-                    {w.performance.manualCompleted} · 미확인{" "}
+                    Garmin 확인 {w.performance.garminCompleted} · 직접 완료 표시{" "}
+                    {w.performance.manualCompleted} · 수행 미확인{" "}
                     {w.performance.unconfirmed} · 직접 건너뜀{" "}
                     {w.performance.explicitlySkipped}
                   </p>
                   <p>
-                    연결된 러닝 {w.performance.matchedActualKm}km · 미연결 러닝{" "}
-                    {w.performance.unassignedRuns}회
+                    계획과 연결된 러닝 {w.performance.matchedActualKm}km ·
+                    연결되지 않은 러닝 {w.performance.unassignedRuns}회
                   </p>
                 </>
               ) : (
