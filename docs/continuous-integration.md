@@ -13,7 +13,7 @@ reviews, apply database migrations, or change branch protection.
 | Web checks | Node 22 from `.nvmrc`; `npm ci`, lint, generated Next route types, TypeScript, offline Node tests, production build |
 | Collector checks (Python 3.12) | Minimum supported Python; locked dependencies, editable package with `--no-deps`, `pip check`, offline collector/FIT tests |
 | Collector checks (Python 3.14) | The same checks on the locally used Python minor version |
-| Browser checks | Locked npm dependencies, Chromium/Linux browser libraries, eight isolated weekly coaching scenarios |
+| Browser checks | Locked npm dependencies, Chromium/Linux browser libraries, nine isolated weekly coaching scenarios |
 | Required checks | Aggregates all three job groups; fails if any result is failed, cancelled, skipped or missing |
 
 Python test fixtures exercise the real FIT encoder/decoder without personal FITs.
@@ -100,7 +100,10 @@ workspaces outside the repository. To reproduce credential-free build behavior,
 use a separate checkout without `.env.local`, not the configured personal server
 checkout. Do not remove or rename the user's private environment file to test CI.
 
-## Verification record
+## Historical verification record
+
+The record below describes the original CI change. The current suite has nine
+scenarios, including weekly closeout. Counts below are not a current run result.
 
 On 2026-10-17, a fresh temporary source copy with no `.env.local`, `node_modules`
 or `.next` passed `npm ci`, lint, generated route types/TypeScript, 288 Node tests
