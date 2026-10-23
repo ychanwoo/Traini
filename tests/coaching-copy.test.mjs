@@ -1,3 +1,4 @@
+import { typescriptLoader } from "./helpers/load-typescript.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
@@ -173,6 +174,7 @@ function renderReview(data) {
         useEffect: () => {},
         useCallback: (fn) => fn,
       },
+      "./coaching-detail": typescriptLoader({"./training.module.css": {default: {}}})("components/training/coaching-detail.tsx"),
       "react/jsx-runtime": jsxRuntime,
       "@/lib/http/client-request": {
         ReadRequestGate: class {},
@@ -205,7 +207,7 @@ test("saved reviews render readable prose and priority guidance while keeping us
   assert.match(html, /기록된 거리는 미확인/);
   assert.match(html, /최근 기록의 비교 기준 거리는 53.052km/);
   assert.match(html, /계획에서 허용한 고강도 훈련 수는 2회/);
-  assert.match(html, /현재 계획에서는/);
+  assert.match(html, /다음 훈련 방향/);
   assert.match(html, /현재 컨디션은 미입력/);
   assert.match(html, /저장된 AI 리뷰 원문/);
   assert.ok(html.includes("actualKm은 내 메모 그대로"));

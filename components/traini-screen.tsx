@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { AdminLogin } from "@/components/auth/admin-login";
+import { CurrentRunningMetrics } from "@/components/garmin/current-running-metrics";
 import { WeeklySyncCard } from "@/components/garmin/weekly-sync-card";
 import { WeeklyRunningSummary } from "@/components/garmin/weekly-running-summary";
 import { TodayPlan, WeeklySchedule } from "@/components/training/weekly-plan-view";
@@ -46,9 +47,9 @@ function Splash() {
 
 function Garmin() {
   return <div className="app-frame"><Topbar back /><main className="garmin-sync-page">
-    <header><p>데이터 관리</p><h1>Garmin 러닝 기록</h1><span>지난주 기록을 확인하고 다음 훈련을 준비해요.</span></header>
+    <header><p>데이터 관리</p><h1>Garmin 러닝 기록</h1><span>최근 러닝을 가져오고 다음 훈련을 준비해요.</span></header>
     <WeeklySyncCard detailed />
-    <WeeklyRunningSummary detailed initialWeek="previous" />
+    <WeeklyRunningSummary detailed initialWeek="current" />
     <TrainingContextCard />
     <p className="garmin-sync-note">워치를 Garmin Connect 앱과 먼저 동기화해 주세요.<br />수집한 원본 파일은 Mac에 보관됩니다.</p>
   </main></div>;
@@ -65,10 +66,10 @@ function Schedule() {
 function Today() {
   return <div className="app-frame"><Topbar back /><main className="page today-page pt-4">
     <section className="mt-6"><h1 className="text-xl font-semibold">오늘의 훈련</h1><p className="mt-1 text-sm text-[#756e7c]">목표와 러닝 기록을 바탕으로 준비한 계획을 확인해요.</p></section>
-    <WeeklySyncCard />
-    <WeeklyRunningSummary />
+    <CurrentRunningMetrics />
     <TodayPlan />
-    <section className="mt-4 grid grid-cols-2 gap-3"><div className="card p-4"><Label>SLEEP SCORE</Label><p className="mono mt-2 text-2xl font-semibold">—</p><p className="mt-2 text-[11px] text-[#756e7c]">수면 데이터 미수집</p></div><div className="card p-4"><Label>RECOVERY</Label><p className="mt-2 text-lg font-semibold">확인 전</p><p className="mt-2 text-[11px] text-[#756e7c]">실제 회복 데이터가 없어요</p></div></section>
+    <details className="card mt-4 p-4"><summary className="text-xs font-medium">주간 기록 자세히</summary><WeeklyRunningSummary /></details>
+    <WeeklySyncCard />
   </main></div>;
 }
 

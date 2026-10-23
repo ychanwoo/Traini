@@ -5,6 +5,7 @@ import { addCalendarDays } from "@/lib/garmin/running-summary";
 import type { CoachingReviewState as ReviewState } from "@/lib/training/coaching-storage";
 import { reviewErrorMessage } from "@/lib/training/review-errors";
 import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
+import { CoachingDetail } from "./coaching-detail";
 import { coachingText } from "@/lib/training/coaching-copy";
 import styles from "./training.module.css";
 const fatigueLabels: Record<string, string> = {
@@ -280,33 +281,18 @@ export function WeeklyReviewCard() {
         {data?.coaching && (
           <div className={styles.reviewContent}>
             <p className={styles.reviewDirection}>{data.coaching.headline}</p>
-            <p className={styles.note}>{data.coaching.summary}</p>
-            <ul className={styles.reviewObservations}>
-              {data.coaching.observations.map((text, i) => (
-                <li key={i}>{text}</li>
-              ))}
-            </ul>
-            <p className={styles.reviewDirection}>현재 계획에서는</p>
-            <p className={styles.note}>{data.coaching.recommendation}</p>
-            {data.coaching.condition && (
-              <p className={styles.note}>{data.coaching.condition}</p>
-            )}
-            {data.coaching.reflections.map((item) => (
-              <p
-                key={item.week}
-                className={
-                  ["conflict", "stale"].includes(item.status)
-                    ? styles.error
-                    : styles.note
-                }
-              >
-                {item.text}
-              </p>
-            ))}
-            <p className={styles.help}>
-              핵심 평가와 계획 반영 설명은 확인된 기록·피드백·저장된 일정으로
-              정리했어요. AI 분석 원문은 아래에서 따로 확인할 수 있어요.
-            </p>
+            <CoachingDetail limit={120} text={data.coaching.summary} label="핵심 평가 전체" />
+            {data.coaching.condition && <CoachingDetail limit={120} text={data.coaching.condition} label="현재 컨디션과 제한" />}
+            {data.coaching.reflections.filter(item => ["conflict", "stale", "unavailable"].includes(item.status)).map(item => <p key={item.week} className={styles.error}>{item.week === "current" ? "이번 주" : "다음 주"} 계획 {item.status === "stale" ? "재검토 필요 · 최신 조건으로 업데이트해 주세요." : item.status === "conflict" ? "제한 조건과 충돌 · 수행 전 확인해 주세요." : "반영 상태를 확인하지 못했어요."}</p>)}
+            {metrics?.sessions.some(s => ["pain", "discomfort"].includes(s.feedback?.assessment?.pain ?? "")) && <p className={styles.note}>검토한 주에 통증·불편감 보고가 있어요. 현재 컨디션과 함께 확인해 주세요.</p>}
+            <p className={styles.reviewDirection}>다음 훈련 방향</p>
+            <CoachingDetail limit={120} text={data.coaching.recommendation} label="훈련 방향의 근거" />
+            <details className={styles.details}>
+              <summary>평가 근거·계획 반영 상세</summary>
+              <ul className={styles.reviewObservations}>{data.coaching.observations.map((text, i) => <li key={i}>{text}</li>)}</ul>
+              {data.coaching.reflections.map(item => <p key={item.week} className={styles.note}>{item.text}</p>)}
+              <p className={styles.help}>확인된 기록·피드백·저장된 일정으로 정리한 평가예요. 저장된 AI 원문은 별도로 확인할 수 있어요.</p>
+            </details>
           </div>
         )}
         {review && (
@@ -357,13 +343,8 @@ export function WeeklyReviewCard() {
                 timeZone: data!.period.timezone,
               })}
             </p>
-            {review.fresh && data?.period.startsOn === data.latestStartsOn && (
-              <p className={styles.note}>
-                최근 완료·마감된 주의 리뷰는 일정의 ‘최신 기록으로 계획 업데이트’
-                또는 다음 주 계획 생성에 반영돼요. 기존 계획은 자동으로 바뀌지
-                않아요.
-              </p>
-            )}
+            {review.fresh && data?.period.startsOn === data.latestStartsOn && <p className={styles.help}>계획 업데이트 시 반영해요. 기존 일정은 자동 변경되지 않아요.</p>}
+
           </div>
         )}
         {data &&

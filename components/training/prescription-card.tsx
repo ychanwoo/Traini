@@ -21,7 +21,7 @@ const labels: Record<string, string> = {
   unwell: "몸 상태 이상",
   pain: "통증",
 };
-export function PrescriptionCard({ week = "next" }: { week?: PlanWeek }) {
+export function PrescriptionCard({ week = "next", compact = false }: { week?: PlanWeek; compact?: boolean }) {
   const [data, setData] = useState<Preview | null>(null),
     [error, setError] = useState<string | null>(null),
     [loading, setLoading] = useState(true);
@@ -82,12 +82,9 @@ export function PrescriptionCard({ week = "next" }: { week?: PlanWeek }) {
       <div className={styles.heading}>
         <h2>훈련 처방 기준</h2>
       </div>
-      <p className={styles.help}>
-        목표·러닝 기록·입력한 컨디션으로 정한 훈련 범위예요. 이 기준을 확인하는
-        것만으로 저장된 계획이 바뀌지는 않아요.
-      </p>
+      {!compact && <p className={styles.help}>목표·러닝 기록·입력한 컨디션으로 정한 훈련 범위예요. 조회만으로 저장된 계획이 바뀌지는 않아요.</p>}
       <div aria-live="polite">
-        {loading && (
+        {loading && !data && (
           <p className={styles.note}>기록과 대회 일정을 확인하고 있어요.</p>
         )}
         {error && (
@@ -100,7 +97,7 @@ export function PrescriptionCard({ week = "next" }: { week?: PlanWeek }) {
             다시 확인
           </button>
         )}
-        {!loading && data && (
+        {data && (
           <>
             <p className={styles.note}>
               {data.period.start} – {data.period.end} · {data.period.timezone}
@@ -110,16 +107,13 @@ export function PrescriptionCard({ week = "next" }: { week?: PlanWeek }) {
               {data.limits.maxWeekKm.toFixed(1)}km · 고강도 훈련 최대{" "}
               {data.limits.maxHardSessions}회
             </p>
-            <p className={styles.help}>
-              상한은 채워야 할 목표가 아니에요. 훈련 종류·배치와 장거리 요일은
-              가능한 날짜와 회복 간격에 맞춰 선택해요.
-            </p>
+            {!compact && <p className={styles.help}>상한은 목표가 아니에요. 가능한 날짜와 회복 간격에 맞춰 배치해요.</p>}
             <p className={styles.note}>
               {data.guidance.condition
                 ? `${data.guidance.condition.reportedOn} 직접 입력 · ${labels[data.guidance.condition.feeling]}${!data.guidance.condition.fresh ? " · 최근 입력 재확인 필요" : ""}`
                 : coachingCopy.unknownCondition}
             </p>
-            {data.guidance.condition && (
+            {!compact && data.guidance.condition && (
               <p className={styles.help}>{coachingCopy.reportedCondition}</p>
             )}
             {data.guidance.warnings.map((w) => (
@@ -127,6 +121,8 @@ export function PrescriptionCard({ week = "next" }: { week?: PlanWeek }) {
                 {w}
               </p>
             ))}
+            <details className={styles.details}>
+              <summary>대회별 목표와 훈련 기준</summary>
             <p className={styles.help}>
               지난주 계획 수행 · Garmin 확인 {data.guidance.confirmedSessions}개
               · 직접 완료 표시 {data.guidance.manualSessions}개
@@ -134,8 +130,7 @@ export function PrescriptionCard({ week = "next" }: { week?: PlanWeek }) {
                 ? " · 비교할 계획 없음"
                 : ` · 수행 미확인 ${data.guidance.unconfirmedSessions}개`}
             </p>
-            <details className={styles.details}>
-              <summary>대회별 목표와 훈련 기준</summary>
+
               {data.guidance.goals.map((r) => (
                 <p key={r.id}>
                   {r.date} · {r.name || r.distance} ·{" "}
