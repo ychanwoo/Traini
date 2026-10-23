@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ApiRequestError, requestJson } from "@/lib/http/client-request";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { CollectionJob, CollectionSnapshot } from "@/lib/garmin/collection";
-import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
+import { collectionPeriodLabel as periodLabel, IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
 import styles from "./weekly-sync-card.module.css";
 
 const messages: Record<string, string> = {
@@ -54,11 +54,6 @@ async function requestSnapshot(method: "GET" | "POST", signal?: AbortSignal, sel
     }
     throw error;
   }
-}
-
-function periodLabel(start: string, end: string): string {
-  const label = (value: string) => `${Number(value.slice(5, 7))}.${Number(value.slice(8, 10))}`;
-  return `${label(start)} 월 – ${label(end)} 일`;
 }
 
 function timeLabel(value: string, timezone: string): string {
@@ -212,7 +207,7 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
         </li>;
       })}
     </ol>}
-    {counts && (current?.version === 1 || current?.uploadStarted) && <dl className={styles.counts} aria-label={upload ? "지난주 기록 저장 결과" : "이전 원본 다운로드 결과"}>
+    {counts && (current?.version === 1 || current?.uploadStarted) && <dl className={styles.counts} aria-label={upload ? "주간 기록 저장 결과" : "이전 원본 다운로드 결과"}>
       <div><dt>{upload ? "저장·갱신" : "원본 다운로드"}</dt><dd>{upload ? upload.inserted + upload.updated : counts.downloaded}<small>개</small></dd></div>
       <div><dt>기존 기록</dt><dd>{upload ? upload.unchanged : counts.skipped}<small>개</small></dd></div>
       <div><dt>실패</dt><dd className={failureCount ? styles.failed : undefined}>{failureCount}<small>개</small></dd></div>
@@ -249,9 +244,9 @@ export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
       {busy ? <RefreshCw className={styles.spinning} aria-hidden="true" /> : <ArrowDownToLine aria-hidden="true" />}
       {checking ? "상태 확인 중" : busy ? `${weekLabel} 기록 가져오는 중` : `${weekLabel} 가져오기`}
     </button>
-    {currentWeek && currentWeek.today === currentWeek.end && <div className={styles.footer}>
+    {currentWeek && <div className={styles.footer}>
       <button type="button" disabled={busy || checking} onClick={() => {setChecking(true);setSnapshot(null);setSelection(weekLabel === "이번 주" ? "previous" : "current");}}>{weekLabel === "이번 주" ? "지난주 기록 보기" : "이번 주 기록 보기"}</button>
-      <span>일요일 기록 확인 후 주간 마감을 진행해 주세요.</span>
+      <span>이번 주는 오늘까지 수집해요. 주간 마감은 일요일에 확인해 주세요.</span>
     </div>}
     <div className={styles.footer}>
       <span>{job?.finishedAt ? `마지막 실행 ${timeLabel(job.finishedAt, job.period.timezone)}` : "이미 받은 기록은 중복 저장하지 않아요."}</span>

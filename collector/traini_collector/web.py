@@ -60,12 +60,17 @@ def create_store() -> SupabaseActivityStore:
 def web_period(today: date, start: date | None = None, end: date | None = None) -> CollectionPeriod:
     if start is None and end is None:
         return select_period(today)
-    previous = previous_training_week(today)
-    current = training_week(today)
-    rollover_previous = (previous[0] - timedelta(days=7), previous[1] - timedelta(days=7))
-    if (start, end) != previous and not (today.weekday() == 6 and (start, end) == current) and not (today.weekday() == 0 and (start, end) == rollover_previous):
+    # The server fixes the range before spawning us. Accept today's selections
+    # and yesterday's selections for a worker starting across local midnight.
+    allowed = set()
+    for request_day in (today, today - timedelta(days=1)):
+        allowed.add(previous_training_week(request_day))
+        allowed.add((training_week(request_day)[0], request_day))
+    if start is None or end is None or (start, end) not in allowed or end > today:
         raise ValueError("Invalid web collection period")
-    return CollectionPeriod(start, min(end, today), "current_week" if start == current[0] else "previous_week")
+    current = training_week(today)
+    return CollectionPeriod(start, end, "current_week" if start == current[0] else "previous_week")
+
 
 
 def run_worker(data_dir: Path, token_dir: Path, timezone: ZoneInfo,

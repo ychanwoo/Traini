@@ -17,7 +17,7 @@ class WebPeriodTests(unittest.TestCase):
     def test_future_partial_non_monday_and_old_ranges_fail_before_collection(self):
         today = date(2026, 10, 18)
         for start, end in [(date(2026,10,19),date(2026,10,25)), (date(2026,10,13),today),
-                           (date(2026,10,12),date(2026,10,17)), (date(2026,9,28),date(2026,10,4)), (today,None)]:
+                           (date(2026,9,28),date(2026,10,4)), (today,None)]:
             with self.subTest(start=start,end=end), self.assertRaises(ValueError):
                 web_period(today,start,end)
 
@@ -25,3 +25,10 @@ class WebPeriodTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             web_period(date(2026,10,17),date(2026,10,12),date(2026,10,18))
         self.assertEqual(web_period(date(2026,10,18)).start,date(2026,10,5))
+
+    def test_current_week_can_import_through_today_and_survive_midnight(self):
+        for today in [date(2026,10,22),date(2026,10,23)]:
+            period=web_period(today,date(2026,10,19),date(2026,10,22))
+            self.assertEqual(period.end,date(2026,10,22))
+        with self.assertRaises(ValueError):
+            web_period(date(2026,10,22),date(2026,10,19),date(2026,10,20))
