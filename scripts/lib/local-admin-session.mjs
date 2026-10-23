@@ -3,8 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 
 // A separate test session. No email is sent and the browser session is untouched.
-export async function withLocalAdminSession(run) {
-  const origin = "http://localhost:3017";
+export async function withLocalAdminSession(run, { origin = "http://localhost:3017" } = {}) {
+  assert.ok(["http://localhost:3000", "http://localhost:3017"].includes(origin), "Use a local Traini test server");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   assert.equal(new URL(url).hostname, "kmmutfcgshellvjgpick.supabase.co");
   const service = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY, {
