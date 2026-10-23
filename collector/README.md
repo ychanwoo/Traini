@@ -26,7 +26,7 @@ Garmin 이메일, 비밀번호, 필요한 경우 2단계 인증 코드를 터미
 기본 조회 범위는 `America/Los_Angeles` 시간대에서 **완료된 지난 월요일~일요일**입니다.
 예를 들어 2026-10-14(수)에 실행하면 2026-10-05(월)부터 2026-10-11(일)까지 수집합니다.
 CLI는 같은 주의 월~일 어느 날에 실행해도 동일한 지난주를 조회합니다.
-웹 버튼은 일요일에 이번 주를 기본 선택하므로 CLI 기본값과 다릅니다.
+웹 버튼은 매일 이번 주 월요일부터 오늘까지를 기본 선택하므로 CLI 기본값과 다릅니다.
 
 `--timezone Asia/Seoul` 또는 환경변수 `TRAINI_TIMEZONE=Asia/Seoul`로 훈련 기준 시간대를
 변경할 수 있습니다. 활동의 UTC 시작 시각(`startTimeGMT`)을 이 시간대로 변환한 날짜로
@@ -111,7 +111,7 @@ TRAINI_TIMEZONE=America/Los_Angeles
 
 `TRAINI_COLLECTOR_PYTHON`은 실제 가상환경 Python의 절대 경로입니다. 서버를 다시 시작하고
 관리자 Google 계정으로 로그인한 뒤 오늘 화면 또는 `/garmin-connect`의 **주간 기록 가져오기**를
-누릅니다. 선택한 시간대의 대상 월~일(일요일 기본 이번 주, 다른 요일 기본 지난주)을
+누릅니다. 선택한 시간대의 대상 주간(기본 이번 주 월요일부터 오늘까지, 지난주로 전환 가능)을
 수집 → FIT 분석 → Supabase 저장 순서로
 처리하고, 완료 후 현재 선택한 주간 요약을 다시 조회합니다. 별도의 분석·업로드 명령은 필요하지 않습니다.
 서버에는 기존 `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TRAINI_ADMIN_USER_ID` 설정도
@@ -180,4 +180,4 @@ collector/.venv/bin/python -m unittest discover -s collector/tests -v
 동일 파일 재실행은 중복 활동을 만들지 않습니다. 일반 `interval` 랩 표시는 인터벌 훈련
 확정 분류가 아닙니다. 세부 계획과 검증은 [주간 훈련계획 안내](../docs/weekly-training-plan.md)를 참고하세요.
 
-웹 버튼은 훈련 시간대의 일요일에는 이번 주, 다른 요일에는 지난주를 선택합니다. 일요일에는 지난주로 전환할 수 있습니다. CLI 기본값은 완료된 지난주로 유지합니다. 주간 마감·리뷰·계획 연결은 [주간 마감 안내](../docs/weekly-training-closeout.md)를 참고하세요.
+웹 버튼은 매일 훈련 시간대의 이번 주 월요일부터 오늘까지를 선택하며 지난주로 전환할 수 있습니다. CLI 기본값은 완료된 지난주로 유지합니다. 주간 마감·리뷰·계획 연결은 [주간 마감 안내](../docs/weekly-training-closeout.md)를 참고하세요.

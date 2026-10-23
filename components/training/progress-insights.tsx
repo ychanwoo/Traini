@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { CoachingDetail } from "./coaching-detail";
+import { useProgress } from "./use-progress";
 import { RefreshCw, ArrowRight } from "lucide-react";
-import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
-import { GOAL_SAVED_EVENT } from "@/lib/training/client";
 import { distanceLabel, paceLabel } from "@/lib/garmin/running-summary";
 import { timeText } from "@/lib/training/goal";
 import type { ProgressInsights } from "@/lib/training/progress";
@@ -15,61 +15,6 @@ const phases: Record<string, string> = {
   race_day: "대회일",
   recovery: "회복·복귀 확인",
 };
-function useProgress() {
-  const [data, setData] = useState<ProgressInsights | null>(null),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState<string | null>(null);
-  const controller = useRef<AbortController | null>(null);
-  const refresh = useCallback(async () => {
-    controller.current?.abort();
-    const c = new AbortController();
-    controller.current = c;
-    setLoading(true);
-    try {
-      const r = await fetch("/api/training/progress", {
-        cache: "no-store",
-        credentials: "same-origin",
-        signal: AbortSignal.any([c.signal, AbortSignal.timeout(45000)]),
-      });
-      const body = await r.json();
-      if (!r.ok)
-        throw new Error(body.error ?? "진행 데이터를 불러오지 못했어요.");
-      if (!c.signal.aborted) {
-        setData(body);
-        setError(null);
-      }
-    } catch (e) {
-      if (!c.signal.aborted) {
-        setData(null);
-        setError(
-          e instanceof Error ? e.message : "진행 데이터를 불러오지 못했어요.",
-        );
-      }
-    } finally {
-      if (!c.signal.aborted) setLoading(false);
-    }
-  }, []);
-  useEffect(() => {
-    let active = true;
-    queueMicrotask(() => {
-      if (active) void refresh();
-    });
-    const events = [
-      "focus",
-      IMPORT_FINISHED_EVENT,
-      GOAL_SAVED_EVENT,
-      "traini:plan-changed",
-    ];
-    const listener = () => void refresh();
-    events.forEach((e) => window.addEventListener(e, listener));
-    return () => {
-      active = false;
-      controller.current?.abort();
-      events.forEach((e) => window.removeEventListener(e, listener));
-    };
-  }, [refresh]);
-  return { data, loading, error, refresh };
-}
 function Status({ state }: { state: ReturnType<typeof useProgress> }) {
   return (
     <>
@@ -83,14 +28,14 @@ function Status({ state }: { state: ReturnType<typeof useProgress> }) {
         <RefreshCw aria-hidden="true" />
       </button>
       <div aria-live="polite">
-        {state.loading && (
+        {state.loading && !state.data && (
           <p className={styles.note}>
             목표와 저장된 러닝 기록을 확인하고 있어요.
           </p>
         )}
         {state.error && (
           <p role="alert" className={styles.error}>
-            {state.error}
+            {state.data ? "갱신하지 못했어요. 마지막으로 확인한 기록을 표시해요. " : ""}{state.error}
           </p>
         )}
       </div>
@@ -102,7 +47,7 @@ function Metrics({ data }: { data: ProgressInsights }) {
   return (
     <dl className={styles.metrics}>
       <div>
-        <dt>기록이 있는 주의 평균 거리</dt>
+        <dt>주간 평균 거리</dt>
         <dd>
           {distanceLabel(t.averageRecordedWeekMeters)}
           <small> km/주</small>
@@ -110,7 +55,7 @@ function Metrics({ data }: { data: ProgressInsights }) {
         <p>러닝 기록의 거리가 모두 확인된 {t.completeDistanceWeeks}주 기준</p>
       </div>
       <div>
-        <dt>기록 전체 평균 페이스</dt>
+        <dt>전체 평균 페이스</dt>
         <dd>
           {paceLabel(t.paceSecondsPerKm)}
           <small> /km</small>
@@ -126,7 +71,7 @@ function Metrics({ data }: { data: ProgressInsights }) {
         <p>8주 중 기록 있는 주 {t.weeksWithActivities}주</p>
       </div>
       <div>
-        <dt>기록된 최장 거리</dt>
+        <dt>최장 러닝</dt>
         <dd>
           {distanceLabel(t.longestRunMeters)}
           <small> km</small>
@@ -246,7 +191,7 @@ function Performance({ data }: { data: ProgressInsights }) {
           이번 주 저장된 계획이 없어 계획 대비 수행을 계산하지 않아요.
         </p>
       )}
-      <p className={styles.note}>{coachingCopy.manualCompletion}</p>
+      <CoachingDetail text={coachingCopy.manualCompletion} label="계획 거리와 실제 기록의 차이" />
       <details className={styles.details}>
         <summary>완료된 8주 계획 대비 수행</summary>
         <ul className={styles.list}>
@@ -301,7 +246,7 @@ export function RunningProgressAnalysis() {
         </div>
         <Status state={state} />
       </div>
-      {!state.loading && data && (
+      {data && (
         <>
           <section className={styles.card}>
             <h2>최근 8주 기록 요약</h2>
@@ -322,8 +267,8 @@ export function RunningProgressAnalysis() {
           </section>
           <WeeklyHistory data={data} />
           <Performance data={data} />
-          <section className={styles.card}>
-            <h2>기록을 읽는 기준</h2>
+          <details className={`${styles.card} ${styles.details}`}>
+            <summary>기록을 읽는 기준·누락 지표</summary>
             <p className={styles.note}>
               {data.comparison
                 ? `직전 두 완료 주의 기록 거리 변화는 ${data.comparison.distanceChangePercent.toFixed(1)}%예요. 기록된 거리의 차이이며, 체력 향상·저하나 적정 부하 판정은 아니에요.`
@@ -343,7 +288,7 @@ export function RunningProgressAnalysis() {
                 ? ` 검증되지 않은 활동 ${data.totals.excludedUnverifiedActivities}회 제외.`
                 : ""}
             </p>
-          </section>
+          </details>
           <Link href="/my/goals" className={styles.link}>
             목표 및 대회 설정 <ArrowRight aria-hidden="true" />
           </Link>
@@ -370,7 +315,7 @@ export function TrainingRoadmap() {
         </div>
         <Status state={state} />
       </div>
-      {!state.loading && data && (
+      {data && (
         <>
           {race ? (
             <>
@@ -433,6 +378,7 @@ export function TrainingRoadmap() {
                           ? "등록한 대회일이에요."
                           : "대회 날짜가 지난 목표예요."}
                 </h2>
+                <details className={styles.details}><summary>단계 적용 이유·회복 확인 기준</summary>
                 <p className={styles.note}>
                   거리·대회 중요도·최근 훈련량·입력한 컨디션으로 조정한 계획
                   기준이에요. 날짜가 지났다고 회복 완료나 준비도 충족으로
@@ -464,6 +410,7 @@ export function TrainingRoadmap() {
                       여부는 확인되지 않았어요.
                     </p>
                   )}
+                </details>
                 <ol className={styles.timeline}>
                   {[
                     {
@@ -538,9 +485,7 @@ export function TrainingRoadmap() {
             <h2>실제 기록으로 보는 준비 현황</h2>
             <Metrics data={data} />
             <p className={styles.note}>
-              평균 페이스는 여러 종류의 러닝이 섞인 값이며, 권장 훈련 페이스가
-              아니에요. 장기 훈련 거리와 완료율을 임의로 정하지 않아요. 실제
-              훈련 처방은 컨디션·수행 기록을 반영한 주간 계획에서 확인해 주세요.
+              실제 훈련 거리·페이스는 현재 컨디션을 반영한 주간 계획에서 확인해 주세요.
             </p>
             <Link href="/schedule" className={styles.link}>
               이번 주 훈련 보기 <ArrowRight aria-hidden="true" />
@@ -563,7 +508,7 @@ export function MyProgressSummary() {
         <h2>최근 8주 훈련 인사이트</h2>
         <Status state={state} />
       </div>
-      {!state.loading && d && (
+      {d && (
         <>
           <p className={styles.note}>
             {d.races.find((r) => r.priority === "primary")?.name ||

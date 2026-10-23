@@ -1,6 +1,6 @@
 import { test } from "@playwright/test";
 import { coachingScenarios } from "./weekly-coaching.browser.mjs";
-for (const name of ["closeout", "importedHistory", "history", "feedback", "skip", "readFailures", "dataStates", "saveFailures", "responsive"]) {
+for (const name of ["compactSchedule", "metricStates", "roadmapPhases", "authRefresh", "currentImport", "progressRefresh", "closeout", "importedHistory", "history", "feedback", "skip", "readFailures", "dataStates", "saveFailures", "responsive"]) {
   test(name, async ({page}) => {
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));

@@ -203,6 +203,7 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
           <label className={`settings-field ${styles.select}`}>
             최근 컨디션 (직접 입력)
             <select
+              id="current-condition"
               aria-label="최근 컨디션"
               value={goal?.condition?.feeling ?? ""}
               onChange={(e) =>

@@ -18,9 +18,10 @@ import { WorkoutMatchDetails } from "./workout-match-details";
 import { WorkoutFeedbackForm } from "./workout-feedback-form";
 import { TrainingCompleteButton } from "./training-complete-button";
 import { planErrorMessage } from "@/lib/training/plan-errors";
-import { TrainingWeatherCard, ScheduleWeather } from "./training-weather-card";
+import { TrainingWeatherCard } from "./training-weather-card";
 import { PrescriptionCard } from "./prescription-card";
 import { WeeklyCloseoutCard } from "./weekly-closeout-card";
+import { CoachingDetail } from "./coaching-detail";
 import { WeeklyReviewCard } from "./weekly-review-card";
 import { coachingText, coachingCopy } from "@/lib/training/coaching-copy";
 import styles from "./training.module.css";
@@ -130,16 +131,10 @@ function PlanFeedback({
           </Link>
         </>
       )}
-      {data?.plan?.review && (
-        <p className={styles.note}>
-          {data.plan.review.startsOn} {coachingCopy.appliedReview}
-        </p>
-      )}
+      {data?.plan?.review && <details className={styles.details}><summary>계획에 사용한 리뷰</summary><p className={styles.note}>{data.plan.review.startsOn} {coachingCopy.appliedReview}</p></details>}
       {!readOnly && data?.inputsChanged && (
         <p className={styles.note}>
-          목표·컨디션·러닝 기록·피드백 또는 주간 리뷰가 바뀌었어요. 표시된
-          계획은 변경 전 데이터로 작성됐으므로, 업데이트하여 현재 조건에 맞는지
-          확인하기 전에는 그대로 수행하지 마세요. 완료한 훈련은 유지돼요.
+          입력이 바뀌어 계획 재검토가 필요해요. 업데이트 전에는 이전 처방을 그대로 수행하지 마세요. 완료한 훈련은 유지돼요.
         </p>
       )}
     </div>
@@ -154,10 +149,10 @@ export function TodayPlan() {
     <>
       <section className="card mt-4 p-6">
         <p className="eyebrow">TODAY’S SESSION</p>
-        <h2 className="mt-2 text-xl font-semibold">
+        <h2 className="mt-2 text-base font-semibold leading-6 break-keep">
           {race
             ? `대회 · ${race.name || race.distance}`
-            : (workout?.title ??
+            : (workout?.title.replace(/\s+\d+(?:\.\d+)?\s*km\s*$/i, "") ??
               (state.loading
                 ? "훈련 확인 중"
                 : state.data
@@ -165,7 +160,7 @@ export function TodayPlan() {
                   : "훈련을 불러오지 못했어요"))}
         </h2>
         <PlanFeedback state={state} />
-        <PrescriptionCard week="current" />
+        <Link className={styles.link} href="/my/goals#current-condition">오늘 컨디션 확인·수정</Link>
         {race && (
           <p className={styles.note}>
             {race.distance} ·{" "}
@@ -180,7 +175,7 @@ export function TodayPlan() {
             <div className="mt-7 grid grid-cols-2 items-end gap-3">
               <div>
                 <p className="eyebrow">DISTANCE</p>
-                <p className="mono mt-1 text-4xl font-semibold">
+                <p className="mono mt-1 text-3xl font-semibold">
                   {workout.distanceKm.toFixed(1)}
                   <span className="ml-2 font-sans text-sm font-medium">km</span>
                 </p>
@@ -200,7 +195,7 @@ export function TodayPlan() {
                 </p>
               </div>
             </div>
-            <p className={styles.note}>{coachingText(workout.purpose)}</p>
+            <CoachingDetail text={workout.purpose} label="훈련 목적·실행 기준 전체" />
             <SessionSteps steps={workout.steps} />
             {workout.kind !== "rest" && (
               <TrainingWeatherCard
@@ -249,6 +244,7 @@ export function TodayPlan() {
             )}
           </>
         )}
+        <PrescriptionCard week="current" compact />
         {state.data?.plan && (
           <details className={styles.details}>
             <summary>이번 주 계획 근거</summary>
@@ -256,9 +252,49 @@ export function TodayPlan() {
           </details>
         )}
       </section>
+      <PastWorkoutFeedback />
       <WeeklyCloseoutCard />
       <WeeklyReviewCard />
     </>
+  );
+}
+function PastWorkoutFeedback() {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className={styles.details} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary>지난 훈련 기록·수정</summary>
+      {open && <PastWorkoutFeedbackFields />}
+    </details>
+  );
+}
+function PastWorkoutFeedbackFields() {
+  const [week, setWeek] = useState<"current" | "previous">("current");
+  const [selected, setSelected] = useState("");
+  const state = useWeeklyPlan(week);
+  const data = state.data;
+  const workouts = data?.plan?.workouts.filter(w => w.date < data.period.today && w.kind !== "rest") ?? [];
+  const workout = workouts.find(w => w.id === selected) ?? workouts[0];
+  return (
+    <section aria-label="지난 훈련 기록">
+      <label className={styles.note}>기록할 주
+        <select value={week} onChange={event => { setWeek(event.target.value as "current" | "previous"); setSelected(""); }}>
+          <option value="current">이번 주</option><option value="previous">지난주</option>
+        </select>
+      </label>
+      <PlanFeedback state={state} readOnly />
+      {workout && data ? <>
+        <label className={styles.note}>기록할 훈련
+          <select value={workout.id} onChange={event => setSelected(event.target.value)}>
+            {workouts.map(w => <option key={w.id} value={w.id}>{w.date.slice(5)} · {w.title}</option>)}
+          </select>
+        </label>
+        <article>
+          <p className={styles.note}>{workout.completed ? workout.matching?.source === "garmin" ? "완료 · Garmin 확인" : "완료 · 직접 표시" : workout.status === "skipped" ? "× 직접 건너뜀" : "수행 미확인"}</p>
+          <WorkoutFeedbackForm key={`${workout.id}:${workout.feedback?.version}:${workout.completed}:${workout.status}`} workout={workout} today={data.period.today} pending={state.completing || state.busy || !!data.generating} onSave={state.feedback} />
+          <WorkoutMatchDetails key={`${workout.id}:${workout.matching?.revision}`} workout={workout} timezone={data.period.timezone} pending={state.completing || state.busy || !!data.generating} onSave={(revision, ids) => void state.match(workout.id, revision, ids)} />
+        </article>
+      </> : <p className={styles.note}>{state.loading ? "지난 훈련을 확인하고 있어요." : "기록할 지난 훈련이 없어요."}</p>}
+    </section>
   );
 }
 function ScheduleWeek({
@@ -318,7 +354,7 @@ function ScheduleWeek({
         </div>
         <p>
           {plan
-            ? "완료한 훈련의 계획 거리 합계예요. 실제 러닝 거리는 주간 요약에서 확인해 주세요."
+            ? "완료한 계획 거리 · 목표 페이스 기준"
             : state.loading
               ? "저장된 계획을 확인하고 있어요."
               : data
@@ -327,7 +363,6 @@ function ScheduleWeek({
         </p>
       </section>
       <PlanFeedback state={state} readOnly={week === "previous"} />
-      {week !== "previous" && <PrescriptionCard week={week} />}
       {data && (
         <section className="schedule-list" aria-label="주간 훈련 일정">
           {Array.from({ length: 7 }, (_, i) => {
@@ -359,7 +394,7 @@ function ScheduleWeek({
                     {race
                       ? `대회 · ${race.name || race.distance}`
                       : w
-                        ? w.title
+                        ? w.kind === "rest" ? "휴식" : w.title.replace(/\s+\d+(?:\.\d+)?\s*km\s*$/i, "")
                         : date < data.period.today
                           ? "이전 날짜 · 계획 없음"
                           : "계획 없음"}
@@ -370,44 +405,11 @@ function ScheduleWeek({
                     {race
                       ? `${race.distance} · ${race.targetTimeSeconds ? formatRaceTime(race.targetTimeSeconds) : "완주 목표"}`
                       : w
-                        ? w.status === "skipped"
-                          ? "× 직접 건너뜀"
-                          : w.completed
-                            ? w.matching?.state === "unavailable"
-                              ? "완료 · 저장된 상태"
-                              : w.matching?.source === "garmin"
-                                ? "완료 · Garmin 확인"
-                                : "완료 · 직접 표시"
-                            : w.kind === "rest"
-                              ? coachingText(w.purpose)
-                              : `${date < data.period.today ? "미확인" : "예정"} · ${w.distanceKm.toFixed(1)} km · ${formatPlanPace(w.paceSecondsPerKm)}`
+                        ? w.kind === "rest"
+                          ? "러닝 없음"
+                          : `${w.status === "skipped" ? "× 건너뜀 · " : w.completed ? "완료 · " : ""}${w.distanceKm.toFixed(1)} km · ${formatPlanPace(w.paceSecondsPerKm)}`
                         : "—"}
                   </small>
-                  {w && !race && <SessionSteps steps={w.steps} />}
-                  {w && !race && (
-                    <WorkoutFeedbackForm
-                      key={`${w.id}:${w.feedback?.version}:${w.completed}:${w.status}`}
-                      workout={w}
-                      today={data.period.today}
-                      pending={
-                        state.completing || state.busy || !!data.generating
-                      }
-                      onSave={state.feedback}
-                    />
-                  )}
-                  {w && !race && (
-                    <WorkoutMatchDetails
-                      key={`${w.id}:${w.matching?.revision}`}
-                      workout={w}
-                      timezone={data.period.timezone}
-                      pending={
-                        state.completing || state.busy || !!data.generating
-                      }
-                      onSave={(revision, ids) =>
-                        void state.match(w.id, revision, ids)
-                      }
-                    />
-                  )}
                 </div>
                 <span className="schedule-icon">
                   <Glyph aria-hidden="true" />
@@ -417,32 +419,6 @@ function ScheduleWeek({
           })}
         </section>
       )}
-      {plan && (
-        <section className={styles.card}>
-          <div className={styles.heading}>
-            <h2>
-              {week === "next"
-                ? "다음 주"
-                : week === "previous"
-                  ? "지난주"
-                  : "이번 주"}{" "}
-              훈련 방향
-            </h2>
-          </div>
-          <p className={styles.note}>{coachingText(plan.summary)}</p>
-          <p className={styles.help}>ChatGPT · {plan.model}</p>
-        </section>
-      )}
-      {plan && data && (
-        <ScheduleWeather
-          key={plan.id}
-          workouts={plan.workouts}
-          timezone={data.period.timezone}
-          today={data.period.today}
-        />
-      )}
-      <WeeklyCloseoutCard />
-      <WeeklyReviewCard />
     </main>
   );
 }

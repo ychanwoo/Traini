@@ -82,11 +82,17 @@ function projectCounts<K extends string>(value: unknown, keys: K[]): Record<K, n
   return Object.fromEntries(keys.map((key) => [key, raw[key]])) as Record<K, number>;
 }
 
-/** Auto selects this week only on its local Sunday; explicit current imports are Sunday-only. */
+/** Web imports default to this Monday through today; CLI defaults remain separate. */
 export function collectionPeriod(timezone: string, selection: "auto" | "current" | "previous" = "auto", now = new Date()): CollectionPeriod {
   const current = runningPeriod(timezone, "current", now);
-  if (selection === "current" && current.today !== current.end) throw new Error("collection_period");
-  if (selection === "current" || (selection === "auto" && current.today === current.end))
+  if (selection !== "previous")
     return { start: current.start, end: current.today, timezone };
   return previousWeek(timezone, now);
+}
+
+/** Label actual calendar weekdays, including a partial current-week end. */
+export function collectionPeriodLabel(start: string, end: string) {
+  const days = ["일", "월", "화", "수", "목", "금", "토"];
+  const label = (day: string) => `${Number(day.slice(5, 7))}.${Number(day.slice(8, 10))} ${days[new Date(`${day}T00:00:00Z`).getUTCDay()]}`;
+  return `${label(start)} – ${label(end)}`;
 }

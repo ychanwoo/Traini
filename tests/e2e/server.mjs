@@ -17,6 +17,7 @@ const adapter = path.join(root, "tests/e2e/platform.tsx");
 await build({ absWorkingDir: root, entryPoints: ["tests/e2e/app.tsx"], outfile: path.join(output, "app.js"), bundle: true, format: "esm", jsx: "automatic", sourcemap: true,
   define: { "process.env.NODE_ENV": '"development"' },
   plugins: [{ name: "isolated-platform", setup(builder) {
+    builder.onResolve({filter:/^\.\/client$/},args => args.importer === path.join(root,"lib/supabase/profile.ts") ? {path:"@/lib/supabase/client",namespace:"platform"} : undefined);
     builder.onResolve({ filter: /^next\/(link|image|navigation)$|^@\/lib\/supabase\/client$/ }, args => ({ path: args.path, namespace: "platform" }));
     builder.onLoad({ filter: /.*/, namespace: "platform" }, args => ({ contents: args.path === "next/link" ? `export { Link as default } from ${JSON.stringify(adapter)}` : args.path === "next/image" ? `export { Image as default } from ${JSON.stringify(adapter)}` : `export * from ${JSON.stringify(adapter)}`, loader: "tsx", resolveDir: root }));
     builder.onResolve({ filter: /^server-only$|^node:/ }, args => { throw new Error(`Server dependency in test browser bundle: ${args.path}`); });
@@ -25,13 +26,13 @@ await build({ absWorkingDir: root, entryPoints: ["tests/e2e/app.tsx"], outfile: 
 await build({ absWorkingDir: root, entryPoints: ["lib/training/coaching-feedback.ts"], outfile: path.join(output, "coaching.cjs"), bundle: true, platform: "node", format: "cjs" });
 const { buildCoachingFeedback } = createRequire(import.meta.url)(path.join(output, "coaching.cjs"));
 await build({ absWorkingDir: root, entryPoints: ["lib/garmin/running-summary.ts"], outfile: path.join(output, "summary.cjs"), bundle: true, platform: "node", format: "cjs" });
-const { buildRunningSummary, addCalendarDays } = createRequire(import.meta.url)(path.join(output, "summary.cjs"));
+const { buildRunningSummary, addCalendarDays, runningPeriod } = createRequire(import.meta.url)(path.join(output, "summary.cjs"));
 const globalSource = (await readFile(path.join(root, "app/globals.css"), "utf8")).replace(/^@import url\([^\n]+\);\s*/m, "");
 const globalCss = await postcss([tailwind()]).process(globalSource, { from: path.join(root, "app/globals.css") });
 const css = globalCss.css + "\n" + await readFile(path.join(output, "app.css"), "utf8");
 const html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Traini · isolated coaching test</title><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script type="module" src="/app.js"></script></body></html>';
 let state = initialState();
-const scenarios = new Set(["normal", "reset", "empty", "partial", "stale", "pain", "review-error", "summary-error", "plan-error", "unauthorized", "forbidden", "malformed", "slow", "save-error", "save-lost", "save-conflict", "closeout-sunday", "closeout-monday", "closeout-stale"]);
+const scenarios = new Set(["normal", "reset", "empty", "partial", "stale", "pain", "review-error", "summary-error", "plan-error", "unauthorized", "forbidden", "malformed", "slow", "save-error", "save-lost", "save-conflict", "closeout-sunday", "closeout-monday", "closeout-stale", "progress-error", "auth-check-failed", "race-preparation", "race-taper", "race-recovery"]);
 async function jsonBody(req) {
   let body = "";
   for await (const chunk of req) { body += chunk; if (body.length > 8192) throw new Error("Body too large"); }
@@ -60,6 +61,27 @@ const server = createServer(async (req, res) => {
       if (state.scenario === "unauthorized") return send(401, {error: "Unauthorized"});
       if (state.scenario === "forbidden") return send(403, {error: "Forbidden"});
       if (state.scenario === "malformed") { res.writeHead(200, {"Content-Type": "text/html"}); return res.end("<html>Unavailable</html>"); }
+      if(url.pathname === "/api/admin/session") return send(state.scenario === "auth-check-failed" ? 503 : 200, {authenticated:state.scenario !== "auth-check-failed"});
+      if(url.pathname === "/api/garmin/sync") {
+        const current=runningPeriod("America/Los_Angeles","current");
+        const selection=req.method === "POST" ? (await jsonBody(req)).week : url.searchParams.get("week");
+        const previous=selection === "previous";
+        const period={start:previous?addCalendarDays(current.start,-7):current.start,end:previous?addCalendarDays(current.start,-1):current.today,timezone:current.timezone};
+        if(req.method === "POST") state.fixtureImport={version:2,id:"00000000-0000-4000-8000-000000000003",status:"succeeded",stage:"finished",startedAt:new Date().toISOString(),finishedAt:new Date().toISOString(),errorCode:null,period,counts:{found:2,downloaded:0,skipped:2,failed:0},parsing:{found:2,processed:0,skipped:2,failed:0},upload:{found:2,eligible:2,validated:2,inserted:0,updated:0,unchanged:2,failed:0,excluded:0},uploadStarted:true,failedStage:null};
+        return send(200,{available:true,period,job:state.fixtureImport??null,notice:null});
+      }
+      if(url.pathname === "/api/training/match/reconcile" && req.method === "POST") return send(200,{reconciled:true,failed:0});
+      if (url.pathname === "/api/training/progress") {
+        if(state.scenario === "progress-error") return send(503,{error:"Fixture progress refresh failed"});
+        const period=runningPeriod("America/Los_Angeles","current");
+        const totals={activityCount:24,weeksWithActivities:8,completeDistanceWeeks:8,recordedDistanceMeters:240000,averageRecordedWeekMeters:30000,paceSecondsPerKm:330,paceActivityCount:24,missingDistanceCount:0,missingTimerCount:0,longestRunMeters:14000,excludedUnverifiedActivities:0};
+        const weeks=Array.from({length:8},(_,i)=>({start:addCalendarDays(period.start,-56+i*7),end:addCalendarDays(period.start,-50+i*7),activityCount:3,distanceMeters:30000,timerSeconds:9900,paceSecondsPerKm:330,longestRunMeters:14000,status:"recorded_activities",coverage:{distanceCount:3,timerCount:3},performance:{hasPlan:false}}));
+        const phase=state.scenario === "race-recovery" ? "recovery" : state.scenario === "race-taper" ? "taper" : "preparation";
+        const daysUntil=phase === "recovery" ? -16 : phase === "taper" ? 5 : 90;
+        const raceDate=addCalendarDays(period.today,daysUntil);
+        const races=state.scenario.startsWith("race-") ? [{id:"fixture-race",name:"테스트 주목표",date:raceDate,distance:"FULL",priority:"primary",targetTimeSeconds:null,targetPaceSecondsPerKm:null,daysUntil,phase,taperDays:14,recoveryDays:14,taperStart:addCalendarDays(raceDate,-14),taperEnd:addCalendarDays(raceDate,-1),recoveryStart:addCalendarDays(raceDate,1),recoveryEnd:addCalendarDays(raceDate,14),recoveryState:phase === "recovery"?"needs_check_in":null,affectsCurrentPlan:phase!=="preparation",participation:"unconfirmed"}] : [];
+        return send(200,{version:1,generatedAt:new Date().toISOString(),asOfDate:period.today,timezone:period.timezone,period:{start:weeks[0].start,end:weeks[7].end},totals,weeks,current:{start:period.start,end:period.end,activityCount:state.scenario === "empty"?0:2,distanceMeters:state.scenario === "empty"?null:state.scenario === "partial"?7000:15000,timerSeconds:4950,paceSecondsPerKm:330,longestRunMeters:8000,status:"recorded_activities",coverage:{distanceCount:state.scenario === "empty"?0:state.scenario === "partial"?1:2,timerCount:2},performance:null},races,raceWarnings:[],comparison:null,limitations:[]});
+      }
       if (url.pathname === "/api/garmin/weekly-summary") {
         if (state.scenario === "summary-error") return send(503, {error: "Fixture summary failed"});
         const selection = url.searchParams.get("week") === "previous" ? "previous" : "current";
@@ -109,7 +131,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/images/brand/traini-logo.png") {
       res.writeHead(200, {"Content-Type": "image/png"}); return res.end(await readFile(path.join(root, "public/images/brand/traini-logo.png")));
     }
-    if (["/", "/schedule", "/today"].includes(url.pathname)) { res.writeHead(200, {"Content-Type": "text/html"}); return res.end(html.replace("<body>", `<body data-scenario="${state.scenario}">`)); }
+    if (["/", "/schedule", "/today", "/my", "/roadmap", "/running-analysis", "/garmin-connect", "/auth-refresh", "/login"].includes(url.pathname)) { res.writeHead(200, {"Content-Type": "text/html"}); return res.end(html.replace("<body>", `<body data-scenario="${state.scenario}">`)); }
     send(404, {error: "Not found"});
   } catch { if (!res.headersSent) send(500, {error: "Fixture request failed"}); else res.end(); }
 });

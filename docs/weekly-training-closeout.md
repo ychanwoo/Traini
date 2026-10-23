@@ -7,11 +7,10 @@ rest, or that symptoms resolved.
 
 ## Weekly workflow
 
-- On Sunday, the web import card defaults to **이번 주 가져오기** and shows the
-  exact Monday–Sunday dates. **지난주 기록 보기** retains access to the previous
-  completed week. Imports stop at the current local date.
-- On other days, the import card defaults to the previous completed week.
-  The CLI's existing default remains the previous completed week.
+- The web import card defaults to **이번 주 가져오기** on every day and shows
+  Monday through today in the configured timezone. **지난주 기록 보기** selects
+  the previous completed Monday–Sunday. The CLI default remains the previous
+  completed week. Partial imports never imply that the week is closed.
 - After syncing/importing and inspecting results, record feedback or explicit
   skips. In Today/Schedule, inspect **주간 마감**, including its source week,
   following planning week, recorded activities and unresolved stored sessions.
@@ -39,8 +38,8 @@ The server verifies the currently eligible week using its own clock; the browser
 cannot request future weeks, choose another user, or supply a trusted current date.
 
 The worker receives the server-selected fixed start/end dates, not a request-built
-shell command. Python independently validates the range. A Sunday import started
-after Monday rollover retains its original dates, including the prior-week toggle.
+shell command. Python independently validates the range. A fixed-date request started after local midnight retains the original dates;
+the worker accepts only today's or the previous day's valid server selections.
 Local Sunday/Monday, DST and year boundaries use calendar arithmetic.
 
 Two fingerprints serve different purposes:

@@ -28,7 +28,7 @@ test("Sunday closeout and Monday completed week refer to the same Monday–Sunda
       a.startsOn,
     );
     assert.equal(
-      collection.collectionPeriod(timezone, "auto", new Date(monday)).start,
+      collection.collectionPeriod(timezone, "previous", new Date(monday)).start,
       b.startsOn,
     );
     assert.equal(
@@ -54,7 +54,7 @@ test("Sunday review requires explicit closure, and future or non-Monday dates re
   assert.throws(() =>
     calendar.assertCloseoutPeriod("2026-10-12", zone, saturday),
   );
-  assert.throws(() => collection.collectionPeriod(zone, "current", saturday));
+  assert.equal(collection.collectionPeriod(zone, "current", saturday).end, "2026-10-17");
   assert.equal(
     collection.collectionPeriod(zone, "previous", sunday).start,
     "2026-10-05",

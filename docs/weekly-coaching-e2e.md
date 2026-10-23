@@ -15,7 +15,7 @@ npm run test:e2e
 ```
 
 Playwright starts and stops the fixture server on `127.0.0.1:3027`, uses one worker,
-and does not automatically retry failed tests. The port must be free. Its nine
+and does not automatically retry failed tests. The port must be free. Its fourteen
 scenarios can also be executed through Codex's browser driver using the same
 `coachingScenarios(tab, viewport)` implementation. Ordinary Node tests remain
 available through `node --test tests/*.test.mjs`.
@@ -54,6 +54,16 @@ not a persistence or authentication implementation for the real service.
 
 9. Explicit Sunday closeout, reload persistence, Monday continuity of source dates,
    stale-data generation denial and acknowledgement updates without inference.
+
+10. Progress data remains visible during slow and failed refreshes and app navigation.
+
+11. Current-week import and previous-week selection work independently of review eligibility.
+
+12. The production AuthGuard keeps the same-user view mounted during rechecks, hides it on failed verification, and recovers after a new successful check. Its provider/session adapter is synthetic; actual OAuth and RLS remain separate tests.
+
+13. Current distance/count cards distinguish complete, partial, empty and retained-on-error data.
+
+14. Roadmap preparation, taper and recovery details remain accessible at all supported frame widths.
 
 Every scenario checks the fixture request ledger for unexpected APIs and verifies
 that viewing data or saving feedback did not request AI generation. The fixture
