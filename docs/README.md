@@ -26,6 +26,8 @@
 | [주간 러닝 요약](../collector/docs/weekly-running-summary.md) | 월~일 분류, 가중 페이스·누락 값·조회 실패 |
 | [훈련 입력](../collector/docs/training-context.md) | 목표·훈련 요일·최근 기록의 입력 계약 |
 
+- [개인 코칭 화면 개선](personal-coaching-refinement.md): 평일 최신 기록 가져오기, 핵심 요약, 인증 범위 내 갱신 유지.
+
 ## 훈련·피드백
 
 | 문서 | 내용 |

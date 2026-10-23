@@ -26,12 +26,12 @@ The authenticated administrator can also open `/api/training/generation-status`.
 ## Normal weekly workflow
 
 1. Sync the Garmin watch with Garmin Connect.
-2. In Traini, select **이번 주 가져오기** on Sunday, or **지난주 가져오기** on other days. The worker collects FITs, parses them, uploads verified normalized records and causes the summaries/matches to refresh. Review each stage's result; a partial import is not a complete week.
+2. In Traini, use **이번 주 가져오기** for Monday through today, or switch to **지난주 가져오기** for the completed previous week. The worker collects FITs, parses them, uploads verified normalized records and causes the summaries/matches to refresh. Review each stage's result; a partial import is not a complete week.
 3. Record feedback or explicit skips in Today/Schedule, including late entries for their original training date.
 4. After the week is complete, explicitly create/update its weekly review.
 5. Inspect the review, then explicitly generate/update the intended training week. Feedback or importing alone does not call AI or replace the saved plan.
 
-The web import card selects the current Monday–Sunday on local Sunday and the previous completed week otherwise. Sunday retains a previous-week toggle. The worker receives fixed source dates. After finishing Sunday training, explicitly acknowledge **주간 마감** before reviewing that current week; acknowledgement alone never calls AI. See [weekly closeout](weekly-training-closeout.md). See the collector README for an explicit date-range import when needed. Missing records are unknown, never proof of rest or missed training.
+The web import card defaults to the current Monday through today on every day, and retains a previous-week toggle. Importing a partial week does not make it reviewable. The worker receives fixed source dates. After finishing Sunday training, explicitly acknowledge **주간 마감** before reviewing that current week; acknowledgement alone never calls AI. See [weekly closeout](weekly-training-closeout.md). See the collector README for an explicit date-range import when needed. Missing records are unknown, never proof of rest or missed training.
 
 ## Failure and recovery
 
