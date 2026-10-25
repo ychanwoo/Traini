@@ -2,7 +2,7 @@
 import { useProgress } from "@/components/training/use-progress";
 import { distanceLabel } from "@/lib/garmin/running-summary";
 import Link from "next/link";
-export function CurrentRunningMetrics() {
+export function CurrentRunningMetrics({ hideImportLink = false }: { hideImportLink?: boolean }) {
   const { data, error } = useProgress();
   const current = data?.current;
   const count = current?.activityCount;
@@ -40,12 +40,12 @@ export function CurrentRunningMetrics() {
             : "이번 주 기록 확인 중"}
         {data && error ? " · 갱신 실패, 마지막 확인 기록" : ""}
       </p>
-      <Link
+      {!hideImportLink && <Link
         className="mt-2 inline-block text-[11px] text-[#78558e]"
         href="/garmin-connect"
       >
         최신 러닝 가져오기
-      </Link>
+      </Link>}
     </section>
   );
 }

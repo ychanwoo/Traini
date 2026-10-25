@@ -17,13 +17,12 @@ import { useWeeklyPlan } from "./use-weekly-plan";
 import { WorkoutMatchDetails } from "./workout-match-details";
 import { WorkoutFeedbackForm } from "./workout-feedback-form";
 import { TrainingCompleteButton } from "./training-complete-button";
-import { planErrorMessage } from "@/lib/training/plan-errors";
 import { TrainingWeatherCard } from "./training-weather-card";
 import { PrescriptionCard } from "./prescription-card";
-import { WeeklyCloseoutCard } from "./weekly-closeout-card";
 import { CoachingDetail } from "./coaching-detail";
-import { WeeklyReviewCard } from "./weekly-review-card";
 import { coachingText, coachingCopy } from "@/lib/training/coaching-copy";
+import { coachingSentences } from "@/lib/training/coaching-presentation";
+import flow from "./today-workflow.module.css";
 import styles from "./training.module.css";
 const formatRaceTime = (seconds: number) =>
   `${Math.floor(seconds / 3600)}:${String(Math.floor((seconds % 3600) / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
@@ -83,7 +82,7 @@ function PlanFeedback({
   state: ReturnType<typeof useWeeklyPlan>;
   readOnly?: boolean;
 }) {
-  const { data, error, busy, loading } = state;
+  const { data, error, loading } = state;
   return (
     <div className={styles.planFeedback} aria-live="polite">
       {error && (
@@ -102,35 +101,6 @@ function PlanFeedback({
           다시 확인
         </button>
       )}
-      {!readOnly && data && (!data.plan || data.inputsChanged) && (
-        <>
-          <p className={styles.note}>
-            {busy || data.generating
-              ? "ChatGPT가 목표와 러닝 기록으로 계획을 만들고 있어요. 화면을 다시 열어도 결과를 확인할 수 있어요."
-              : "목표와 최근 러닝 기록으로 이 주의 훈련계획을 만들어요."}
-          </p>
-          {!error && !busy && !data.generating && data.generationError && (
-            <p className={styles.error}>
-              {planErrorMessage(data.generationError)}
-            </p>
-          )}
-          <button
-            type="button"
-            className={styles.planAction}
-            disabled={busy || data.generating}
-            onClick={() => void state.generate()}
-          >
-            {busy || data.generating
-              ? "계획 생성 중…"
-              : data.plan
-                ? "최신 기록으로 계획 업데이트"
-                : "주간 훈련계획 생성"}
-          </button>
-          <Link className={styles.link} href="/my/goals">
-            목표·훈련 요일 및 ChatGPT 연결 확인
-          </Link>
-        </>
-      )}
       {data?.plan?.review && <details className={styles.details}><summary>계획에 사용한 리뷰</summary><p className={styles.note}>{data.plan.review.startsOn} {coachingCopy.appliedReview}</p></details>}
       {!readOnly && data?.inputsChanged && (
         <p className={styles.note}>
@@ -140,7 +110,7 @@ function PlanFeedback({
     </div>
   );
 }
-export function TodayPlan() {
+export function TodayPlan({ concise = false }: { concise?: boolean }) {
   const state = useWeeklyPlan("current");
   const today = state.data?.period.today;
   const workout = state.data?.plan?.workouts.find((w) => w.date === today);
@@ -159,7 +129,7 @@ export function TodayPlan() {
                   ? "오늘의 계획이 없어요"
                   : "훈련을 불러오지 못했어요"))}
         </h2>
-        <PlanFeedback state={state} />
+        <PlanFeedback state={state} readOnly={concise} />
         <Link className={styles.link} href="/my/goals#current-condition">오늘 컨디션 확인·수정</Link>
         {race && (
           <p className={styles.note}>
@@ -195,8 +165,8 @@ export function TodayPlan() {
                 </p>
               </div>
             </div>
-            <CoachingDetail text={workout.purpose} label="훈련 목적·실행 기준 전체" />
-            <SessionSteps steps={workout.steps} />
+            {!concise && <CoachingDetail text={workout.purpose} label="훈련 목적·실행 기준 전체" />}
+            {!concise && <SessionSteps steps={workout.steps} />}
             {workout.kind !== "rest" && (
               <TrainingWeatherCard
                 key={workout.id}
@@ -213,7 +183,7 @@ export function TodayPlan() {
                 onComplete={() => void state.complete(workout.id)}
               />
             )}
-            <WorkoutMatchDetails
+            {!concise && <WorkoutMatchDetails
               key={`${workout.id}:${workout.matching?.revision}`}
               workout={workout}
               timezone={state.data!.period.timezone}
@@ -223,16 +193,13 @@ export function TodayPlan() {
               onSave={(revision, ids) =>
                 void state.match(workout.id, revision, ids)
               }
-            />
-            <WorkoutFeedbackForm
+            />}
+            {!concise && <WorkoutFeedbackForm
               key={`${workout.id}:${workout.feedback?.version}:${workout.completed}:${workout.status}`}
-              workout={workout}
-              today={today!}
-              pending={
-                state.completing || state.busy || !!state.data?.generating
-              }
+              workout={workout} today={today!}
+              pending={state.completing || state.busy || !!state.data?.generating}
               onSave={state.feedback}
-            />
+            />}
             {workout.completed && (
               <p className={styles.note}>
                 {workout.matching?.state === "unavailable"
@@ -244,17 +211,21 @@ export function TodayPlan() {
             )}
           </>
         )}
-        <PrescriptionCard week="current" compact />
+        {!concise && <PrescriptionCard week="current" compact />}
         {state.data?.plan && (
           <details className={styles.details}>
             <summary>이번 주 계획 근거</summary>
-            <p>{coachingText(state.data.plan.summary)}</p>
+            {concise ? <>
+              <dl className={flow.reasonMetrics}>
+                <div><dt>주간 계획 거리</dt><dd>{state.data.plan.targetDistanceKm.toFixed(1)} km</dd></div>
+                <div><dt>러닝 · 휴식</dt><dd>{state.data.plan.workouts.filter(w=>w.kind!=="rest").length}일 · {state.data.plan.workouts.filter(w=>w.kind==="rest").length}일</dd></div>
+              </dl>
+              <ul className={flow.reasonList}>{coachingSentences(coachingText(state.data.plan.summary)).map((text,i)=><li key={i}>{text}</li>)}</ul>
+            </> : <p>{coachingText(state.data.plan.summary)}</p>}
           </details>
         )}
       </section>
-      <PastWorkoutFeedback />
-      <WeeklyCloseoutCard />
-      <WeeklyReviewCard />
+      {!concise && <PastWorkoutFeedback />}
     </>
   );
 }

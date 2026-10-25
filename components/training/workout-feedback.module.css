@@ -101,3 +101,7 @@
   white-space: pre-wrap;
   font-size: 12px;
 }
+.quick { margin-top:18px; padding-top:16px; border-top:1px solid #eee9f0; min-width:0; }
+.quick h3 { margin:0; color:#514259; font-size:13px; font-weight:600; }
+.quick h3 span { margin-left:6px; color:#948b9b; font-size:10px; font-weight:400; }
+.reload { margin-top:8px; padding:0; border:0; background:none; color:#6b21a8; font-size:11px; text-decoration:underline; cursor:pointer; }

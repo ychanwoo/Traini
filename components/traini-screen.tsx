@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import { AdminLogin } from "@/components/auth/admin-login";
-import { CurrentRunningMetrics } from "@/components/garmin/current-running-metrics";
+import { TodayWorkflow } from "@/components/training/today-workflow";
 import { WeeklySyncCard } from "@/components/garmin/weekly-sync-card";
 import { WeeklyRunningSummary } from "@/components/garmin/weekly-running-summary";
-import { TodayPlan, WeeklySchedule } from "@/components/training/weekly-plan-view";
+import { WeeklySchedule } from "@/components/training/weekly-plan-view";
 import { GoalSettings } from "@/components/training/goal-settings";
 import { TrainingContextCard } from "@/components/training/training-context-card";
 import { RunningProgressAnalysis, TrainingRoadmap, MyProgressSummary } from "@/components/training/progress-insights";
@@ -66,10 +66,7 @@ function Schedule() {
 function Today() {
   return <div className="app-frame"><Topbar back /><main className="page today-page pt-4">
     <section className="mt-6"><h1 className="text-xl font-semibold">오늘의 훈련</h1><p className="mt-1 text-sm text-[#756e7c]">목표와 러닝 기록을 바탕으로 준비한 계획을 확인해요.</p></section>
-    <CurrentRunningMetrics />
-    <TodayPlan />
-    <details className="card mt-4 p-4"><summary className="text-xs font-medium">주간 기록 자세히</summary><WeeklyRunningSummary /></details>
-    <WeeklySyncCard />
+    <TodayWorkflow />
   </main></div>;
 }
 

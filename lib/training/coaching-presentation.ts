@@ -15,3 +15,8 @@ export function coachingLead(text: string, limit = 180): string {
   const boundary = excerpt.lastIndexOf(" ");
   return `${boundary > limit / 2 ? excerpt.slice(0, boundary) : excerpt}…`;
 }
+
+/** Preserve original evidence and decimal values when presenting sentence bullets. */
+export function coachingSentences(text: string): string[] {
+  return [...new Intl.Segmenter("ko", {granularity:"sentence"}).segment(text)].map(({segment})=>segment.replace(/\s+/g," ").trim()).filter(Boolean);
+}

@@ -174,6 +174,9 @@ function renderReview(data) {
         useEffect: () => {},
         useCallback: (fn) => fn,
       },
+      "@/lib/training/coaching-presentation": typescriptLoader()("lib/training/coaching-presentation.ts"),
+      "@/lib/training/review-presentation": typescriptLoader()("lib/training/review-presentation.ts"),
+      "./weekly-feedback-form": {WeeklyFeedbackForm:()=>null},
       "./coaching-detail": typescriptLoader({"./training.module.css": {default: {}}})("components/training/coaching-detail.tsx"),
       "react/jsx-runtime": jsxRuntime,
       "@/lib/http/client-request": {
