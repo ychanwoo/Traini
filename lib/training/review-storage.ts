@@ -107,6 +107,7 @@ export async function readReview(userId: string, start?: string | null) {
     closeout: inputs.closeout,
     period: inputs.period,
     metrics: inputs.metrics,
+    weeklyFeedback: inputs.snapshot.weeklyFeedback ?? null,
     review: data
       ? {
           id: data.id,

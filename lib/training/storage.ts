@@ -1,6 +1,6 @@
 import { feedbackCondition, type FeedbackEvidence } from "./workout-feedback";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { queryWindow } from "@/lib/garmin/running-summary";
+import { addCalendarDays, queryWindow } from "@/lib/garmin/running-summary";
 import {
   buildTrainingContext,
   historyPeriod,
@@ -100,6 +100,13 @@ export async function readTrainingContext(
     context.workoutFeedback,
     context.asOfDate,
   );
+  const {data:weeklyNotes,error:weeklyError}=await db.from("weekly_coaching_notes")
+    .select("starts_on,timezone,rpe,memo,version,updated_at")
+    .eq("user_id",userId).eq("timezone",timezone)
+    .gte("starts_on",addCalendarDays(context.asOfDate,-56)).lte("starts_on",context.asOfDate)
+    .order("starts_on",{ascending:false}).limit(9).abortSignal(signal);
+  if(weeklyError || !Array.isArray(weeklyNotes)) throw Error("Weekly feedback unavailable");
+  context.weeklyFeedback=weeklyNotes.map(note=>({startsOn:note.starts_on,timezone:note.timezone,rpe:note.rpe,memo:note.memo,version:note.version,updatedAt:note.updated_at}));
   return context;
 }
 export async function saveTrainingGoal(

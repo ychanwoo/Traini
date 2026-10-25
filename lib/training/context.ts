@@ -266,6 +266,7 @@ export function buildTrainingContext(
       limitations,
       assessment: "input_completeness_only",
     },
+    weeklyFeedback: [] as (import("./weekly-feedback").WeeklyFeedbackNote & {startsOn:string;timezone:string})[],
     workoutFeedback: [] as import("./workout-feedback").FeedbackEvidence[],
     history: {
       source: "garmin_fit",
