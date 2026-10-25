@@ -23,12 +23,13 @@ export function initialState() {
       },
     };
   }
-  return { plans, scenario: "normal", closeoutVersion: 1, closedRevision: "0".repeat(31)+"1", closed: false, closeoutStale: false, closeoutRequests: [], feedbackRequests: [], appliedRequests: [], unexpectedRequests: [], reviewGenerationRequests: 0, reviewRequests: 0, planRequests: 0, inferenceRequests: 0 };
+  return { weeklyNotes:{}, weeklyFeedbackRequests:[], weeklyNoteOperations:[], plans, scenario: "normal", closeoutVersion: 1, closedRevision: "0".repeat(31)+"1", closed: false, closeoutStale: false, closeoutRequests: [], feedbackRequests: [], appliedRequests: [], unexpectedRequests: [], reviewGenerationRequests: 0, reviewRequests: 0, planRequests: 0, planGenerationRequests: [], inferenceRequests: 0 };
 }
 export function planView(state, week) {
   const view = structuredClone(state.plans[week] ?? state.plans.current);
   if (state.scenario === "empty") view.plan = null;
-  if (state.scenario === "stale") view.inputsChanged = true;
+  if (["stale", "plan-adjustment-invalid"].includes(state.scenario)) view.inputsChanged = true;
+  if (state.scenario === "plan-generating") view.generating = true;
   if (state.scenario === "pain") for (const w of view.plan.workouts) {
     if (!w.completed && w.status !== "skipped" && w.date >= TODAY) {
       Object.assign(w, { kind: "rest", title: "휴식", distanceKm: 0, paceSecondsPerKm: null, effort: "rest", purpose: "통증 상태를 다시 확인해요." });
@@ -65,6 +66,9 @@ export function reviewView(state, start, buildCoachingFeedback) {
     },
   };
   const result = { period: { startsOn: selected, endsOn: addDays(selected, 6), timezone: "America/Los_Angeles" }, latestStartsOn: latest, closeout: shifted && state.closed ? {closedAt: "2026-10-18T21:00:00Z", revision: "1".repeat(32),fresh: !state.closeoutStale} : null, generating: false, generationError: null, metrics, review };
+  result.weeklyFeedback=state.weeklyNotes[selected] ?? null;
+  if(result.review && result.weeklyFeedback) result.review.fresh=false;
+  result.previousWeek = {startsOn:addDays(selected,-7),endsOn:addDays(selected,-1),actualKm:42,activityCount:5,distanceComplete:true};
   result.coaching = buildCoachingFeedback(result, { today: TODAY, condition: state.scenario === "pain" ? {reportedOn: TODAY, feeling: "pain"} : null, current: planView(state, "current"), next: planView(state, "next") });
   return result;
 }
@@ -79,7 +83,7 @@ export function saveFeedback(state, body) {
   state.appliedRequests.push(structuredClone(body));
   workout.status = body.outcome === "unconfirmed" ? "planned" : body.outcome;
   workout.completed = body.outcome === "completed";
-  workout.feedback = body.outcome === "unconfirmed" ? null : { version: body.version + 1, assessment: body.assessment, skipReason: body.skipReason, reportedAt: "2026-10-17T18:00:00Z" };
+  workout.feedback = body.outcome === "unconfirmed" && body.assessment === null ? null : { version: body.version + 1, assessment: body.assessment, skipReason: body.skipReason, reportedAt: "2026-10-17T18:00:00Z" };
   if (state.closed) { state.closeoutStale = true; state.closeoutVersion++; }
   for (const plan of Object.values(state.plans)) plan.inputsChanged = true;
   return state.scenario === "save-lost" ? {status: 502, error: "응답을 확인하지 못했어요. 저장 여부를 먼저 확인해 주세요."} : {status: 200};
