@@ -16,12 +16,12 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
     await tab.reload();
     await tab.getAXState({emit: false});
     await scenario("reset");
-    if (await p.evaluate(() => document.location.pathname) === (path ?? "/today")) await tab.reload();
-    else await tab.goto(`${base}${path ?? "/today"}`);
-    await show(review(), "비교 기준보다 러닝 거리가 늘었어요.");
+    if (await p.evaluate(() => document.location.pathname) === (path ?? "/coaching-regression")) await tab.reload();
+    else await tab.goto(`${base}${path ?? "/coaching-regression"}`);
+    if (path !== "/today") await show(review(), "비교 기준보다 러닝 거리가 늘었어요.");
     // Review and plan load independently. Wait for the fresh reset plan too,
     // before touching forms whose identity changes when that read completes.
-    if (!path || path === "/today") await p.getByRole("button",{name:"오늘의 훈련 완료",exact:true}).waitFor({state:"visible"});
+    if (!path || path === "/today" || path === "/coaching-regression") await p.getByRole("button",{name:"오늘의 훈련 완료",exact:true}).waitFor({state:"visible"});
     else await p.getByRole("region",{name:"주간 훈련 일정",exact:true}).locator("article").first().getByText("이지런",{exact:true}).waitFor({state:"visible"});
   };
   const diagnostic = async () => {
@@ -43,6 +43,84 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
     await row.getByRole("combobox", {name: "훈련 결과", exact: true}).waitFor({state: "visible"});
   };
   return {
+    async weeklyFeedback() {
+      await reset("/today");
+      for(const label of ["오늘 어땠나요?","완료·건너뜀 수정","훈련 결과·피드백 기록","지난 훈련 기록·수정"]) assert.equal(await p.getByText(label,{exact:true}).count(),0,label);
+      const note=p.getByRole("region",{name:"주간 체감 강도와 메모",exact:true});
+      await note.getByRole("combobox",{name:"주간 체감 강도 · RPE",exact:true}).selectOption("6");
+      await note.getByRole("textbox",{name:/주간 메모/}).fill("이번 주에는 다리가 무거웠어요");
+      await note.getByRole("button",{name:"주간 피드백 저장",exact:true}).click();
+      await show(note,"저장했어요. 이 주의 리뷰 생성에 반영돼요.");
+      let counts=await diagnostic();
+      assert.equal(counts.feedbackRequests.length,0);
+      assert.equal(counts.weeklyFeedbackRequests.length,1);
+      assert.equal(counts.weeklyFeedbackRequests[0].startsOn,"2026-10-05");
+      assert.equal(counts.weeklyFeedbackRequests[0].rpe,6);
+      await tab.reload();
+      await note.getByRole("textbox",{name:/주간 메모/}).waitFor({state:"visible"});
+      assert.equal(await note.getByRole("textbox",{name:/주간 메모/}).evaluate(e=>e.value),"이번 주에는 다리가 무거웠어요");
+      await review().getByRole("combobox",{name:"리뷰 주간 선택",exact:true}).selectOption("2026-09-28");
+      await note.getByRole("textbox",{name:/주간 메모/}).waitFor({state:"visible"});
+      assert.equal(await note.getByRole("textbox",{name:/주간 메모/}).evaluate(e=>e.value),"");
+      await review().getByRole("combobox",{name:"리뷰 주간 선택",exact:true}).selectOption("2026-10-05");
+      await note.getByRole("textbox",{name:/주간 메모/}).waitFor({state:"visible"});
+      assert.equal(await note.getByRole("textbox",{name:/주간 메모/}).evaluate(e=>e.value),"이번 주에는 다리가 무거웠어요");
+      for(const width of [320,375,430,768]) {
+        await viewport.set({width,height:812});
+        const sizes=await p.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,frame:document.querySelector(".app-frame").getBoundingClientRect().width}));
+        assert.ok(sizes.scroll<=sizes.width);assert.ok(sizes.frame<=Math.min(width,430));
+      }
+      await diagnostic();
+    },
+    async weeklyFeedbackFailures() {
+      for(const mode of ["save-error","save-conflict","save-lost"]) {
+        await reset("/today");
+        const note=p.getByRole("region",{name:"주간 체감 강도와 메모",exact:true});
+        await note.getByRole("textbox",{name:/주간 메모/}).fill("실패해도 유지할 주간 메모");
+        await scenario(mode);
+        await note.getByRole("button",{name:"주간 피드백 저장",exact:true}).click();
+        await show(note,/저장 실패|메모가 바뀌었어요|응답을 확인하지/);
+        assert.equal(await note.getByRole("textbox",{name:/주간 메모/}).evaluate(e=>e.value),"실패해도 유지할 주간 메모");
+        let counts=await diagnostic();assert.equal(counts.weeklyFeedbackRequests.length,1);
+        await scenario("normal");
+        await note.getByRole("button",{name:"주간 피드백 저장",exact:true}).click();
+        await show(note,"저장했어요. 이 주의 리뷰 생성에 반영돼요.");
+        counts=await diagnostic();assert.equal(counts.weeklyFeedbackRequests.length,2);
+        assert.equal(counts.weeklyFeedbackRequests[0].requestId,counts.weeklyFeedbackRequests[1].requestId);
+        assert.equal(counts.feedbackRequests.length,0);
+      }
+    },
+    async todayWorkflow() {
+      await reset("/today");
+      const flow=p.getByRole("navigation",{name:"오늘 탭 사용 순서",exact:true});
+      assert.equal(await flow.getByRole("link").count(),4);
+      const order=await p.evaluate(()=>Array.from(document.querySelectorAll('[id^="today-"]')).map(e=>e.id));
+      assert.equal(order.join(","),"today-import,today-session,today-review,today-next");
+      const session=p.getByRole("region",{name:"오늘 훈련 단계",exact:true});
+      const current=p.getByRole("region",{name:"이번 주 계획 관리",exact:true});
+      const next=p.getByRole("region",{name:"다음 주 계획 관리",exact:true});
+      await current.getByText("이번 주 계획 조정 열기",{exact:true}).click();
+      await show(current,"새로 반영할 변경사항이 없어요. 저장된 계획을 따르면 돼요.");
+      assert.equal(await current.getByRole("button").count(),0);
+      await scenario("empty");
+      await show(current,"이번 주 남은 훈련 계획 만들기");
+      await show(next,"다음 주 계획 만들기");
+      await scenario("plan-generating");
+      await current.getByRole("button",{name:"훈련계획 생성 중…",exact:true}).waitFor({state:"visible"});
+      assert.equal(await current.getByRole("button").isEnabled(),false);
+      await scenario("plan-adjustment-invalid");
+      // Session presentation contains no generation button; adjustment has its own card.
+      assert.equal(await session.locator('section.card').first().getByRole("button",{name:/다시 조정|계획 만들기/}).count(),0);
+      for(const [region,week,name] of [[current,"current","이번 주 남은 훈련 다시 조정"],[next,"next","다음 주 계획 다시 조정"]]) {
+        await region.getByText(`${week === "current" ? "이번 주" : "다음 주"} 계획 조정 열기`,{exact:true}).click();
+        await region.getByRole("button",{name,exact:true}).click();
+        await region.getByRole("alert").waitFor({state:"visible"});
+        await show(region,/기존 계획은 유지/);
+      }
+      await show(session,"이지런");
+      const counts=await diagnostic();
+      assert.deepEqual(counts.planGenerationRequests,[{week:"current"},{week:"next"}]);
+    },
     async compactSchedule() {
       await reset();
       await tab.goto(`${base}/schedule`);
@@ -194,7 +272,7 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       await show(p, "10.19 – 10.25");
       assert.equal(await p.getByRole("button", {name: "결과·피드백 저장", exact: true}).count(), 0, "Future training feedback remains closed");
       await p.getByRole("button", {name: "이번 주 보기", exact: true}).click();
-      await tab.goto(`${base}/today`);
+      await tab.goto(`${base}/coaching-regression`);
       await show(p, "이번 주 계획 근거");
       await diagnostic();
     },
@@ -227,15 +305,17 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       assert.equal(counts.feedbackRequests[0].workoutId, "previous-0");
       assert.equal(counts.feedbackRequests[0].assessment.rpe, 7);
       await p.getByRole("link", {name: "오늘", exact: true}).click();
+      await tab.goto(`${base}/coaching-regression`);
       await show(review(), /검토한 주에 통증·불편감 보고/);
       await p.getByRole("link", {name: "일정", exact: true}).click();
       assert.equal(await review().count(),0);
       await p.getByRole("link", {name:"오늘",exact:true}).click();
+      await tab.goto(`${base}/coaching-regression`);
       await show(review(), /검토한 주에 통증·불편감 보고/);
       assert.equal((await diagnostic()).feedbackRequests.length, 1);
     },
     async skip() {
-      await reset("/today");
+      await reset("/coaching-regression");
       await p.getByText("훈련 결과·피드백 기록", {exact: true}).click();
       await p.getByRole("combobox", {name: "훈련 결과", exact: true}).selectOption("skipped");
       const save = p.getByRole("button", {name: "결과·피드백 저장", exact: true});
@@ -247,7 +327,7 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       await show(p, /사유 · 일정이 바빠 쉬었어요/);
       await p.getByRole("link", {name: "일정", exact: true}).click();
       await show(p, /× 건너뜀/);
-      await p.getByRole("link", {name:"오늘",exact:true}).click();
+      await tab.goto(`${base}/coaching-regression`);
       await p.getByText("× 직접 건너뜀 · 사유 및 수정", {exact: true}).click();
       assert.equal(await p.getByRole("textbox", {name: /건너뛴 사유/}).evaluate(e => e.value), "일정이 바빠 쉬었어요. actualKm은 메모 그대로");
       await tab.reload();
@@ -330,7 +410,7 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
     },
     async saveFailures() {
       for (const mode of ["save-error", "save-conflict", "save-lost"]) {
-        await reset("/today");
+        await reset("/coaching-regression");
         await scenario(mode);
         await p.getByText("훈련 결과·피드백 기록", {exact: true}).click();
         await p.getByRole("combobox", {name: "훈련 결과", exact: true}).selectOption("completed");

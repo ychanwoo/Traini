@@ -3,6 +3,8 @@ import { readReview } from "./review-storage";
 import { readTrainingContext } from "./storage";
 import { readPlan, revision } from "./plan-storage";
 import { buildCoachingFeedback } from "./coaching-feedback";
+import { addCalendarDays } from "@/lib/garmin/running-summary";
+import type { WeekComparison } from "./review-presentation";
 import { dateInZone } from "@/lib/garmin/running-summary";
 
 /** No inference or plan writes. A failed current-state read must not hide history. */
@@ -12,6 +14,11 @@ export async function readCoachingReview(
 ) {
   const before = await revision(userId).catch(() => null);
   const state = await readReview(userId, start);
+  const previousWeek: WeekComparison | null = await readReview(userId, addCalendarDays(state.period.startsOn, -7)).then(previous => ({
+    startsOn: previous.period.startsOn, endsOn: previous.period.endsOn,
+    actualKm: previous.metrics.actualKm, activityCount: previous.metrics.activityCount,
+    distanceComplete: previous.metrics.activityCount > 0 && previous.metrics.distanceKnown === previous.metrics.activityCount,
+  })).catch(() => null);
   if (before !== null) {
     try {
       const now = new Date();
@@ -27,6 +34,7 @@ export async function readCoachingReview(
       )
         return {
           ...state,
+          previousWeek,
           coaching: buildCoachingFeedback(state, {
             today: context.asOfDate,
             condition: context.goal.condition,
@@ -40,6 +48,7 @@ export async function readCoachingReview(
   }
   return {
     ...state,
+    previousWeek: null,
     coaching: buildCoachingFeedback(state, {
       today: dateInZone(new Date(), state.period.timezone),
       condition: undefined,

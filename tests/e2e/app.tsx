@@ -2,6 +2,9 @@ import { AuthGuard } from "../../components/auth/auth-guard";
 import { ProgressProvider } from "../../components/training/use-progress";
 import { WeeklySyncCard } from "../../components/garmin/weekly-sync-card";
 import { CurrentRunningMetrics } from "../../components/garmin/current-running-metrics";
+import { WeeklyCloseoutCard } from "../../components/training/weekly-closeout-card";
+import { WeeklyReviewCard } from "../../components/training/weekly-review-card";
+import { TodayWorkflow } from "../../components/training/today-workflow";
 import { RunningProgressAnalysis, TrainingRoadmap, MyProgressSummary } from "../../components/training/progress-insights";
 import { usePathname } from "./platform";
 import { useState } from "react";
@@ -27,7 +30,7 @@ function Harness() {
   return <>
     <aside aria-label="Isolated test controls" style={{ padding: 8, fontSize: 12 }}>
       <label>Test scenario <select value={scenario} onChange={e => void control(e.target.value)}>
-        {["normal", "reset", "empty", "partial", "stale", "pain", "review-error", "summary-error", "plan-error", "unauthorized", "forbidden", "malformed", "slow", "save-error", "save-lost", "save-conflict", "closeout-sunday", "closeout-monday", "closeout-stale", "progress-error", "auth-check-failed", "race-preparation", "race-taper", "race-recovery"].map(value => <option key={value}>{value}</option>)}
+        {["normal", "reset", "plan-adjustment-invalid", "plan-generating", "empty", "partial", "stale", "pain", "review-error", "summary-error", "plan-error", "unauthorized", "forbidden", "malformed", "slow", "save-error", "save-lost", "save-conflict", "closeout-sunday", "closeout-monday", "closeout-stale", "progress-error", "auth-check-failed", "race-preparation", "race-taper", "race-recovery"].map(value => <option key={value}>{value}</option>)}
       </select></label>{" "}
       <button onClick={async () => { setDiagnostics(""); setDiagnostics(JSON.stringify(await (await fetch("/__test/diagnostics")).json())); }}>Inspect test requests</button>
       {pathname === "/auth-refresh" && <button onClick={() => window.dispatchEvent(new Event("fixture:auth-recheck"))}>Recheck fixture session</button>}
@@ -37,7 +40,7 @@ function Harness() {
     <div className="app-frame app-tab-shell">
       <AppTabHeader />
       <div className="app-tab-content">
-        {pathname === "/auth-refresh" ? <AuthGuard><MyProgressSummary /></AuthGuard> : pathname.startsWith("/login") ? <p>Fixture login</p> : pathname === "/garmin-connect" ? <div className="page"><WeeklySyncCard detailed /><WeeklyRunningSummary detailed /></div> : pathname === "/today" ? <div className="page"><CurrentRunningMetrics /><TodayPlan /><details className="card mt-4 p-4"><summary className="text-xs font-medium">주간 기록 자세히</summary><WeeklyRunningSummary /></details><WeeklySyncCard /></div> : pathname === "/my" ? <div className="page"><MyProgressSummary /></div> : pathname === "/running-analysis" ? <RunningProgressAnalysis /> : pathname === "/roadmap" ? <TrainingRoadmap /> : <WeeklySchedule />}
+        {pathname === "/auth-refresh" ? <AuthGuard><MyProgressSummary /></AuthGuard> : pathname.startsWith("/login") ? <p>Fixture login</p> : pathname === "/garmin-connect" ? <div className="page"><WeeklySyncCard detailed /><WeeklyRunningSummary detailed /></div> : pathname === "/coaching-regression" ? <div className="page"><CurrentRunningMetrics /><TodayPlan /><WeeklyCloseoutCard /><WeeklyReviewCard /><details className="card mt-4 p-4"><summary>주간 기록 자세히</summary><WeeklyRunningSummary /></details><WeeklySyncCard /></div> : pathname === "/today" ? <div className="page"><TodayWorkflow /></div> : pathname === "/my" ? <div className="page"><MyProgressSummary /></div> : pathname === "/running-analysis" ? <RunningProgressAnalysis /> : pathname === "/roadmap" ? <TrainingRoadmap /> : <WeeklySchedule />}
       </div>
       <BottomNavigation />
     </div>

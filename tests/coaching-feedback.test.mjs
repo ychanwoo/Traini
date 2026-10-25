@@ -243,7 +243,7 @@ test("coaching reads guard against mixed snapshots and retain weekly history whe
         },
       },
       "./coaching-feedback": feedback,
-      "@/lib/garmin/running-summary": { dateInZone: () => input.today },
+      "@/lib/garmin/running-summary": { dateInZone: () => input.today, addCalendarDays: (date,n)=>new Date(Date.parse(date+"T00:00:00Z")+n*86400000).toISOString().slice(0,10) },
     });
     const result = await store.readCoachingReview("fixture-user");
     assert.equal(result.metrics, state.metrics);

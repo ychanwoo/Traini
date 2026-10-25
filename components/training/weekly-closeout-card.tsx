@@ -117,25 +117,30 @@ export function WeeklyCloseoutCard() {
         </>
       ) : (
         <>
-          <p className={styles.note}>
-            {data.startsOn} – {data.endsOn} · {data.timezone}
+          <p className={styles.closeoutPeriod}>
+            {data.startsOn} – {data.endsOn}
+            <span className={styles.closeoutTimezone}> · {data.timezone}</span>
           </p>
-          <p className={styles.help}>
-            다음 계획 주간 · {data.nextStartsOn}부터 7일
+          <p className={styles.closeoutNext}>
+            <span>다음 계획 주간 · </span>
+            <strong>{data.nextStartsOn}부터 7일</strong>
           </p>
-          <p className={styles.note}>
+          <dl className={styles.closeoutMetrics}>
+            <div>
+              <dt>확인된 러닝</dt>
+              <dd>{data.activityCount}<small>회</small></dd>
+            </div>
+            <div className={data.unconfirmed ? styles.closeoutUnconfirmed : undefined}>
+              <dt>수행 미확인 훈련</dt>
+              <dd>{data.unconfirmed ?? "—"}{data.unconfirmed !== null && <small>개</small>}</dd>
+            </div>
+          </dl>
+          {data.unconfirmed === null && <p className={styles.help}>저장된 계획 없음</p>}
+          {!!data.incompleteActivities && <p className={styles.error}>거리·시간 누락 기록 {data.incompleteActivities}개</p>}
+          <p className={styles.closeoutGuide}>
             {data.early
               ? "이번 주 훈련을 마쳤다면 기록을 가져온 뒤 마감해 주세요."
               : "완료된 지난주 기록을 확인해 주세요. 지난주 리뷰는 마감 확인 없이도 생성할 수 있어요."}
-          </p>
-          <p className={styles.help}>
-            확인된 러닝 {data.activityCount}회 ·{" "}
-            {data.unconfirmed === null
-              ? "저장된 계획 없음"
-              : `수행 미확인 훈련 ${data.unconfirmed}개`}
-            {data.incompleteActivities
-              ? ` · 거리·시간 누락 기록 ${data.incompleteActivities}개`
-              : ""}
           </p>
           <Link className={styles.link} href="/garmin-connect">
             Garmin 기록 가져오기·확인

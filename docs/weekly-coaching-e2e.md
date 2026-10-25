@@ -15,7 +15,7 @@ npm run test:e2e
 ```
 
 Playwright starts and stops the fixture server on `127.0.0.1:3027`, uses one worker,
-and does not automatically retry failed tests. The port must be free. Its fourteen
+and does not automatically retry failed tests. The port must be free. Its eighteen
 scenarios can also be executed through Codex's browser driver using the same
 `coachingScenarios(tab, viewport)` implementation. Ordinary Node tests remain
 available through `node --test tests/*.test.mjs`.
@@ -65,6 +65,14 @@ not a persistence or authentication implementation for the real service.
 
 14. Roadmap preparation, taper and recovery details remain accessible at all supported frame widths.
 
+15. Schedule remains a compact date/session/distance/target-pace overview; feedback stays on Today.
+
+16. Today uses the production four-step composition, separates session recording from optional plan adjustment, labels initial creation by week, and disables pending generation. Explicit adjustment tests submit current/next payloads to a synthetic rejection endpoint and verify existing sessions are retained. No provider transport is available.
+
+17. Weekly feedback stores RPE/memo against the selected week, survives reload, and stays separate when switching weeks. Today has no daily feedback controls. Full legacy feedback/review regression uses `/coaching-regression` with synthetic data.
+
+18. Weekly note errors, conflicts and lost responses retain drafts; explicit retries reuse their request ID and do not call inference or write workout feedback.
+
 Every scenario checks the fixture request ledger for unexpected APIs and verifies
 that viewing data or saving feedback did not request AI generation. The fixture
 process never loads `.env.local`, imports provider transports or connects to
@@ -110,3 +118,7 @@ The Playwright configuration discovers the same nine tests. All 294
 Node tests and the actual administrator, feedback and review integration checks
 also passed without inference calls. See the current check output for lint,
 types and build results rather than treating this dated record as a future pass.
+
+## Weekly feedback database validation
+
+`node --env-file=.env.local scripts/test-weekly-feedback.mjs` uses a disposable account to verify week scoping, idempotency, version conflicts, review/plan invalidation and unchanged closeout acknowledgement. It does not write the administrator's data or call OpenAI. `supabase/tests/weekly_feedback.sql` checks service-only RPC access and RLS inside a rollback transaction.

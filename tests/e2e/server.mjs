@@ -32,7 +32,7 @@ const globalCss = await postcss([tailwind()]).process(globalSource, { from: path
 const css = globalCss.css + "\n" + await readFile(path.join(output, "app.css"), "utf8");
 const html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Traini · isolated coaching test</title><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script type="module" src="/app.js"></script></body></html>';
 let state = initialState();
-const scenarios = new Set(["normal", "reset", "empty", "partial", "stale", "pain", "review-error", "summary-error", "plan-error", "unauthorized", "forbidden", "malformed", "slow", "save-error", "save-lost", "save-conflict", "closeout-sunday", "closeout-monday", "closeout-stale", "progress-error", "auth-check-failed", "race-preparation", "race-taper", "race-recovery"]);
+const scenarios = new Set(["normal", "reset", "plan-adjustment-invalid", "plan-generating", "empty", "partial", "stale", "pain", "review-error", "summary-error", "plan-error", "unauthorized", "forbidden", "malformed", "slow", "save-error", "save-lost", "save-conflict", "closeout-sunday", "closeout-monday", "closeout-stale", "progress-error", "auth-check-failed", "race-preparation", "race-taper", "race-recovery"]);
 async function jsonBody(req) {
   let body = "";
   for await (const chunk of req) { body += chunk; if (body.length > 8192) throw new Error("Body too large"); }
@@ -53,8 +53,8 @@ const server = createServer(async (req, res) => {
       return send(200, {scenario: state.scenario});
     }
     if (url.pathname === "/__test/diagnostics") return send(200, {
-      closeoutRequests: state.closeoutRequests, feedbackRequests: state.feedbackRequests, unexpectedRequests: state.unexpectedRequests, reviewGenerationRequests: state.reviewGenerationRequests, reviewRequests: state.reviewRequests,
-      planRequests: state.planRequests, inferenceRequests: state.inferenceRequests,
+      weeklyFeedbackRequests:state.weeklyFeedbackRequests, closeoutRequests: state.closeoutRequests, feedbackRequests: state.feedbackRequests, unexpectedRequests: state.unexpectedRequests, reviewGenerationRequests: state.reviewGenerationRequests, reviewRequests: state.reviewRequests,
+      planRequests: state.planRequests, planGenerationRequests: state.planGenerationRequests, inferenceRequests: state.inferenceRequests,
     });
     if (url.pathname.startsWith("/api/")) {
       if (state.scenario === "slow") await new Promise(resolve => setTimeout(resolve, 800));
@@ -116,6 +116,27 @@ const server = createServer(async (req, res) => {
         return send(200, planView(state, url.searchParams.get("week") ?? "current"));
       }
       if (url.pathname === "/api/training/prescription") return send(200, {...prescription, period: state.plans[url.searchParams.get("week") ?? "current"].period});
+      // Explicit UI-action test only: synthetic rejection, no provider transport.
+      if (url.pathname === "/api/training/generate" && req.method === "POST" && state.scenario === "plan-adjustment-invalid") {
+        const body = await jsonBody(req);
+        if (!["current", "next"].includes(body.week)) return send(400, {error:"Invalid test week"});
+        state.planGenerationRequests.push(body);
+        state.plans[body.week].generationError = "invalid_output";
+        await new Promise(resolve => setTimeout(resolve, 150));
+        return send(422, {error:"생성 결과가 훈련 조건을 충족하지 않아 저장하지 않았어요. 기존 계획은 유지돼요."});
+      }
+      if(url.pathname === "/api/training/weekly-feedback" && req.method === "POST") {
+        const body=await jsonBody(req);state.weeklyFeedbackRequests.push(body);
+        const previous=state.weeklyNoteOperations.find(n=>n.requestId===body.requestId);
+        if(previous) return send(200,{note:previous.note});
+        if(state.scenario==="save-error") return send(503,{error:"테스트 저장 실패: 입력을 유지하고 다시 확인해 주세요."});
+        const existing=state.weeklyNotes[body.startsOn];
+        if(state.scenario==="save-conflict" || body.version!==(existing?.version??0)) return send(409,{error:"다른 화면에서 주간 메모가 바뀌었어요."});
+        const note={rpe:body.rpe,memo:body.memo,version:body.version+1,updatedAt:"2026-10-17T18:00:00Z"};
+        state.weeklyNotes[body.startsOn]=note;state.weeklyNoteOperations.push({requestId:body.requestId,note});
+        for(const plan of Object.values(state.plans)) plan.inputsChanged=true;
+        return state.scenario==="save-lost"?send(502,{error:"저장 응답을 확인하지 못했어요."}):send(200,{note});
+      }
       if (url.pathname === "/api/training/feedback" && req.method === "POST") {
         const result = saveFeedback(state, await jsonBody(req));
         return send(result.status, result.error ? {error: result.error} : {saved: true});
@@ -131,7 +152,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/images/brand/traini-logo.png") {
       res.writeHead(200, {"Content-Type": "image/png"}); return res.end(await readFile(path.join(root, "public/images/brand/traini-logo.png")));
     }
-    if (["/", "/schedule", "/today", "/my", "/roadmap", "/running-analysis", "/garmin-connect", "/auth-refresh", "/login"].includes(url.pathname)) { res.writeHead(200, {"Content-Type": "text/html"}); return res.end(html.replace("<body>", `<body data-scenario="${state.scenario}">`)); }
+    if (["/", "/coaching-regression", "/schedule", "/today", "/my", "/roadmap", "/running-analysis", "/garmin-connect", "/auth-refresh", "/login"].includes(url.pathname)) { res.writeHead(200, {"Content-Type": "text/html"}); return res.end(html.replace("<body>", `<body data-scenario="${state.scenario}">`)); }
     send(404, {error: "Not found"});
   } catch { if (!res.headersSent) send(500, {error: "Fixture request failed"}); else res.end(); }
 });

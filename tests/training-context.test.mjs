@@ -359,6 +359,8 @@ function storage({
         "eq",
         "gte",
         "lt",
+        "lte",
+        "limit",
         "order",
         "range",
         "update",
@@ -370,7 +372,7 @@ function storage({
       query.abortSignal = () => query;
       query.maybeSingle = async () => profileResult;
       query.then = (resolve, reject) =>
-        Promise.resolve(pages[index++]).then(resolve, reject);
+        Promise.resolve(table === "weekly_coaching_notes" ? {data:[],error:null} : pages[index++]).then(resolve, reject);
       return query;
     },
   };

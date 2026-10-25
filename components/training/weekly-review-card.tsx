@@ -5,6 +5,9 @@ import { addCalendarDays } from "@/lib/garmin/running-summary";
 import type { CoachingReviewState as ReviewState } from "@/lib/training/coaching-storage";
 import { reviewErrorMessage } from "@/lib/training/review-errors";
 import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
+import { coachingLead } from "@/lib/training/coaching-presentation";
+import { weekComparisonText } from "@/lib/training/review-presentation";
+import { WeeklyFeedbackForm } from "./weekly-feedback-form";
 import { CoachingDetail } from "./coaching-detail";
 import { coachingText } from "@/lib/training/coaching-copy";
 import styles from "./training.module.css";
@@ -30,13 +33,14 @@ const limitationLabels: Record<string, string> = {
   limited_history: "평소 훈련량을 비교할 이전 주 기록이 충분하지 않아요.",
   no_recorded_activities: "이 주에 확인된 러닝 기록이 없어요.",
 };
-export function WeeklyReviewCard() {
+export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
   const [start, setStart] = useState<string | undefined>(),
     [data, setData] = useState<ReviewState | null>(null),
     [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true);
   const [readError, setReadError] = useState<string | null>(null);
+  const [weeklyNoteEditing,setWeeklyNoteEditing]=useState(false);
   const read = useRef(new ReadRequestGate()),
     action = useRef<AbortController | null>(null),
     inFlight = useRef(false);
@@ -177,7 +181,7 @@ export function WeeklyReviewCard() {
             다시 확인
           </button>
         )}
-        {metrics && (
+        {!compact && metrics && (
           <>
             <dl className={styles.metrics}>
               <div>
@@ -278,7 +282,7 @@ export function WeeklyReviewCard() {
             </details>
           </>
         )}
-        {data?.coaching && (
+        {!compact && data?.coaching && (
           <div className={styles.reviewContent}>
             <p className={styles.reviewDirection}>{data.coaching.headline}</p>
             <CoachingDetail limit={120} text={data.coaching.summary} label="핵심 평가 전체" />
@@ -295,7 +299,7 @@ export function WeeklyReviewCard() {
             </details>
           </div>
         )}
-        {review && (
+        {!compact && review && (
           <div className={styles.reviewContent}>
             {!review.fresh && (
               <p className={styles.error}>
@@ -347,6 +351,29 @@ export function WeeklyReviewCard() {
 
           </div>
         )}
+        {compact && data && <WeeklyFeedbackForm
+          key={data.period.startsOn}
+          startsOn={data.period.startsOn} note={data.weeklyFeedback ?? null}
+          pending={busy || generating}
+          onEditingChange={setWeeklyNoteEditing}
+          onSaved={()=>{void refresh();window.dispatchEvent(new Event(EVENT));}}
+        />}
+        {compact && data && metrics && (
+          <div className={styles.reviewContent}>
+            <p className={styles.reviewDirection}>이전 주와 비교</p>
+            <p className={styles.note}>{weekComparisonText(data.period.startsOn, metrics, data.previousWeek) ?? data.coaching?.summary ?? "비교할 기록을 확인하지 못했어요."}</p>
+            <p className={styles.reviewDirection}>다음 훈련 방향</p>
+            <p className={styles.note}>{review?.fresh ? coachingLead(coachingText(review.content.nextWeek.rationale), 150) : review ? "기록이 바뀌었어요. 리뷰를 갱신한 뒤 다음 계획을 확인해 주세요." : "아직 저장된 AI 리뷰가 없어요. 아래에서 리뷰를 생성해 다음 훈련 방향을 확인하세요."}</p>
+            {data.coaching?.condition && /통증|러닝 제한|몸 상태 이상/.test(data.coaching.condition) && <p className={styles.error}>{coachingLead(data.coaching.condition,150)}</p>}
+            {data.coaching?.reflections.filter(item=>item.status === "conflict").map(item=><p key={item.week} className={styles.error}>{item.week === "current" ? "이번 주" : "다음 주"} 계획이 현재 제한과 달라요. 수행 전 확인해 주세요.</p>)}
+            <details className={styles.details}>
+              <summary>평가 범위와 제한</summary>
+              <p>기록 없는 날은 휴식·회복 완료로 판단하지 않아요. 거리 변화만으로 체력이나 피로를 확정하지 않아요.</p>
+              <p>{review ? "저장된 AI 리뷰와 확인된 기록을 참고해요. 기존 일정은 자동으로 변경되지 않아요." : "현재 비교는 기록으로 계산한 결과이며 AI가 생성한 리뷰는 아니에요."}</p>
+              {review?.content.limitations.map(key=><p key={key}>{limitationLabels[key] ?? key}</p>)}
+            </details>
+          </div>
+        )}
         {data &&
           !displayError &&
           !busy &&
@@ -363,7 +390,7 @@ export function WeeklyReviewCard() {
             className={styles.planAction}
             disabled={
               busy ||
-              generating ||
+              generating || weeklyNoteEditing ||
               (data.closeout !== null && data.closeout !== undefined && !data.closeout.fresh) ||
               (!metrics?.hasPlan && !metrics?.activityCount)
             }
@@ -376,6 +403,7 @@ export function WeeklyReviewCard() {
                 : "주간 리뷰 생성"}
           </button>
         )}
+        {compact && weeklyNoteEditing && <p className={styles.help}>주간 피드백을 저장한 뒤 리뷰를 생성해 주세요.</p>}
         {(busy || generating) && (
           <p className={styles.note}>
             기록을 검토하고 있어요. 기존 리뷰와 훈련계획은 유지돼요.
