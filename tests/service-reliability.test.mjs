@@ -177,6 +177,8 @@ function planService({
       PlanError,
       planPolicy: () => ({ start: "2026-10-19" }),
       accountCurrentWeek: (p) => p,
+      finalizePlanPolicy: (p) => p,
+      PLAN_VALIDATION_REASONS: [],
       validatePlan: (c) => c,
       trainingPrompt: () => ({}),
     },

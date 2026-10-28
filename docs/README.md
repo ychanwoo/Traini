@@ -33,6 +33,7 @@
 | 문서 | 내용 |
 | --- | --- |
 | [주간 계획](weekly-training-plan.md) | 명시적 생성, 검증, 트랜잭션 저장과 완료 보존 |
+| [계획 생성·검증 계약](training-plan-validation.md) | 최종 거리 재계산, 응답 스키마, 세부 실패 사유와 오프라인 재현 |
 | [다중 목표·훈련 처방](training-prescription-refinement.md) | 여러 대회, 세션별 거리·페이스·반복·회복 제약 |
 | [대회 단계](race-stage-policy.md) | 준비·테이퍼·대회·회복 및 복귀 확인 |
 | [Garmin 수행 연결](garmin-workout-matching.md) | 자동 연결 조건, 애매한 기록의 직접 확인 |

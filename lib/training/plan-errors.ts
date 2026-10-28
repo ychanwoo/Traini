@@ -28,5 +28,5 @@ export const planErrorMessages: Record<string, string> = {
     "저장 결과를 확인하지 못했어요. 새로고침으로 기존 계획을 먼저 확인해 주세요.",
 };
 export const planErrorMessage = (code: string) =>
-  planErrorMessages[code] ??
+  planErrorMessages[code.startsWith("invalid_output:") ? "invalid_output" : code] ??
   "훈련계획 생성을 완료하지 못했어요. 기존 계획을 유지했으니 잠시 후 다시 확인해 주세요.";

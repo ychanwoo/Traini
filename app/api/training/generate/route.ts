@@ -33,7 +33,10 @@ export async function POST(request: Request) {
       );
     const code = error instanceof PlanError ? error.code : "generation";
     return Response.json(
-      { error: planErrorMessage(code), code },
+      {
+        error: planErrorMessage(code), code,
+        ...(error instanceof PlanError && error.reason ? { reason: error.reason } : {}),
+      },
       {
         status:
           code === "busy" || code === "closeout_changed"

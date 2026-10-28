@@ -441,16 +441,21 @@ export function refinePrescription(
 export function validatePrescription(
   content: PlanContent,
   rules: PrescriptionRules,
+  onInvalid?: (reason: string) => void,
 ): boolean {
+  const invalid = (reason: string) => {
+    onInvalid?.(reason);
+    return false;
+  };
   for (const workout of content.workouts) {
     if (workout.kind === "rest") continue;
     const bound = rules.bounds.find((b) => b.kind === workout.kind);
-    if (!bound || workout.distanceKm > bound.maxDistanceKm + 1e-7) return false;
+    if (!bound || workout.distanceKm > bound.maxDistanceKm + 1e-7) return invalid("kind_distance");
     if (
       workout.paceSecondsPerKm !== null &&
       workout.paceSecondsPerKm < bound.minPace
     )
-      return false;
+      return invalid("kind_pace");
     const day = rules.dayLimits.find((d) => d.date === workout.date);
     if (
       day &&
@@ -459,18 +464,18 @@ export function validatePrescription(
         (workout.paceSecondsPerKm !== null &&
           workout.paceSecondsPerKm < day.minPace))
     )
-      return false;
+      return invalid("day_limit");
     if (
       workout.kind === "long" &&
       !rules.allowedLongRunDates.includes(workout.date)
     )
-      return false;
+      return invalid("long_date");
     if (
       workout.kind === "threshold" &&
       !rules.tempoPaceKnown &&
       workout.paceSecondsPerKm !== null
     )
-      return false;
+      return invalid("tempo_pace");
     let tempo = 0;
     for (const step of workout.steps) {
       if (
@@ -478,21 +483,21 @@ export function validatePrescription(
         step.paceSecondsPerKm !== null &&
         step.paceSecondsPerKm < Math.max(bound.minPace, day?.minPace ?? 0)
       )
-        return false;
+        return invalid("work_pace");
       if (
         workout.kind === "threshold" &&
         step.kind === "steady" &&
         !rules.tempoPaceKnown &&
         step.paceSecondsPerKm !== null
       )
-        return false;
+        return invalid("tempo_pace");
       if (workout.kind === "threshold" && step.kind === "steady")
         tempo += step.distanceMeters / 1000;
       if (
         step.kind === "repeats" &&
         step.repetitions > rules.maxQualityRepetitions
       )
-        return false;
+        return invalid("repeat_limit");
       if (
         workout.kind === "interval" &&
         step.kind === "repeats" &&
@@ -505,7 +510,7 @@ export function validatePrescription(
           step.recoveryMeters < step.distanceMeters * 0.5 ||
           step.recoveryMeters > step.distanceMeters * 1.5)
       )
-        return false;
+        return invalid("interval_evidence");
       if (
         workout.kind === "interval" &&
         step.kind === "repeats" &&
@@ -522,13 +527,13 @@ export function validatePrescription(
           (step.paceSecondsPerKm !== null &&
             step.paceSecondsPerKm < option.minPace)
         )
-          return false;
+          return invalid("interval_bounds");
         if (
           step.recoveryPaceSecondsPerKm != null &&
           (option.minRecoveryPace === null ||
             step.recoveryPaceSecondsPerKm < option.minRecoveryPace)
         )
-          return false;
+          return invalid("recovery_pace");
         if (
           (rules.noProgression &&
             step.repetitions > option.observedRepetitions) ||
@@ -536,11 +541,11 @@ export function validatePrescription(
             (step.paceSecondsPerKm === null ||
               step.paceSecondsPerKm < option.observedPace))
         )
-          return false;
+          return invalid("interval_progression");
       }
     }
     if (rules.tempoMaxWorkKm !== null && tempo > rules.tempoMaxWorkKm + 1e-7)
-      return false;
+      return invalid("tempo_distance");
   }
   return true;
 }
