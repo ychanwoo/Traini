@@ -3,10 +3,11 @@ import { reviewSelection } from "./closeout-storage";
 import { reviewInputs } from "./review-storage";
 import { readRunningSummary } from "@/lib/garmin/read-running-summary";
 import { readTrainingContext } from "./storage";
-import { revision } from "./plan-storage";
+import { revision, readPlan } from "./plan-storage";
 import {
   planPolicy,
   accountCurrentWeek,
+  finalizePlanPolicy,
   PlanError,
   type PlanWeek,
 } from "./weekly-plan";
@@ -55,6 +56,12 @@ export async function readPrescriptionPreview(userId: string, week: PlanWeek) {
         result.policy,
         evidence.current,
       ) as typeof result.policy;
+    const existing = await readPlan(userId, week, new Date(), { reconcile: false });
+    const protectedDates = existing.plan?.workouts.filter(
+      (w) => w.completed || w.status === "skipped" || (w.feedback?.version ?? 0) > 0,
+    ).map((w) => w.date) ?? [];
+    result.policy = finalizePlanPolicy(result.policy, protectedDates) as typeof result.policy;
+    result.guidance.rules = result.policy.prescription!;
     if (before === (await revision(userId)))
       return {
         week,

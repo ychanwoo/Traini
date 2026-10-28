@@ -16,6 +16,8 @@ import {
 import {
   planPolicy,
   accountCurrentWeek,
+  finalizePlanPolicy,
+  PLAN_VALIDATION_REASONS,
   validatePlan,
   trainingPrompt,
   PlanError,
@@ -27,7 +29,9 @@ export async function generatePlan(userId: string, week: PlanWeek) {
   const existing = await readPlan(userId, week);
   if (existing.plan && !existing.inputsChanged) return existing;
   const evidence = await readPrescriptionEvidence(userId, week);
-  const context = await readTrainingContext(userId, new Date(), evidence.closedWeekStart);
+  const context = await readTrainingContext(
+    userId, new Date(), evidence.closedWeekStart,
+  );
   const review = await readApplicableReview(userId, context.timezone, week);
   let policy = applyReviewPolicy(
     planPolicy(context, week, evidence.current),
@@ -40,25 +44,10 @@ export async function generatePlan(userId: string, week: PlanWeek) {
     evidence.current,
   ).policy;
   if (week === "current") policy = accountCurrentWeek(policy, evidence.current);
-  if (existing.plan) {
-    const completed = existing.plan.workouts.filter(
-      (w) =>
-        w.completed || w.status === "skipped" || (w.feedback?.version ?? 0) > 0,
-    );
-    policy.blockedDates = [
-      ...new Set([...policy.blockedDates, ...completed.map((w) => w.date)]),
-    ];
-    const available = policy.dates.filter(
-      (d) =>
-        policy.trainingDays.includes(
-          ((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7) + 1,
-        ) && !policy.blockedDates.includes(d),
-    ).length;
-    policy.minWeekKm = Math.min(
-      policy.minWeekKm,
-      Math.floor(policy.maxRunKm * available * 0.85 * 10) / 10,
-    );
-  }
+  const protectedDates = existing.plan?.workouts
+    .filter((w) => w.completed || w.status === "skipped" || (w.feedback?.version ?? 0) > 0)
+    .map((w) => w.date) ?? [];
+  policy = finalizePlanPolicy(policy, protectedDates);
   if (before !== (await revision(userId))) throw new PlanError("input_changed");
   const claim = await reserveGeneration(userId, policy.start, before);
   if (claim.state === "existing") return readPlan(userId, week);
@@ -86,7 +75,13 @@ export async function generatePlan(userId: string, week: PlanWeek) {
   } catch (error) {
     const code = error instanceof Error ? error.message : "generation";
     // Keep a bounded code only; never persist provider messages, input text or credentials.
-    const safe = [
+    let reason: string | undefined;
+    if (error instanceof PlanError && error.code === "invalid_output") {
+      reason = PLAN_VALIDATION_REASONS.find((value) => value === error.reason);
+    } else if (code === "invalid_output") {
+      reason = "json";
+    }
+    const safe = reason ? `invalid_output:${reason}` : [
       "network",
       "local_runtime",
       "limited",
@@ -123,7 +118,7 @@ export async function generatePlan(userId: string, week: PlanWeek) {
       if (state === "completed") return readPlan(userId, week);
     }
     await failGeneration(claim.requestId, safe, usage).catch(() => {});
-    throw new PlanError(safe);
+    throw new PlanError(reason ? "invalid_output" : safe, reason);
   }
   // A read failure after commit must never be recorded as a generation failure.
   return readPlan(userId, week);
