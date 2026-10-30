@@ -46,3 +46,29 @@ class IntensityTests(unittest.TestCase):
         self.assertEqual(d['lapCount'],2)
         self.assertEqual(d['laps'][0]['paceSecondsPerKm'],230)
         self.assertEqual(d['laps'][1]['intensity'],'rest')
+
+    def test_short_forward_transition_tolerance_does_not_hide_real_overlap(self):
+        def run(distance=7, duration=2.8, kind='warmup', next_start=1):
+            return normalize_intensity({'session_mesgs':[session(total_distance=distance+400)], 'lap_mesgs':[
+                {'start_time':START,'total_elapsed_time':duration,'total_timer_time':duration,'total_distance':distance,'intensity':kind},
+                {'start_time':START+timedelta(seconds=next_start),'total_elapsed_time':92,'total_timer_time':92,'total_distance':400,'intensity':'active'}]})
+        self.assertTrue(run()['lapsComplete'])
+        self.assertIn('transition_time_tolerance',run()['warnings'])
+        for kwargs in [{'distance':400},{'duration':4},{'kind':'active'},{'next_start':0}]:
+            self.assertFalse(run(**kwargs)['lapsComplete'])
+            self.assertIn('overlapping_laps',run(**kwargs)['warnings'])
+
+    def test_missing_timestamps_gaps_and_work_pauses_are_not_continuous_evidence(self):
+        base={'start_time':START,'total_elapsed_time':300,'total_timer_time':300,'total_distance':1000,'intensity':'active'}
+        for changed in [{**base,'start_time':None},{**base,'total_elapsed_time':340}]:
+            self.assertFalse(normalize_intensity({'session_mesgs':[session(total_distance=1000)],'lap_mesgs':[changed]})['lapsComplete'])
+        d=normalize_intensity({'session_mesgs':[session(total_distance=2000)],'lap_mesgs':[base,{**base,'start_time':START+timedelta(seconds=330)}]})
+        self.assertIn('lap_time_gap',d['warnings'])
+        self.assertFalse(d['lapsComplete'])
+
+    def test_recovery_pause_does_not_erase_measured_work_but_remains_explicit(self):
+        lap={'start_time':START,'total_elapsed_time':180,'total_timer_time':80,'total_distance':200,'intensity':'rest'}
+        d=normalize_intensity({'session_mesgs':[session(total_distance=200)],'lap_mesgs':[lap]})
+        self.assertTrue(d['lapsComplete'])
+        self.assertIn('paused_non_work_lap',d['warnings'])
+        self.assertEqual(d['laps'][0]['timerSeconds'],80)
