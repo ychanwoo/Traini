@@ -211,3 +211,6 @@ button, input { font:inherit; }
 /* Authenticated setup pages share the same fixed navigation and safe-area clearance. */
 .service-content { padding-bottom:calc(80px + env(safe-area-inset-bottom)); }
 .service-content .app-frame { height:auto; }
+
+.schedule-distance-forecast { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:12px; padding-top:10px; border-top:1px solid #e7d7ee; color:#756e7c; font-size:11px; }
+.schedule-distance-forecast strong { color:#574b5d; font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:500; }
