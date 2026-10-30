@@ -4,6 +4,8 @@ import { requestJson, ReadRequestGate } from "@/lib/http/client-request";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { PlanWeek, StoredPlan } from "@/lib/training/weekly-plan";
 export type PlanState = {
+  recordedRuns?: import("@/lib/garmin/running-summary").RunningSummary["activities"];
+  recordsUnavailable?: boolean;
   period: { start: string; end: string; today: string; timezone: string };
   plan: StoredPlan | null;
   races?: import("@/lib/training/goal").RaceGoal[];
