@@ -64,8 +64,8 @@ function isCurrentJob(job: CollectionJob | null | undefined, snapshot: Collectio
   return Boolean(job && snapshot && job.period.start === snapshot.period.start && job.period.end === snapshot.period.end && job.period.timezone === snapshot.period.timezone);
 }
 
-export function WeeklySyncCard({ detailed = false }: { detailed?: boolean }) {
-  const [selection, setSelection] = useState<"auto" | "current" | "previous">("auto");
+export function WeeklySyncCard({ detailed = false, initialSelection = "auto" }: { detailed?: boolean; initialSelection?: "auto" | "current" | "previous" }) {
+  const [selection, setSelection] = useState<"auto" | "current" | "previous">(initialSelection);
   const [snapshot, setSnapshot] = useState<CollectionSnapshot | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);

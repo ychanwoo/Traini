@@ -90,7 +90,7 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
         assert.equal(counts.feedbackRequests.length,0);
       }
     },
-    async todayWorkflow() {
+    async todayWorkflow({ sunday = false } = {}) {
       await reset("/today");
       const flow=p.getByRole("navigation",{name:"오늘 탭 사용 순서",exact:true});
       assert.equal(await flow.getByRole("link").count(),4);
@@ -104,14 +104,15 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       assert.equal(await current.getByRole("button").count(),0);
       await scenario("empty");
       await show(current,"이번 주 남은 훈련 계획 만들기");
-      await show(next,"다음 주 계획 만들기");
+      if (sunday) await show(next,"다음 주 계획 만들기");
+      else assert.equal(await next.count(),0);
       await scenario("plan-generating");
       await current.getByRole("button",{name:"훈련계획 생성 중…",exact:true}).waitFor({state:"visible"});
       assert.equal(await current.getByRole("button").isEnabled(),false);
       await scenario("plan-adjustment-invalid");
       // Session presentation contains no generation button; adjustment has its own card.
       assert.equal(await session.locator('section.card').first().getByRole("button",{name:/다시 조정|계획 만들기/}).count(),0);
-      for(const [region,week,name] of [[current,"current","이번 주 남은 훈련 다시 조정"],[next,"next","다음 주 계획 다시 조정"]]) {
+      for(const [region,week,name] of [[current,"current","이번 주 남은 훈련 다시 조정"],...(sunday ? [[next,"next","다음 주 계획 다시 조정"]] : [])]) {
         await region.getByText(`${week === "current" ? "이번 주" : "다음 주"} 계획 조정 열기`,{exact:true}).click();
         await region.getByRole("button",{name,exact:true}).click();
         await region.getByRole("alert").waitFor({state:"visible"});
@@ -119,7 +120,7 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       }
       await show(session,"이지런");
       const counts=await diagnostic();
-      assert.deepEqual(counts.planGenerationRequests,[{week:"current"},{week:"next"}]);
+      assert.deepEqual(counts.planGenerationRequests,sunday ? [{week:"current"},{week:"next"}] : [{week:"current"}]);
     },
     async compactSchedule() {
       await reset();

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { recordedDay } from "@/lib/training/recorded-day";
 import { useState } from "react";
 import {
   ChevronLeft,
@@ -334,6 +335,7 @@ function ScheduleWeek({
         </p>
       </section>
       <PlanFeedback state={state} readOnly={week === "previous"} />
+      {data?.recordsUnavailable && <p className={styles.note}>실제 러닝 기록을 확인하지 못했어요. 저장된 계획만 표시해요.</p>}
       {data && (
         <section className="schedule-list" aria-label="주간 훈련 일정">
           {Array.from({ length: 7 }, (_, i) => {
@@ -341,8 +343,9 @@ function ScheduleWeek({
               w = plan?.workouts.find((w) => w.date === date),
               today = date === data.period.today;
             const race = data.races?.find((r) => r.date === date);
+            const actual = recordedDay(data.recordedRuns ?? [], date);
             const Glyph =
-              w?.status === "skipped"
+              actual ? Footprints : w?.status === "skipped"
                 ? X
                 : w?.kind === "rest"
                   ? Moon
@@ -362,7 +365,7 @@ function ScheduleWeek({
                 </div>
                 <div className="schedule-copy">
                   <p>
-                    {race
+                    {actual && !race ? w && w.kind !== "rest" && w.matching?.source === "garmin" ? w.title.replace(/\s+\d+(?:\.\d+)?\s*km\s*$/i, "") : "러닝 기록" : race
                       ? `대회 · ${race.name || race.distance}`
                       : w
                         ? w.kind === "rest" ? "휴식" : w.title.replace(/\s+\d+(?:\.\d+)?\s*km\s*$/i, "")
@@ -371,9 +374,9 @@ function ScheduleWeek({
                           : "계획 없음"}
                   </p>
                   <small
-                    className={w?.completed ? "complete" : today ? "focus" : ""}
+                    className={actual || w?.completed ? "complete" : today ? "focus" : ""}
                   >
-                    {race
+                    {actual ? `Garmin 기록 · ${actual.distanceKm === null ? "거리 미확인" : `${actual.distanceKm.toFixed(2)} km`} · ${formatPlanPace(actual.pace)}` : race
                       ? `${race.distance} · ${race.targetTimeSeconds ? formatRaceTime(race.targetTimeSeconds) : "완주 목표"}`
                       : w
                         ? w.kind === "rest"

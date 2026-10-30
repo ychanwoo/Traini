@@ -1,4 +1,5 @@
 import "server-only";
+import { readRunningSummary } from "@/lib/garmin/read-running-summary";
 import { readTrainingGoal } from "./storage";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type {
@@ -113,7 +114,14 @@ export async function readPlan(
   const generating =
     job?.state === "running" && Date.parse(job.lease_expires_at) > Date.now();
   const settings = await readTrainingGoal(userId, now);
+  let recordedRuns: Awaited<ReturnType<typeof readRunningSummary>>["activities"] = [];
+  let recordsUnavailable = false;
+  if (week !== "next") {
+    try { recordedRuns = (await readRunningSummary(userId, week, now)).activities; }
+    catch { recordsUnavailable = true; }
+  }
   return {
+    recordedRuns, recordsUnavailable,
     races: (settings.goal.races ?? []).filter(
       (r) => r.date >= period.start && r.date <= period.end,
     ),
