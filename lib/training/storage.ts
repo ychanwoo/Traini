@@ -35,7 +35,7 @@ export async function readTrainingContext(
 ) {
   const timezone = process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles";
   const period = historyPeriod(timezone, now, closedWeekStart);
-  const window = queryWindow(period);
+  const window = queryWindow({ ...period, end: period.today });
   const db = getSupabaseAdmin();
   const signal = AbortSignal.timeout(15_000);
   const profile = await db

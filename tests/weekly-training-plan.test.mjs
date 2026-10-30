@@ -45,12 +45,12 @@ const running = load("lib/garmin/running-summary.ts"),
 const contexts = load("lib/training/context.ts", {
   "@/lib/garmin/running-summary": running,
   "./goal": goal,
-  "./prescription": { validatePrescription: () => true },
+  "./prescription": { validatePrescription: () => true, measuredSessions: () => [], analyzeSession: () => ({}) },
 });
 const plans = load("lib/training/weekly-plan.ts", {
   "@/lib/garmin/running-summary": running,
   "./goal": goal,
-  "./prescription": { validatePrescription: () => true },
+  "./prescription": { validatePrescription: () => true, measuredSessions: () => [], analyzeSession: () => ({}) },
 });
 function context() {
   return contexts.buildTrainingContext(

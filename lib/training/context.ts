@@ -133,6 +133,8 @@ function lapEvidence(raw: unknown) {
   }
   return {
     source: "fit_lap" as const,
+    warnings: Array.isArray(e.warnings) ? e.warnings.filter((w): w is string => typeof w === "string" &&
+      ["transition_time_tolerance", "paused_non_work_lap", "paused_work_lap", "lap_time_gap", "overlapping_laps", "missing_lap_measurements", "invalid_lap_duration", "laps_truncated", "lap_distance_mismatch"].includes(w)) : [],
     lapsComplete: e.lapsComplete === true,
     lapCount: e.lapCount,
     laps,
@@ -158,6 +160,8 @@ export function buildTrainingContext(
   const issues = goalIssues(goal, storedIssues);
   // Validate once across the complete window, including duplicate IDs spanning weeks.
   const summary = buildRunningSummary(rows, period);
+  const currentPeriod = runningPeriod(timezone, "current", now);
+  const currentSummary = buildRunningSummary(rows, { ...currentPeriod, end: currentPeriod.today });
   const heartRates = new Map<string, number | null>();
   const dates = new Map(
     summary.activities.map((activity) => [activity.id, activity.trainingDate]),
@@ -268,6 +272,14 @@ export function buildTrainingContext(
     },
     weeklyFeedback: [] as (import("./weekly-feedback").WeeklyFeedbackNote & {startsOn:string;timezone:string})[],
     workoutFeedback: [] as import("./workout-feedback").FeedbackEvidence[],
+    currentWeek: {
+      start: currentPeriod.start, end: currentPeriod.today,
+      sessions: currentSummary.activities.map((a) => ({
+        ...a, id: undefined,
+        averageHeartRate: heartRate(rowById.get(a.id)?.average_heart_rate ?? null),
+        evidence: lapEvidence(rowById.get(a.id)?.activity_training_details),
+      })),
+    },
     history: {
       source: "garmin_fit",
       start: period.start,
