@@ -233,15 +233,15 @@ def _upload_locked(data_dir: Path, store: SupabaseActivityStore | None, manifest
         label = f"활동 {activity_id}" if isinstance(activity_id, str) and valid_activity_id(activity_id) else "FIT 파일"
         try:
             document = verified_document(data_dir, filename, entry, timezone)
+            from .intensity import decode_intensity
+            intensity_contents = read_regular(data_dir / "activities" / filename, MAX_FIT_BYTES)
+            if hashlib.sha256(intensity_contents).hexdigest() != document["source"]["sha256"]:
+                raise UploadError("source_changed")
+            evidence = decode_intensity(intensity_contents)
             if store is None:
                 result.validated += 1
                 outcome = "validated"
             else:
-                from .intensity import decode_intensity
-                intensity_contents = read_regular(data_dir / "activities" / filename, MAX_FIT_BYTES)
-                if hashlib.sha256(intensity_contents).hexdigest() != document["source"]["sha256"]:
-                    raise UploadError("source_changed")
-                evidence = decode_intensity(intensity_contents)
                 outcome = store.save(activity_row(document, store.owner_id, entry["normalized_sha256"]), evidence)
                 setattr(result, outcome, getattr(result, outcome) + 1)
             state["files"][filename] = {"status": "complete", "outcome": outcome,

@@ -44,6 +44,46 @@ const median = (values: number[]) => {
 };
 const positive = (n: number | null | undefined): n is number =>
   typeof n === "number" && Number.isFinite(n) && n > 0;
+/** Keep complete historical weeks separate from the partial current week. */
+export function measuredSessions(context: TrainingContext) {
+  return [...(context.history.sessions ?? []), ...(context.currentWeek?.sessions ?? [])
+    .filter((s) => s.trainingDate > context.history.end)];
+}
+
+/** Classify measured structure, never whole-activity average pace or physiology. */
+export function analyzeSession(session: TrainingContext["history"]["sessions"][number]) {
+  const e = session.evidence;
+  const unknown = { date: session.trainingDate, classification: "uncertain" as const,
+    reason: "incomplete_or_ambiguous_laps", work: [] as {distanceMeters:number;timerSeconds:number;paceSecondsPerKm:number}[],
+    recovery: [] as {distanceMeters:number;timerSeconds:number;paceSecondsPerKm:number}[], qualityKm: 0 };
+  if (!e?.lapsComplete || !e.laps.length) return unknown;
+  const reference = median(e.laps.filter(l => ["warmup", "cooldown", "rest", "recovery"].includes(l.intensity ?? "") &&
+    positive(l.distanceMeters) && l.distanceMeters >= 100 && positive(l.paceSecondsPerKm)).map(l => l.paceSecondsPerKm!));
+  if (reference === null) return unknown;
+  const blocks: {kind:string;distanceMeters:number;timerSeconds:number;paceSecondsPerKm:number}[] = [];
+  for (const lap of e.laps) {
+    if (!positive(lap.distanceMeters) || !positive(lap.timerSeconds) || !positive(lap.paceSecondsPerKm) ||
+      Math.abs(lap.timerSeconds / lap.distanceMeters * 1000 - lap.paceSecondsPerKm) > 1) return unknown;
+    const kind = lap.intensity === "active" && lap.paceSecondsPerKm < reference * .92 ? "work"
+      : ["rest", "recovery"].includes(lap.intensity ?? "") ? "recovery" : "other";
+    const last = blocks.at(-1);
+    if (last && last.kind === kind && kind !== "other") {
+      last.distanceMeters += lap.distanceMeters;
+      last.timerSeconds += lap.timerSeconds;
+      last.paceSecondsPerKm = last.timerSeconds / last.distanceMeters * 1000;
+    } else blocks.push({kind, distanceMeters:lap.distanceMeters,timerSeconds:lap.timerSeconds,paceSecondsPerKm:lap.timerSeconds / lap.distanceMeters * 1000});
+  }
+  const work = blocks.filter(b => b.kind === "work");
+  const first = blocks.findIndex(b => b.kind === "work"), last = blocks.findLastIndex(b => b.kind === "work");
+  const between = blocks.slice(first, last + 1);
+  const recovery = between.filter(b => b.kind === "recovery");
+  const classification = work.length === 1 && work[0].distanceMeters >= 1500 && work[0].timerSeconds >= 360 ? "sustained"
+    : work.length >= 2 && recovery.length === work.length - 1 && between.every((b,i) => b.kind === (i % 2 ? "recovery" : "work")) ? "interval"
+    : "uncertain";
+  return {date:session.trainingDate, classification, reason:classification === "uncertain" ? "ambiguous_work_structure" : "measured_lap_structure",
+    work, recovery, qualityKm: work.reduce((sum,b) => sum + b.distanceMeters,0) / 1000};
+}
+
 /** Evidence-derived envelopes; the model chooses session types/order inside them. */
 export function refinePrescription(
   context: TrainingContext,
@@ -69,48 +109,13 @@ export function refinePrescription(
     ...new Set([...policy.easyOnlyDates, ...calendar.easyOnlyDates]),
   ];
   policy.noLongRunDates = calendar.noLongRunDates;
-  const structured = context.history.sessions.flatMap((s) => {
-    const e = s.evidence;
-    if (
-      !e?.lapsComplete ||
-      !e.laps.some((l) => l.intensity === "warmup") ||
-      !e.laps.some((l) => l.intensity === "cooldown")
-    )
-      return [];
-    const easy = e.laps.filter(
-      (l) => l.intensity !== "active" && positive(l.paceSecondsPerKm),
-    );
-    const easyPace = median(easy.map((l) => l.paceSecondsPerKm!));
-    const work = e.laps.filter(
-      (l) =>
-        l.intensity === "active" &&
-        positive(l.distanceMeters) &&
-        positive(l.paceSecondsPerKm) &&
-        easyPace !== null &&
-        l.paceSecondsPerKm < easyPace * 0.92,
-    );
-    return work.length
-      ? [
-          {
-            date: s.trainingDate,
-            work,
-            recovery: e.laps.filter(
-              (l) =>
-                ["recovery", "rest"].includes(l.intensity ?? "") &&
-                positive(l.distanceMeters),
-            ),
-            distance: s.distanceMeters,
-          },
-        ]
-      : [];
-  });
-  const qualityDates = new Set(structured.map((s) => s.date));
-  const easy = context.history.sessions.filter(
-    (s) =>
-      !qualityDates.has(s.trainingDate) &&
-      positive(s.paceSecondsPerKm) &&
-      positive(s.distanceMeters),
-  );
+  const sessions = measuredSessions(context);
+  const analyses = sessions.map(analyzeSession);
+  const structured = analyses.filter(s => s.classification !== "uncertain");
+  const qualityDates = new Set(analyses.filter(s => s.work.length > 0).map(s => s.date));
+  const easy = sessions.filter(s => !qualityDates.has(s.trainingDate) &&
+    !s.evidence?.laps.some(l => l.intensity === "active") &&
+    positive(s.paceSecondsPerKm) && positive(s.distanceMeters));
   const easyPace =
     median(easy.map((s) => s.paceSecondsPerKm!)) ??
     Math.ceil(policy.minEasyPace / 0.98);
@@ -126,13 +131,13 @@ export function refinePrescription(
         .filter((s) => s.distanceMeters! >= 12000)
         .map((s) => s.paceSecondsPerKm!),
     ) ?? easyPace;
-  const tempoPaces = structured.flatMap((s) =>
+  const tempoPaces = structured.filter(s => s.classification === "sustained").flatMap((s) =>
     s.work
       .filter((l) => l.distanceMeters! >= 1500)
       .map((l) => l.paceSecondsPerKm!),
   );
   const tempoPace = median(tempoPaces);
-  const tempoWork = structured.flatMap((s) =>
+  const tempoWork = structured.filter(s => s.classification === "sustained").flatMap((s) =>
     s.work
       .filter((l) => l.distanceMeters! >= 1500)
       .map((l) => l.distanceMeters! / 1000),
@@ -147,12 +152,12 @@ export function refinePrescription(
       ),
     );
   const intervals = [400, 800].flatMap((meters) => {
-    const evidence = structured
+    const evidence = structured.filter(s => s.classification === "interval")
       .flatMap((s) => {
         const work = s.work.filter(
           (l) => Math.abs(l.distanceMeters! - meters) <= meters * 0.1,
         );
-        return work.length >= 2 ? [{ ...s, work }] : [];
+        return work.length >= 2 && work.length === s.work.length ? [{ ...s, work }] : [];
       })
       .sort((a, b) => a.date.localeCompare(b.date));
     const latest = evidence.at(-1);
@@ -187,6 +192,13 @@ export function refinePrescription(
       },
     ];
   });
+  // Remaining-week limits include already performed quality work, excluding
+  // race dates whose quality slot is already reserved by planPolicy.
+  const observedQuality = structured.filter(s => s.date >= policy.start && s.date <= policy.end &&
+    s.date <= policy.today && !calendar.raceDates.includes(s.date));
+  policy.maxHardSessions = Math.max(0, policy.maxHardSessions - observedQuality.length);
+  policy.maxQualityKm = Math.max(0, Math.floor((policy.maxQualityKm -
+    observedQuality.reduce((sum,s) => sum + s.qualityKm,0)) * 10 + 1e-7) / 10);
   const confirmed =
     execution?.sessions.filter((s) => s.completion === "garmin") ?? [];
   const below = confirmed.filter(

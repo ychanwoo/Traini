@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { weeklyDistance } from "@/lib/training/weekly-distance";
 import { recordedDay } from "@/lib/training/recorded-day";
 import { useState } from "react";
 import {
@@ -279,13 +280,11 @@ function ScheduleWeek({
   const state = useWeeklyPlan(week),
     data = state.data,
     plan = data?.plan;
-  const completed =
-    plan?.workouts
-      .filter((w) => w.completed)
-      .reduce((sum, w) => sum + w.distanceKm, 0) ?? 0;
-  const ratio = plan?.targetDistanceKm
-    ? Math.min(100, (completed / plan.targetDistanceKm) * 100)
-    : 0;
+  const distance = weeklyDistance(data?.recordedRuns, plan, data?.recordsUnavailable);
+  const distancePercent = distance.actualKm !== null && distance.expectedKm !== null
+    ? Math.min(100, Math.max(0, distance.expectedKm > 0 ? distance.actualKm / distance.expectedKm * 100 : 0))
+    : null;
+  const weekLabel = week === "previous" ? "지난주" : week === "next" ? "다음 주" : "이번 주";
   return (
     <main className="schedule-page">
       <header className="schedule-week">
@@ -313,26 +312,24 @@ function ScheduleWeek({
           <ChevronRight />
         </button>
       </header>
-      <section className="schedule-progress">
+      <section className="schedule-progress" aria-label="주간 러닝 거리">
         <div>
-          <p className="eyebrow">WEEKLY PLAN</p>
+          <p className="eyebrow">{weekLabel} 러닝</p>
           <span className="mono">
-            {completed.toFixed(1)}{" "}
-            <i>/ {plan?.targetDistanceKm.toFixed(1) ?? "—"} km</i>
+            {distance.actualKm === null ? "—" : distance.actualKm.toFixed(1)} km <i>기록됨</i>
           </span>
         </div>
-        <div className="schedule-progress-line">
-          <b style={{ width: `${ratio}%` }} />
+        <div className="schedule-distance-forecast">
+          <span>주간 예상</span>
+          <strong>{distance.expectedKm === null ? "—" : `${distance.expectedKm.toFixed(1)} km`}</strong>
         </div>
-        <p>
-          {plan
-            ? "완료한 계획 거리 · 목표 페이스 기준"
-            : state.loading
-              ? "저장된 계획을 확인하고 있어요."
-              : data
-                ? "이 주에 저장된 계획이 없어요."
-                : "저장된 계획을 확인하지 못했어요."}
-        </p>
+        {distancePercent !== null && <div className="schedule-progress-line" role="progressbar"
+          aria-label="주간 예상 거리 대비 실제 누적 거리" aria-valuemin={0} aria-valuemax={100}
+          aria-valuenow={Math.round(distancePercent)}>
+          <b style={{ width: `${distancePercent}%` }} />
+        </div>}
+        {distance.actualKm === null && <p>{state.loading ? "러닝 기록을 확인하고 있어요." : "실제 누적 거리를 확인하지 못했어요."}</p>}
+        {!plan && !state.loading && <p>저장된 계획이 없어 예상 거리를 계산하지 않았어요.</p>}
       </section>
       <PlanFeedback state={state} readOnly={week === "previous"} />
       {data?.recordsUnavailable && <p className={styles.note}>실제 러닝 기록을 확인하지 못했어요. 저장된 계획만 표시해요.</p>}

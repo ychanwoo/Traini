@@ -52,6 +52,25 @@ class UploadTests(unittest.TestCase):
         self.store = MemoryStore()
         self.parse()
 
+    def test_repeat_upload_redecodes_details_even_when_activity_is_unchanged(self):
+        with patch.object(self.store, 'save', wraps=self.store.save) as save:
+            self.assertEqual(self.upload().inserted, 1)
+            first = save.call_args.args[1]
+            revised = {**first, 'warnings': ['transition_time_tolerance']}
+            with patch('traini_collector.intensity.decode_intensity', return_value=revised):
+                self.assertEqual(self.upload().unchanged, 1)
+            self.assertEqual(save.call_count, 2)
+            self.assertEqual(save.call_args.args[1], revised)
+            self.assertEqual(len(self.store.rows), 1)
+
+    def test_dry_run_validates_lap_decoding_without_database_access(self):
+        with patch('traini_collector.intensity.decode_intensity', side_effect=ValueError('invalid laps')):
+            result = self.upload(None)
+        self.assertEqual(result.failed, 1)
+        self.assertEqual(result.validated, 0)
+        self.assertEqual(self.store.verifications, 0)
+        self.assertEqual(self.store.rows, {})
+
     def tearDown(self):
         self.temp.cleanup()
 

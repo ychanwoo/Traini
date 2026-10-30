@@ -20,16 +20,39 @@ def normalize_intensity(messages):
     warnings = []
     normalized = []
     previous_end = None
+    previous_start = None
+    previous_lap = None
     for lap in laps[:160]:
         start = lap.get('start_time')
         elapsed = metric(lap.get('total_elapsed_time'))
         distance = metric(lap.get('total_distance'))
         timer = metric(lap.get('total_timer_time'))
         valid_time = isinstance(start, datetime) and start.utcoffset() is not None
-        if valid_time and previous_end is not None and start.timestamp() < previous_end - 1:
-            warnings.append('overlapping_laps')
+        if not valid_time or elapsed is None or timer is None or distance is None or timer <= 0 or distance <= 0:
+            warnings.append('missing_lap_measurements')
+        if elapsed is not None and timer is not None and timer > elapsed + 1:
+            warnings.append('invalid_lap_duration')
+        if elapsed is not None and timer is not None and elapsed - timer > 3:
+            warnings.append('paused_non_work_lap' if lap.get('intensity') in {'warmup', 'cooldown', 'rest', 'recovery'} else 'paused_work_lap')
+        if valid_time and previous_end is not None:
+            overlap = previous_end - start.timestamp()
+            # Some Garmin workout transitions include a <10m tail lap whose
+            # millisecond duration overlaps the next second-resolution start.
+            # Tolerate only this bounded, forward-moving warmup/cooldown edge.
+            transition = (previous_lap is not None and previous_start < start.timestamp()
+                          and previous_lap.get('intensity') in {'warmup', 'cooldown'}
+                          and previous_lap.get('intensity') != lap.get('intensity')
+                          and 0 < (metric(previous_lap.get('total_distance')) or 0) <= 10
+                          and 0 < (metric(previous_lap.get('total_elapsed_time')) or 0) <= 5
+                          and overlap <= 2)
+            if overlap > 1:
+                warnings.append('transition_time_tolerance' if transition else 'overlapping_laps')
+            if overlap < -3:
+                warnings.append('lap_time_gap')
         if valid_time and elapsed is not None:
             previous_end = start.timestamp() + elapsed
+            previous_start = start.timestamp()
+            previous_lap = lap
         pace = round(timer / distance * 1000, 3) if distance and timer and 60 <= timer / distance * 1000 <= 3600 else None
         kind = lap.get('intensity')
         normalized.append({'distanceMeters': distance, 'timerSeconds': timer, 'paceSecondsPerKm': pace,
@@ -43,7 +66,7 @@ def normalize_intensity(messages):
             warnings.append('lap_distance_mismatch')
     return {'version': 1, 'aerobicTrainingEffect': metric(session.get('total_training_effect'), 0, 5),
             'anaerobicTrainingEffect': metric(session.get('total_anaerobic_training_effect'), 0, 5),
-            'lapCount': len(laps), 'lapsComplete': not warnings and len(normalized) == len(laps) and bool(laps),
+            'lapCount': len(laps), 'lapsComplete': not (set(warnings) - {'transition_time_tolerance', 'paused_non_work_lap'}) and len(normalized) == len(laps) and bool(laps),
             'laps': normalized, 'warnings': sorted(set(warnings))}
 
 
