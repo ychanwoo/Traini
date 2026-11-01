@@ -75,6 +75,7 @@ export async function readPrescriptionPreview(userId: string, week: PlanWeek) {
           maxWeekKm: result.policy.maxWeekKm,
           maxRunKm: result.policy.maxRunKm,
           maxHardSessions: result.policy.maxHardSessions,
+          maxQualityKm: result.policy.maxQualityKm,
         },
       };
   }

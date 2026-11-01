@@ -103,3 +103,54 @@ Distance/pace validation cannot establish that every sentence is factually
 grounded. Read the saved summary and daily reasons before accepting a live
 result. Correct an unsupported explanation without another inference request,
 preserving numerical prescription, protected sessions and generation usage.
+
+## Lap-evidence acceptance and one-call live validation
+
+The lap-specific audit compares current-week activity dates and measurements
+against the context and serialized prompt. It also verifies that a partial week
+stays outside the completed eight-week baseline, checks protected workout fields,
+and independently audits the remaining quality-work distance allowance.
+
+With the current application running on `http://localhost:3017`:
+
+```sh
+# Read-only acceptance and real authenticated browser checks; no AI inference.
+npm run test:plan:lap-evidence -- --browser
+
+# Explicit opt-in: at most one current-week generation POST, never retried.
+npm run test:plan:lap-evidence -- --generate --browser
+```
+
+The live command checks connection availability, generation quota and active jobs
+before posting. It skips generation when the existing plan already matches its
+inputs. A failed generation must leave saved plan content unchanged. Successful
+generation must preserve completed, skipped and feedback-protected workouts and
+pass the current prescription audit. Inspect the reported state: a read-only
+run can report `stale` or `missing` without changing it.
+
+Browser checks use a temporary administrator session and verify that Today and
+Schedule read the same saved plan, that actual/projected distance matches the
+server data, and that 320, 375, 430 and 768 pixel viewports retain the mobile frame
+without horizontal overflow. Browser-triggered generation requests are blocked.
+No persistent browser profile, screenshots or raw model-response artifacts are
+created. Only aggregate validation results are printed. The temporary session is
+signed out at the end without signing out the user's existing browser session.
+
+A late-week live run may only contain easy running, a long run or rest because
+quality sessions have already been performed. It does not demonstrate live
+selection of a new tempo or interval prescription. Those numerical envelopes
+must additionally pass synthetic regression tests; never add an unnecessary
+quality workout simply to exercise a test.
+
+### Acceptance run outcome
+
+- Offline application, collector and isolated browser regressions passed before inference.
+- The authenticated read-only browser audit passed with zero generation requests.
+- One explicit live generation request completed successfully; no retry was made.
+- The saved current-week plan passed the independent prescription audit with no issues.
+- Protected workout fields remained unchanged.
+- Today and Schedule displayed the same saved plan and passed mobile frame checks.
+- The live output used completed interval and sustained-work evidence to avoid adding more quality work to the remaining week.
+
+Personal measurements, dates, account identifiers and raw model output are intentionally omitted.
+The live run validated a remaining-week plan; it did not generate a new interval or tempo session.

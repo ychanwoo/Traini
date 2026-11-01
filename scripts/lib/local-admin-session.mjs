@@ -70,7 +70,11 @@ export async function withLocalAdminSession(run, { origin = "http://localhost:30
         token_hash: link.properties.hashed_token,
       }),
     );
-    return await run({ request, service, uid, check });
+    // Only the callback can use this temporary session; never log or persist it.
+    const browserCookies = () => [...cookies].map(([name, value]) => ({
+      name, value, url: origin, sameSite: "Lax",
+    }));
+    return await run({ request, service, uid, check, browserCookies });
   } finally {
     await auth.auth.signOut({ scope: "local" });
   }
