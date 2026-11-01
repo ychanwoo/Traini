@@ -41,6 +41,12 @@ export function auditSavedPlan(result, context, preview, validatePrescription) {
     preview.limits.maxHardSessions
   )
     issues.add("quality_count");
+  const qualityKm = runs.filter(w => ["interval", "threshold"].includes(w.kind))
+    .reduce((sum,w) => sum + w.steps.filter(s => ["steady", "repeats"].includes(s.kind))
+      .reduce((distance,s) => distance + s.distanceMeters * (s.kind === "repeats" ? s.repetitions : 1) / 1000,0),0);
+  if (typeof preview.limits.maxQualityKm === "number" &&
+      (!Number.isFinite(qualityKm) || qualityKm > preview.limits.maxQualityKm + 1e-7))
+    issues.add("quality_distance");
   if (preview.guidance.condition?.requiresRecheck && runs.length)
     issues.add("unresolved_condition");
   const calendar = preview.guidance.raceCalendar;

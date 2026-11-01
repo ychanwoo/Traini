@@ -188,3 +188,11 @@ test("invalid numbers, unavailable days, duplicate dates and crowded demanding d
   f.result.plan.workouts[1].date = "2026-10-20";
   assert.ok(audit(f).issues.includes("demanding_spacing"));
 });
+
+test('saved-plan audit checks remaining quality distance independently of session count',()=>{
+ const f=fixture();f.result.plan.workouts[0].kind='threshold';
+ f.preview.limits.maxQualityKm=4;
+ assert.ok(audit(f).issues.includes('quality_distance'));
+ f.preview.limits.maxQualityKm=6;
+ assert.ok(!audit(f).issues.includes('quality_distance'));
+});
