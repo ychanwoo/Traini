@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { typescriptLoader } from "../tests/helpers/load-typescript.mjs";
+import { fixtureNoon } from "./lib/fixture-time.mjs";
 const fixturePassword = randomUUID();
 const db = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -110,12 +111,13 @@ try {
   const before = await closeouts.readCloseout(uid);
   assert.equal(before.early, new Date(today + "T00:00:00Z").getUTCDay() === 0);
   const start = before.startsOn;
+  const planWeek = before.early ? "next" : "current";
   const makeActivity = (id, day) => ({
     user_id: uid,
     garmin_activity_id: String(id),
     activity_type: "running",
     source: "garmin_fit",
-    started_at: day + "T00:00:00Z",
+    started_at: fixtureNoon(day, zone),
     distance_meters: 7000,
     duration_seconds: 2310,
     average_pace_seconds_per_km: 330,
@@ -264,10 +266,10 @@ try {
   );
   const reviewed = await service.generateReview(uid, start);
   assert.equal(reviewed.review.fresh, true);
-  const applicable = await reviews.readApplicableReview(uid, zone, "next");
+  const applicable = await reviews.readApplicableReview(uid, zone, planWeek);
   assert.equal(applicable.id, reviewed.review.id);
   assert.equal(applicable.revision, reviewed.review.revision);
-  await assert.rejects(plans.generatePlan(uid, "next"), /limited/);
+  await assert.rejects(plans.generatePlan(uid, planWeek), /limited/);
   // Advance only this disposable fixture's reservation beyond the shared cooldown.
   const previousJob = check(
     await db
@@ -287,7 +289,7 @@ try {
       })
       .eq("user_id", uid),
   );
-  const planned = await plans.generatePlan(uid, "next");
+  const planned = await plans.generatePlan(uid, planWeek);
   assert.equal(planned.plan.review.id, reviewed.review.id);
   assert.equal(planned.plan.review.revision, reviewed.review.revision);
   assert.ok(planned.plan.workouts.every((w) => w.kind === "rest"));
@@ -308,7 +310,7 @@ try {
   assert.equal((await closeouts.readCloseout(uid)).closeout.fresh, true);
   const savedNext = await loader("lib/training/plan-storage.ts").readPlan(
     uid,
-    "next",
+    planWeek,
   );
   assert.equal(JSON.stringify(savedNext.plan.workouts), planBeforeLateData);
   assert.equal(savedNext.inputsChanged, true);
