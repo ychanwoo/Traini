@@ -49,6 +49,7 @@
 - [브라우저 회귀 검사](weekly-coaching-e2e.md): 합성 데이터로 실행하는 9개 시나리오와 실제 서버 검사의 경계.
 - [개인 계획 인수 확인](personal-training-plan-validation.md): 실제 입력으로 저장된 계획을 읽고 제약을 확인하는 별도 검사.
 - [주간 코칭 전체 흐름 검증](weekly-coaching-cycle-validation.md): 지난주 리뷰와 이번 주 계획 연결, 월요일 전체 일정, 최소 호출 및 실제 브라우저 검사.
+- [훈련 처방 데이터 전달 점검](training-evidence-audit.md): FIT·DB·계획/리뷰 입력의 심박·랩·페이스 전달 범위와 확인된 누락, 읽기 전용 감사 방법.
 - [검증·출시 확인](service-readiness.md): AI 호출 없는 기본 검사와 실제 DB·외부 서비스 검사를 구분하는 기준.
 
 ## 코드에서 확인할 위치
