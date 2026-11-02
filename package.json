@@ -45,6 +45,7 @@
     "test:subscription:live": "node --env-file=.env.local scripts/test-live-review.mjs",
     "test:plan:lap-evidence": "node --env-file=.env.local scripts/test-lap-evidence-plan.mjs",
     "test:weekly-cycle": "node --env-file=.env.local scripts/test-weekly-coaching-cycle.mjs",
+    "audit:training-evidence": "node --env-file=.env.local scripts/audit-training-evidence.mjs",
     "test:plan:personal": "node --env-file=.env.local scripts/test-personal-plan.mjs",
     "test:plan:acceptance": "node --test tests/personal-plan-validation.test.mjs",
     "test:e2e:serve": "node tests/e2e/server.mjs",
