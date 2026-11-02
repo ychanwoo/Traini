@@ -7,9 +7,10 @@ rest, or that symptoms resolved.
 
 ## Weekly workflow
 
-- The web import card defaults to **이번 주 가져오기** on every day and shows
-  Monday through today in the configured timezone. **지난주 기록 보기** selects
-  the previous completed Monday–Sunday. The CLI default remains the previous
+- Today's import card defaults to **이번 주 가져오기** on Sunday and the previous
+  completed Monday–Sunday on weekdays. Users can switch weeks explicitly;
+  current-week imports cover Monday through today in the configured timezone.
+  The CLI default remains the previous
   completed week. Partial imports never imply that the week is closed.
 - After syncing/importing and inspecting results, record feedback or explicit
   skips. In Today/Schedule, inspect **주간 마감**, including its source week,
