@@ -51,8 +51,15 @@ export async function withLocalAdminSession(run, { origin = "http://localhost:30
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
-    if (!response.ok)
-      throw new Error(`Local validation request failed (${response.status})`);
+    if (!response.ok) {
+      const value = await response.json().catch(() => null);
+      const error = new Error(`Local validation request failed (${response.status})`);
+      error.status = response.status;
+      // Bounded application codes only; never include response text or provider output.
+      error.code = typeof value?.code === 'string' && /^[a-z_]{1,48}$/.test(value.code)
+        ? value.code : 'request_failed';
+      throw error;
+    }
     assert.match(response.headers.get("cache-control") ?? "", /no-store/);
     return response.json();
   }

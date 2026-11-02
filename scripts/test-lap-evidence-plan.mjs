@@ -48,6 +48,7 @@ await withLocalAdminSession(async({request,service,uid,check,browserCookies})=>{
  let browserChecked=false;
  if(args.has('--browser')){
   execution.phase='browser';
+  const expectedReview=await request('/api/training/review');
   const {chromium,expect}=await import('@playwright/test');
   const browser=await chromium.launch();
   try{
@@ -57,7 +58,7 @@ await withLocalAdminSession(async({request,service,uid,check,browserCookies})=>{
    page.on('pageerror',error=>errors.push(error.name));
    await page.route('**/*',route=>{
     const req=route.request(),url=new URL(req.url());
-    if(req.method()==='POST'&&/\/generate$/.test(url.pathname)){errors.push('Unexpected generation POST');return route.abort();}
+    if(req.method()==='POST'&&/\/training\/(?:generate|review)$/.test(url.pathname)){errors.push('Unexpected generation POST');return route.abort();}
     // The page may load external fonts, but must never call inference from the browser.
     if(/\/responses(?:$|\/)/.test(url.pathname)){errors.push('Unexpected inference');return route.abort();}
     return route.continue();
@@ -70,10 +71,16 @@ await withLocalAdminSession(async({request,service,uid,check,browserCookies})=>{
    if(distance.expectedKm!==null)await expect(card).toContainText(`${distance.expectedKm.toFixed(1)} km`);
    await expect(page.getByRole('region',{name:'주간 훈련 일정'}).locator('article')).toHaveCount(7);
    const planResponse=page.waitForResponse(r=>r.url().includes('/api/training/plan?week=current')&&r.ok());
+   const reviewResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/training/review'&&r.ok());
    await page.goto(origin+'/today');
    const rendered=await (await planResponse).json();
    assert.equal(rendered.plan?.id,after.plan?.id,'Today uses a different plan');
    assert.deepEqual(rendered.plan?.workouts.map(w=>[w.id,w.date,w.kind,w.distanceKm]),after.plan?.workouts.map(w=>[w.id,w.date,w.kind,w.distanceKm]));
+   const displayedReview=await (await reviewResponse).json();
+   assert.equal(displayedReview.period.startsOn,expectedReview.period.startsOn,'Today uses a different review week');
+   assert.equal(displayedReview.review?.id,expectedReview.review?.id,'Today uses a different review');
+   assert.equal(displayedReview.review?.fresh,expectedReview.review?.fresh,'Today uses a stale review');
+   await expect(page.getByRole('region',{name:'주간 훈련 리뷰',exact:true})).toContainText('다음 훈련 방향');
    await expect(page.getByRole('navigation',{name:'오늘 탭 사용 순서'})).toBeVisible();
    for(const path of ['/today','/schedule']){
     await page.goto(origin+path);
