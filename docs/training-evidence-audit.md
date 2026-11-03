@@ -1,5 +1,11 @@
 # Training evidence audit
 
+> Historical audit: the gaps below describe the original audit baseline.
+> Shared segment analysis, zero-HR normalization and comparative performance use
+> are now implemented in [Performance-aware training](performance-aware-training.md).
+> The regression tests now assert the corrected behavior. Raw-series analysis,
+> physiological thresholds and race predictions remain outside scope.
+
 ## What this audit establishes
 
 Traini already carries **activity-average and lap-average heart rate** into the
