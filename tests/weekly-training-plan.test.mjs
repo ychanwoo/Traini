@@ -48,6 +48,7 @@ const contexts = load("lib/training/context.ts", {
   "./prescription": { validatePrescription: () => true, measuredSessions: () => [], analyzeSession: () => ({}) },
 });
 const plans = load("lib/training/weekly-plan.ts", {
+  "./volume-baseline": load("lib/training/volume-baseline.ts"),
   "@/lib/garmin/running-summary": running,
   "./goal": goal,
   "./prescription": { validatePrescription: () => true, measuredSessions: () => [], analyzeSession: () => ({}) },

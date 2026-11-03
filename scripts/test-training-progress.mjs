@@ -88,6 +88,7 @@ const rs = load("lib/training/review-storage.ts", {
 const timezone = process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles";
 const prescriptions = load("lib/training/prescription.ts", { "./goal": goal });
 const plans = load("lib/training/weekly-plan.ts", {
+  "./volume-baseline": load("lib/training/volume-baseline.ts"),
   "@/lib/garmin/running-summary": running,
   "./goal": goal,
   "./prescription": prescriptions,

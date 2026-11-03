@@ -59,6 +59,10 @@ behavior, not a model's reasoning or the suitability of a particular prescriptio
 
 ### 1. Habitual volume and interrupted weeks
 
+**Follow-up:** the baseline calculation described below records the original audit
+finding. It has since been replaced by the separate habitual/recent-load logic in
+[Habitual volume and interrupted weeks](training-volume-baseline.md).
+
 The context contains eight weeks, but `planPolicy` takes the last four calendar
 weeks with usable recorded distance/pace and computes their median. Ordinary
 weekly capacity starts at 105% of that baseline before other restrictions.
