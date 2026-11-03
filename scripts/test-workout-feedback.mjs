@@ -19,6 +19,8 @@ function load(file, modules = {}) {
   const c = {
     exports: {},
     require: (id) => {
+      if (id === "./session-evidence") return load("lib/training/session-evidence.ts");
+      if (id === "./performance-evidence") return load("lib/training/performance-evidence.ts");
       if (!(id in modules)) throw new Error("Unexpected " + id);
       return modules[id];
     },

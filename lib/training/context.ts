@@ -127,7 +127,7 @@ function lapEvidence(raw: unknown) {
       distanceMeters: l.distanceMeters,
       timerSeconds: l.timerSeconds,
       paceSecondsPerKm: l.paceSecondsPerKm,
-      averageHeartRate: l.averageHeartRate,
+      averageHeartRate: l.averageHeartRate === 0 ? null : l.averageHeartRate,
       intensity: l.intensity,
     });
   }

@@ -17,6 +17,8 @@ function load(file, modules = {}) {
     Error,
     process,
     require: (id) => {
+      if (id === "./session-evidence") return load("lib/training/session-evidence.ts");
+      if (id === "./performance-evidence") return load("lib/training/performance-evidence.ts");
       if (!(id in modules)) throw new Error(`Unexpected import ${id}`);
       return modules[id];
     },
