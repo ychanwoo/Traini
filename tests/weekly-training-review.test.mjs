@@ -522,6 +522,7 @@ test("plan generation passes the fresh review and reduced server policy to infer
     "./prescription": { validatePrescription: () => true, measuredSessions: () => [], analyzeSession: () => ({}) },
   });
   const plans = load("lib/training/weekly-plan.ts", {
+    "./volume-baseline": load("lib/training/volume-baseline.ts"),
     "@/lib/garmin/running-summary": running,
     "./goal": goal,
     "./prescription": { validatePrescription: () => true, measuredSessions: () => [], analyzeSession: () => ({}) },

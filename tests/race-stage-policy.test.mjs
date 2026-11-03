@@ -48,6 +48,7 @@ const contexts = load("lib/training/context.ts", {
 });
 const prescriptions = load("lib/training/prescription.ts", { "./goal": goal });
 const plans = load("lib/training/weekly-plan.ts", {
+  "./volume-baseline": load("lib/training/volume-baseline.ts"),
   "@/lib/garmin/running-summary": running,
   "./goal": goal,
   "./prescription": prescriptions,

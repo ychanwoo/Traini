@@ -614,6 +614,7 @@ export function applyReviewPolicy(
     next.maxQualityKm = Math.floor(next.maxQualityKm * ratio * 10) / 10;
   } else if (
     n.direction === "progress" &&
+    !policy.volumeBaseline?.noVolumeProgression &&
     policy.weeklyCeilingKm >= policy.referenceWeekKm &&
     (policy.calendar?.loadFactor ?? 1) >= 1
   ) {

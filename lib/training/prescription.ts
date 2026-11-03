@@ -413,6 +413,7 @@ export function refinePrescription(
       version: 1,
       source: "rules_and_recorded_evidence" as const,
       generatedAt: context.generatedAt,
+      volumeBaseline: policy.volumeBaseline,
       condition: condition
         ? { ...condition, fresh: !!fresh, requiresRecheck: !!unresolved }
         : null,
