@@ -55,24 +55,25 @@ test('classification is structural, not a heart-rate trend or easy/recovery/long
   const first=plain(analyzeSession(s));
   assert.equal(first.classification,'sustained');
   s.averageHeartRate=180;s.evidence.laps.forEach(l=>l.averageHeartRate=180);
-  assert.deepEqual(plain(analyzeSession(s)),first);
-  assert.equal('averageHeartRate' in first.work[0],false);
+  assert.equal(analyzeSession(s).classification,first.classification);
+  assert.equal(analyzeSession(s).work[0].averageHeartRate,180);
+  assert.equal(first.work[0].averageHeartRate,165);
   s.evidence.laps.forEach(l=>l.intensity='interval');
   assert.equal(analyzeSession(s).classification,'uncertain');
 });
-test('review serialization receives weekly coverage, not the plan session heart-rate arrays',()=>{
+test('review serialization receives weekly coverage and derived work heart rate',()=>{
   const c=context();const p=JSON.parse(reviewPrompt({limitations:[]},c).input[0].content);
   assert.deepEqual(p.history,plain(c.history.weeks));
   assert.equal(p.history.some(w=>w.coverage.heartRateCount>0),true);
   assert.equal('sessions' in p,false);
-  assert.equal(JSON.stringify(p).includes('averageHeartRate'),false);
+  assert.equal(p.performance.observations[0].averageHeartRate,165);
 });
-test('current lap sanitizer accepts zero heart rate but production FIT normalization must remove it',()=>{
-  // Characterize the boundary gap, not an endorsement of zero as a valid reading.
+test('zero lap heart rate is unknown at the context boundary',()=>{
+  // Zero must not distort measured heart-rate trends.
   const c=context(rows=>rows[0].activity_training_details.evidence.laps[0].averageHeartRate=0);
-  assert.equal(c.history.sessions[0].evidence.laps[0].averageHeartRate,0);
+  assert.equal(c.history.sessions[0].evidence.laps[0].averageHeartRate,null);
 });
-test('review and plan currently disagree on structured work without a cooldown lap',()=>{
+test('review and plan share structured work evidence without requiring a cooldown lap',()=>{
   const c=context(),s=c.history.sessions[0];
   s.evidence.laps.pop();
   assert.equal(analyzeSession(s).classification,'sustained');
@@ -81,6 +82,6 @@ test('review and plan currently disagree on structured work without a cooldown l
       id:'synthetic',startedAt:s.startedAt,distanceMeters:s.distanceMeters,timerSeconds:s.timerSeconds,
       verified:true,evidence:s.evidence,
     }]}},c);
-  assert.equal(metrics.activities[0].qualityEvidence,null);
-  assert.equal(metrics.structuredQualitySessions,0);
+  assert.equal(metrics.activities[0].qualityEvidence.workAverageHeartRate,165);
+  assert.equal(metrics.structuredQualitySessions,1);
 });

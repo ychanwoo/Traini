@@ -17,6 +17,8 @@ function load(file, modules = {}) {
     Error,
     process,
     require: (id) => {
+      if (id === "./session-evidence") return load("lib/training/session-evidence.ts");
+      if (id === "./performance-evidence") return load("lib/training/performance-evidence.ts");
       if (!(id in modules)) throw new Error(`Unexpected import ${id}`);
       return modules[id];
     },
@@ -280,8 +282,10 @@ test("generic interval laps do not prove hard training; measured active blocks r
       { intensity: "warmup", distanceMeters: 2000, paceSecondsPerKm: 340 },
       { intensity: "active", distanceMeters: 400, paceSecondsPerKm: 230 },
       { intensity: "recovery", distanceMeters: 200, paceSecondsPerKm: 360 },
+      { intensity: "active", distanceMeters: 400, paceSecondsPerKm: 230 },
       { intensity: "cooldown", distanceMeters: 2000, paceSecondsPerKm: 340 },
     ];
+  for (const lap of laps) lap.timerSeconds = lap.distanceMeters * lap.paceSecondsPerKm / 1000;
   s.source.activities[0].evidence = { lapsComplete: true, laps };
   assert.equal(metrics(s).structuredQualitySessions, 1);
   laps[1].intensity = "interval";

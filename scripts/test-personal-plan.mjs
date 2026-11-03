@@ -11,6 +11,8 @@ function load(file, modules = {}) {
     Date,
     Intl,
     require: (name) => {
+      if (name === "./session-evidence") return load("lib/training/session-evidence.ts");
+      if (name === "./performance-evidence") return load("lib/training/performance-evidence.ts");
       if (!(name in modules)) throw new Error("Unexpected validation module");
       return modules[name];
     },

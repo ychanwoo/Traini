@@ -1,3 +1,6 @@
+import { analyzeSession } from "./session-evidence";
+export { analyzeSession } from "./session-evidence";
+import { performanceEvidence } from "./performance-evidence";
 import {
   calendarDistance,
   DISTANCES,
@@ -11,6 +14,7 @@ import type { RunningSummary } from "@/lib/garmin/running-summary";
 type Bound = { kind: string; minPace: number; maxDistanceKm: number };
 export type PrescriptionRules = {
   version: 1;
+  performance?: ReturnType<typeof performanceEvidence>;
   bounds: Bound[];
   dayLimits: {
     date: string;
@@ -50,40 +54,6 @@ export function measuredSessions(context: TrainingContext) {
     .filter((s) => s.trainingDate > context.history.end)];
 }
 
-/** Classify measured structure, never whole-activity average pace or physiology. */
-export function analyzeSession(session: TrainingContext["history"]["sessions"][number]) {
-  const e = session.evidence;
-  const unknown = { date: session.trainingDate, classification: "uncertain" as const,
-    reason: "incomplete_or_ambiguous_laps", work: [] as {distanceMeters:number;timerSeconds:number;paceSecondsPerKm:number}[],
-    recovery: [] as {distanceMeters:number;timerSeconds:number;paceSecondsPerKm:number}[], qualityKm: 0 };
-  if (!e?.lapsComplete || !e.laps.length) return unknown;
-  const reference = median(e.laps.filter(l => ["warmup", "cooldown", "rest", "recovery"].includes(l.intensity ?? "") &&
-    positive(l.distanceMeters) && l.distanceMeters >= 100 && positive(l.paceSecondsPerKm)).map(l => l.paceSecondsPerKm!));
-  if (reference === null) return unknown;
-  const blocks: {kind:string;distanceMeters:number;timerSeconds:number;paceSecondsPerKm:number}[] = [];
-  for (const lap of e.laps) {
-    if (!positive(lap.distanceMeters) || !positive(lap.timerSeconds) || !positive(lap.paceSecondsPerKm) ||
-      Math.abs(lap.timerSeconds / lap.distanceMeters * 1000 - lap.paceSecondsPerKm) > 1) return unknown;
-    const kind = lap.intensity === "active" && lap.paceSecondsPerKm < reference * .92 ? "work"
-      : ["rest", "recovery"].includes(lap.intensity ?? "") ? "recovery" : "other";
-    const last = blocks.at(-1);
-    if (last && last.kind === kind && kind !== "other") {
-      last.distanceMeters += lap.distanceMeters;
-      last.timerSeconds += lap.timerSeconds;
-      last.paceSecondsPerKm = last.timerSeconds / last.distanceMeters * 1000;
-    } else blocks.push({kind, distanceMeters:lap.distanceMeters,timerSeconds:lap.timerSeconds,paceSecondsPerKm:lap.timerSeconds / lap.distanceMeters * 1000});
-  }
-  const work = blocks.filter(b => b.kind === "work");
-  const first = blocks.findIndex(b => b.kind === "work"), last = blocks.findLastIndex(b => b.kind === "work");
-  const between = blocks.slice(first, last + 1);
-  const recovery = between.filter(b => b.kind === "recovery");
-  const classification = work.length === 1 && work[0].distanceMeters >= 1500 && work[0].timerSeconds >= 360 ? "sustained"
-    : work.length >= 2 && recovery.length === work.length - 1 && between.every((b,i) => b.kind === (i % 2 ? "recovery" : "work")) ? "interval"
-    : "uncertain";
-  return {date:session.trainingDate, classification, reason:classification === "uncertain" ? "ambiguous_work_structure" : "measured_lap_structure",
-    work, recovery, qualityKm: work.reduce((sum,b) => sum + b.distanceMeters,0) / 1000};
-}
-
 /** Evidence-derived envelopes; the model chooses session types/order inside them. */
 export function refinePrescription(
   context: TrainingContext,
@@ -110,6 +80,7 @@ export function refinePrescription(
   ];
   policy.noLongRunDates = calendar.noLongRunDates;
   const sessions = measuredSessions(context);
+  const performance = performanceEvidence(context);
   const analyses = sessions.map(analyzeSession);
   const structured = analyses.filter(s => s.classification !== "uncertain");
   const qualityDates = new Set(analyses.filter(s => s.work.length > 0).map(s => s.date));
@@ -206,7 +177,7 @@ export function refinePrescription(
       s.actualKm !== null && s.plannedKm > 0 && s.actualKm < s.plannedKm * 0.8,
   ).length;
   const executionHold = below >= 2;
-  const noProgression = executionHold || policy.calendar.loadFactor < 1;
+  const noProgression = executionHold || performance.holdProgression || !!policy.volumeBaseline?.noVolumeProgression || policy.calendar.loadFactor < 1;
   // Race effort already consumes a slot in planPolicy; do not deduct twice.
   policy.maxHardSessions = Math.min(
     policy.maxHardSessions,
@@ -370,8 +341,35 @@ export function refinePrescription(
       maxDistanceKm: policy.maxRunKm,
     },
   ];
+  if (noProgression) {
+    for (const bound of bounds) {
+      const observed = bound.kind === "threshold" ? tempoPace : bound.kind === "long" ? longPace : ["easy", "recovery"].includes(bound.kind) ? easyPace : null;
+      if (observed !== null) bound.minPace = Math.max(bound.minPace, Math.ceil(observed));
+    }
+  }
+  // Trends may tighten observed envelopes, never bypass volume/symptom/race caps.
+  for (const trend of performance.trends) {
+    if (trend.referencePace === null) continue;
+    const kinds = trend.kind === "continuous" ? ["easy", "recovery"] : trend.kind === "long" ? ["long"] : trend.kind === "sustained" ? ["threshold"] : ["interval"];
+    for (const bound of bounds.filter(b => kinds.includes(b.kind))) {
+      if (trend.kind !== "interval") bound.minPace = Math.max(bound.minPace, Math.floor(trend.referencePace * (trend.direction === "supported_progress" && !noProgression ? .98 : 1)));
+    }
+    if (trend.kind === "interval") for (const option of intervals.filter(o => o.meters === trend.repeatMeters)) {
+      option.minPace = Math.max(option.minPace, Math.floor(trend.referencePace * (trend.direction === "supported_progress" && !noProgression ? .98 : 1)));
+      // Pace is the only progression axis here; preserve repetitions and recovery.
+      option.maxRepetitions = Math.min(option.maxRepetitions, option.observedRepetitions);
+      if (trend.recoveryMeters !== null) option.minRecoveryMeters = Math.max(option.minRecoveryMeters, Math.ceil(trend.recoveryMeters));
+      if (trend.recoveryPace !== null) option.minRecoveryPace = Math.max(option.minRecoveryPace ?? 0, Math.ceil(trend.recoveryPace));
+    }
+  }
+  if (performance.trends.some(t => t.direction === "supported_progress")) {
+    policy.weeklyCeilingKm = Math.min(policy.weeklyCeilingKm, policy.referenceWeekKm + calendar.reservations.reduce((n,r) => n+r.distanceKm,0));
+    policy.maxWeekKm = Math.min(policy.maxWeekKm, Math.max(0, policy.weeklyCeilingKm - policy.observedWeekKm));
+    policy.minWeekKm = Math.min(policy.minWeekKm, policy.maxWeekKm);
+  }
   const rules: PrescriptionRules = {
     version: 1,
+    performance,
     bounds,
     dayLimits,
     allowedLongRunDates,
@@ -402,7 +400,7 @@ export function refinePrescription(
     tempoPaceKnown: tempoPace !== null,
     tempoMaxWorkKm: tempoWork.length
       ? Math.max(...tempoWork) *
-        (calendar.loadFactor < 1 ? calendar.qualityFactor : 1.1)
+        (calendar.loadFactor < 1 ? calendar.qualityFactor : noProgression || performance.trends.some(t => t.kind === "sustained") ? 1 : 1.1)
       : null,
     noProgression,
     maxQualityRepetitions: calendar.loadFactor < 1 ? 8 : 20,
@@ -414,6 +412,7 @@ export function refinePrescription(
       source: "rules_and_recorded_evidence" as const,
       generatedAt: context.generatedAt,
       volumeBaseline: policy.volumeBaseline,
+      performance,
       condition: condition
         ? { ...condition, fresh: !!fresh, requiresRecheck: !!unresolved }
         : null,
