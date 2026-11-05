@@ -148,6 +148,7 @@ npm run test:e2e
 | --- | --- |
 | 직접 실행하고 매주 사용하기 | [개인 서비스 가이드](docs/personal-service-guide.md) |
 | 구현 기능과 코드 구조 살펴보기 | [문서 지도](docs/README.md) |
+| 백업·자동 정리·복원 | [개인 데이터 보관 가이드](docs/data-retention-backup.md) |
 | 실패 대응·한도 확인 | [운영·복구](docs/service-reliability.md) |
 | 일요일 마감·월요일 계획 연결 | [주간 마감](docs/weekly-training-closeout.md) |
 | 테스트 범위·남은 운영 확인 | [검증·출시 확인](docs/service-readiness.md) |
