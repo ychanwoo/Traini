@@ -95,16 +95,17 @@ const plans = load("lib/training/weekly-plan.ts", {
   "./goal": goal,
   "./prescription": prescriptions,
 });
+const summary = load("lib/garmin/read-running-summary.ts", {
+  "@/lib/supabase/admin": { getSupabaseAdmin: () => db },
+  "./running-summary": running,
+});
 const ps = load("lib/training/plan-storage.ts", {
+  "@/lib/garmin/read-running-summary": summary,
   "server-only": {},
   "./storage": storage,
   "@/lib/supabase/admin": { getSupabaseAdmin: () => db },
   "./weekly-plan": plans,
   "./matching-storage": matchingStorage,
-});
-const summary = load("lib/garmin/read-running-summary.ts", {
-  "@/lib/supabase/admin": { getSupabaseAdmin: () => db },
-  "./running-summary": running,
 });
 const inputs = load("lib/training/prescription-storage.ts", {
   "./closeout-storage": closeouts,
