@@ -55,7 +55,8 @@
     "test:closeout": "node --test tests/weekly-training-closeout.test.mjs",
     "test:closeout:integration": "node --env-file=.env.local scripts/test-weekly-closeout.mjs",
     "test:db:closeout": "npx --yes supabase@2.121.0 db query --linked --project-ref kmmutfcgshellvjgpick --file supabase/tests/weekly_training_closeout.sql --output json --agent no",
-    "data:maintenance": "python3 scripts/maintenance/retention.py"
+    "data:maintenance": "python3 scripts/maintenance/retention.py",
+    "data:schedule": "python3 scripts/maintenance/schedule.py"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

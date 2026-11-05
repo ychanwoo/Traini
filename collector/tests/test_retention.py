@@ -1,5 +1,6 @@
 import json
 import os
+import plistlib
 import sys
 import tempfile
 import unittest
@@ -9,6 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts/maintenance'))
 import retention
+import schedule
 
 
 class RetentionTests(unittest.TestCase):
@@ -123,3 +125,11 @@ class RetentionTests(unittest.TestCase):
             retention.recover(archive,self.base/'new',self.verify)
         self.assertFalse((self.base/'new').exists())
         self.assertFalse((self.base/'outside').exists())
+
+    def test_launch_agent_is_local_and_weekly(self):
+        from unittest.mock import patch
+        with patch('shutil.which',return_value='/usr/bin/tool'):
+            spec=schedule.definition(3,1,['--keep','2'])
+        self.assertEqual(plistlib.loads(plistlib.dumps(spec))['StartCalendarInterval'],{'Weekday':1,'Hour':3,'Minute':0})
+        self.assertIn('run',spec['ProgramArguments'])
+        self.assertEqual(set(spec['EnvironmentVariables']),{'PATH'})
