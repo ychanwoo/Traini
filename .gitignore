@@ -60,3 +60,8 @@ __pycache__/
 # Browser regression artifacts (may contain synthetic UI snapshots)
 /test-results/
 /playwright-report/
+
+# Private maintenance archives and recovered coaching SQL
+traini-v1-*.zip
+.building-*.zip
+coaching.sql
