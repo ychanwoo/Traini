@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/client-request";
 import type { WeeklyFeedbackNote } from "@/lib/training/weekly-feedback";
@@ -40,7 +41,8 @@ export function WeeklyFeedbackForm({ startsOn, note, pending, onSaved, onEditing
     } finally {lock.current=false;if(active.current) setBusy(false);}
   }
   return <section className={styles.quick} aria-label="주간 체감 강도와 메모">
-    <h3>이번 주 어땠나요? <span>선택</span></h3>
+    <details className={styles.disclosure}>
+    <summary><span>이번 주 어땠나요? <small>선택</small></span><ChevronDown size={15} aria-hidden="true" /></summary>
     <p className={styles.help}>{startsOn} 시작 주간 · 매일 작성하지 않아도 돼요.</p>
     <form onSubmit={event=>void submit(event)}>
       <fieldset className={styles.fields} disabled={pending || busy}>
@@ -59,5 +61,6 @@ export function WeeklyFeedbackForm({ startsOn, note, pending, onSaved, onEditing
     {(note?.version??0)>(saved?.version??0) && <button type="button" className={styles.reload} onClick={()=>{setSaved(note);setRpe(note?.rpe?.toString()??"");setMemo(note?.memo??"");setMessage("");}}>저장된 내용 불러오기</button>}
     <p className={styles.help}>메모 저장과 AI 리뷰 생성은 별개예요. 현재 통증은 오늘 컨디션에서도 확인해 주세요.</p>
     <p className={styles.help} role="status">{message || (saved?"저장된 주간 피드백":"")}</p>
+    </details>
   </section>;
 }

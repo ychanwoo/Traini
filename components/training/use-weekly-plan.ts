@@ -118,7 +118,16 @@ export function useWeeklyPlan(week: PlanWeek | "previous") {
         await request("feedback", controller.signal, feedback);
       else if (kind === "match")
         await request("match", controller.signal, { workoutId, ...match });
-      else await request("complete", controller.signal, { workoutId });
+      else {
+        await request("complete", controller.signal, { workoutId });
+        // The server confirmed the save. Reflect it before the background read
+        // so the slider does not briefly return to its uncompleted state.
+        if (!controller.signal.aborted) setData(previous => previous?.plan ? {
+          ...previous,
+          plan: { ...previous.plan, workouts: previous.plan.workouts.map(workout =>
+            workout.id === workoutId ? { ...workout, completed: true } : workout) },
+        } : previous);
+      }
       saved = true;
     } catch (err) {
       if (!controller.signal.aborted)

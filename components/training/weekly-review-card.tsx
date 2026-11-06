@@ -5,7 +5,7 @@ import { addCalendarDays } from "@/lib/garmin/running-summary";
 import type { CoachingReviewState as ReviewState } from "@/lib/training/coaching-storage";
 import { reviewErrorMessage } from "@/lib/training/review-errors";
 import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
-import { coachingLead } from "@/lib/training/coaching-presentation";
+import { coachingLead, coachingSentences } from "@/lib/training/coaching-presentation";
 import { weekComparisonText } from "@/lib/training/review-presentation";
 import { WeeklyFeedbackForm } from "./weekly-feedback-form";
 import { CoachingDetail } from "./coaching-detail";
@@ -287,7 +287,7 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
             <p className={styles.reviewDirection}>{data.coaching.headline}</p>
             <CoachingDetail limit={120} text={data.coaching.summary} label="핵심 평가 전체" />
             {data.coaching.condition && <CoachingDetail limit={120} text={data.coaching.condition} label="현재 컨디션과 제한" />}
-            {data.coaching.reflections.filter(item => ["conflict", "stale", "unavailable"].includes(item.status)).map(item => <p key={item.week} className={styles.error}>{item.week === "current" ? "이번 주" : "다음 주"} 계획 {item.status === "stale" ? "재검토 필요 · 최신 조건으로 업데이트해 주세요." : item.status === "conflict" ? "제한 조건과 충돌 · 수행 전 확인해 주세요." : "반영 상태를 확인하지 못했어요."}</p>)}
+            {data.coaching.reflections.filter(item => ["conflict", "stale", "unavailable"].includes(item.status)).map(item => <p key={item.week} className={styles.caution}>{item.week === "current" ? "이번 주" : "다음 주"} 계획 {item.status === "stale" ? "재검토 필요 · 최신 조건으로 업데이트해 주세요." : item.status === "conflict" ? "제한 조건과 충돌 · 수행 전 확인해 주세요." : "반영 상태를 확인하지 못했어요."}</p>)}
             {metrics?.sessions.some(s => ["pain", "discomfort"].includes(s.feedback?.assessment?.pain ?? "")) && <p className={styles.note}>검토한 주에 통증·불편감 보고가 있어요. 현재 컨디션과 함께 확인해 주세요.</p>}
             <p className={styles.reviewDirection}>다음 훈련 방향</p>
             <CoachingDetail limit={120} text={data.coaching.recommendation} label="훈련 방향의 근거" />
@@ -363,9 +363,13 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
             <p className={styles.reviewDirection}>이전 주와 비교</p>
             <p className={styles.note}>{weekComparisonText(data.period.startsOn, metrics, data.previousWeek) ?? data.coaching?.summary ?? "비교할 기록을 확인하지 못했어요."}</p>
             <p className={styles.reviewDirection}>다음 훈련 방향</p>
-            <p className={styles.note}>{review?.fresh ? coachingLead(coachingText(review.content.nextWeek.rationale), 150) : review ? "기록이 바뀌었어요. 리뷰를 갱신한 뒤 다음 계획을 확인해 주세요." : "아직 저장된 AI 리뷰가 없어요. 아래에서 리뷰를 생성해 다음 훈련 방향을 확인하세요."}</p>
-            {data.coaching?.condition && /통증|러닝 제한|몸 상태 이상/.test(data.coaching.condition) && <p className={styles.error}>{coachingLead(data.coaching.condition,150)}</p>}
-            {data.coaching?.reflections.filter(item=>item.status === "conflict").map(item=><p key={item.week} className={styles.error}>{item.week === "current" ? "이번 주" : "다음 주"} 계획이 현재 제한과 달라요. 수행 전 확인해 주세요.</p>)}
+            {review?.fresh ? (
+              <ul className={styles.directionList} aria-label="다음 훈련 방향">
+                {coachingSentences(coachingText(review.content.nextWeek.rationale)).map((text, index) => <li key={index}>{text}</li>)}
+              </ul>
+            ) : <p className={styles.note}>{review ? "기록이 바뀌었어요. 리뷰를 갱신한 뒤 다음 계획을 확인해 주세요." : "리뷰를 생성하면 다음 훈련 방향을 확인할 수 있어요."}</p>}
+            {data.coaching?.condition && /통증|러닝 제한|몸 상태 이상/.test(data.coaching.condition) && <p className={styles.caution}><strong>컨디션 확인</strong>{coachingLead(data.coaching.condition,150)}</p>}
+            {data.coaching?.reflections.filter(item=>item.status === "conflict").map(item=><p key={item.week} className={styles.caution}>{item.week === "current" ? "이번 주" : "다음 주"} 계획이 현재 제한과 달라요. 수행 전 확인해 주세요.</p>)}
             <details className={styles.details}>
               <summary>평가 범위와 제한</summary>
               <p>기록 없는 날은 휴식·회복 완료로 판단하지 않아요. 거리 변화만으로 체력이나 피로를 확정하지 않아요.</p>
@@ -403,7 +407,7 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
                 : "주간 리뷰 생성"}
           </button>
         )}
-        {compact && weeklyNoteEditing && <p className={styles.help}>주간 피드백을 저장한 뒤 리뷰를 생성해 주세요.</p>}
+        {compact && weeklyNoteEditing && <p className={styles.caution}>주간 피드백을 저장한 뒤 리뷰를 생성해 주세요.</p>}
         {(busy || generating) && (
           <p className={styles.note}>
             기록을 검토하고 있어요. 기존 리뷰와 훈련계획은 유지돼요.

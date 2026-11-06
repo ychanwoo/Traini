@@ -184,7 +184,7 @@ export function TrainingWeatherCard({
       <p className={styles.note}>
         {target
           ? `${target.date} ${target.time} · ${timezone}`
-          : "지금 달리는 경우의 참고 정보예요. 다른 시간의 날씨를 뜻하지 않아요."}
+          : "현재 시각 기준 · 다른 시간의 훈련에는 적용하지 않아요."}
       </p>
       <div aria-live="polite">
         {busy && <p className={styles.note}>위치와 날씨를 확인하고 있어요.</p>}
@@ -216,18 +216,18 @@ export function TrainingWeatherCard({
               {target ? " · 가장 가까운 제공 시간대" : ""}
             </p>
             {guidance.status === "reference" && (
-              <dl className={styles.paces}>
+              <dl className={styles.paces} aria-label="처방과 날씨 보정 페이스">
                 <div>
                   <dt>원래 처방</dt>
                   <dd>{pace(workout.paceSecondsPerKm)}</dd>
                 </div>
-                <div>
-                  <dt>날씨 참고 (+{guidance.slowdownPercent}%)</dt>
+                <div className={styles.adjustedPace}>
+                  <dt>날씨 보정 <span className={styles.adjustment}>+{guidance.slowdownPercent}%</span></dt>
                   <dd>{pace(guidance.adjustedPace)}</dd>
                 </div>
               </dl>
             )}
-            <ul className={styles.reasons}>
+            <ul className={`${styles.reasons} ${guidance.status === "conditions" ? styles.caution : ""}`}>
               {guidance.reasons.map((reason) => (
                 <li key={reason}>{reason}</li>
               ))}
@@ -235,7 +235,7 @@ export function TrainingWeatherCard({
           </>
         )}
         {stale && (
-          <p className={styles.note}>{weatherErrorMessage("weather_stale")}</p>
+          <p className={styles.caution}>{weatherErrorMessage("weather_stale")}</p>
         )}
       </div>
       <button

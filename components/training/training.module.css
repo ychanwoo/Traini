@@ -2,7 +2,7 @@
   margin-top: 20px;
   padding: 18px;
   border: 1px solid #eae5ed;
-  border-radius: 14px;
+  border-radius:var(--radius-card);
   background: #fff;
   min-width: 0;
 }
@@ -24,7 +24,7 @@
   width: 32px;
   height: 32px;
   border: 1px solid #eae5ed;
-  border-radius: 8px;
+  border-radius:var(--radius-control);
   color: #827888;
   background: #fff;
   cursor: pointer;
@@ -170,7 +170,7 @@
   min-width: 0;
   height: 36px;
   border: 1px solid #e9e3ed;
-  border-radius: 8px;
+  border-radius:var(--radius-control);
   background: #fff;
   color: #827888;
   font-size: 11px;
@@ -186,7 +186,7 @@
   width: 100%;
   margin-top: 8px;
   border: 1px solid #e9e3ed;
-  border-radius: 11px;
+  border-radius:var(--radius-control);
   padding: 13px;
   background: #fff;
   color: #302a34;
@@ -211,7 +211,7 @@
   max-width: 100%;
   padding: 9px 14px;
   border: 1px solid #eae5ed;
-  border-radius: 8px;
+  border-radius:var(--radius-control);
   background: #302a34;
   color: #fff;
   font-size: 11px;
@@ -296,7 +296,7 @@
   margin: 4px 8px 4px 0;
   padding: 7px 10px;
   border: 1px solid #e9e3ed;
-  border-radius: 7px;
+  border-radius:var(--radius-control);
   background: #fff;
   color: #59465f;
   font-size: 11px;
@@ -340,7 +340,7 @@
   min-width: 0;
   max-width: 72%;
   border: 1px solid #eae5ed;
-  border-radius: 8px;
+  border-radius:var(--radius-control);
   background: #fff;
   padding: 8px;
   color: #51465a;
@@ -376,7 +376,7 @@
   margin: 18px 0;
   padding: 14px;
   border: 1px solid #eae5ed;
-  border-radius: 12px;
+  border-radius:var(--radius-card);
 }
 .raceItem legend {
   padding: 0 6px;
@@ -420,7 +420,7 @@
   gap:4px;
   margin:10px 0 0;
   padding:9px 11px;
-  border-radius:8px;
+  border-radius:var(--radius-card);
   background:#f8f5fa;
   color:#827888;
   font-size:10px;
@@ -466,3 +466,62 @@
   font-size:11px;
   line-height:18px;
 }
+
+/* A compact disclosure aligned with the schedule cards. */
+.weeklyRecords {
+  scroll-margin-top: 12px;
+  margin-top: 20px;
+  border: 1px solid #e4dfe8;
+  border-radius:var(--radius-card);
+  background: #fff;
+}
+.weeklyRecords > summary {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 64px;
+  padding: 14px;
+  border-radius:var(--radius-card-inner);
+  background: #fff;
+  color: #514259;
+  cursor: pointer;
+  list-style: none;
+}
+.weeklyRecords > summary::-webkit-details-marker { display: none; }
+.weeklyRecords > summary:focus-visible {
+  outline: 2px solid #9a7aac;
+  outline-offset: 3px;
+}
+.weeklyRecordsHeading { display: grid; gap: 4px; min-width: 0; font-size: 13px; font-weight: 600; line-height: 19px; }
+.weeklyRecordsHint { color: #827589; font-size: 11px; font-weight: 400; line-height: 17px; }
+.weeklyRecordsChevron { margin-left: auto; flex-shrink: 0; color: #91759f; }
+.weeklyRecords[open] > summary { border-radius:var(--radius-card-inner) var(--radius-card-inner) 0 0; border-bottom: 1px solid #e9e0ee; }
+.weeklyRecords[open] .weeklyRecordsChevron { transform: rotate(180deg); }
+.weeklyRecords > section { margin: 0; border: 0; border-radius:0 0 var(--radius-card-inner) var(--radius-card-inner); }
+@media (hover: hover) {
+  .weeklyRecords > summary:hover { background: #faf8fb; }
+}
+
+.caution { margin:12px 0; padding:0; color:#806747; font-size:11px; line-height:18px; overflow-wrap:anywhere; }
+.caution strong { display:inline; margin-right:6px; font-size:11px; font-weight:600; }
+
+:global([data-coaching-surface]) .card { border-color:var(--coach-line); border-radius:var(--radius-card); padding:18px 16px; }
+:global([data-coaching-surface]) .heading h2 { color:var(--coach-ink); }
+:global([data-coaching-surface]) .note { color:var(--coach-ink); font-size:13px; line-height:22px; }
+:global([data-coaching-surface]) .help,
+:global([data-coaching-surface]) .details,
+:global([data-coaching-surface]) .closeoutGuide { color:var(--coach-muted); font-size:12px; line-height:20px; }
+:global([data-coaching-surface]) .link { color:var(--coach-accent); font-size:12px; line-height:20px; text-underline-offset:3px; }
+:global([data-coaching-surface]) .planAction { background:var(--coach-accent); border-color:var(--coach-accent); border-radius:var(--radius-control); font-size:13px; }
+:global([data-coaching-surface]) .planAction:disabled { background:#f3eef6; border-color:#e5dcea; color:#80738a; }
+:global([data-coaching-surface]) .caution { font-size:12px; line-height:21px; color:#805731; }
+:global([data-coaching-surface]) .caution strong { font-size:12px; }
+:global([data-coaching-surface]) .error { font-size:12px; line-height:21px; color:#9b4035; }
+:global([data-coaching-surface]) .reviewDirection { color:var(--coach-ink); font-size:13px; }
+:global([data-coaching-surface]) .closeoutMetrics dt { font-size:12px; color:var(--coach-muted); }
+:global([data-coaching-surface]) .closeoutMetrics dd { color:var(--coach-ink); }
+
+.directionList { margin:10px 0 0; padding-left:16px; list-style-type:"–  "; color:var(--coach-ink, #302a34); font-size:13px; line-height:22px; overflow-wrap:anywhere; }
+.directionList li { padding-left:2px; }
+.directionList li + li { margin-top:8px; }
+.directionList li::marker { color:var(--coach-accent, #6b21a8); }

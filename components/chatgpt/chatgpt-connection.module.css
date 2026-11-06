@@ -4,7 +4,7 @@
   padding: 18px;
   background: #fff;
   border: 1px solid #eae5ed;
-  border-radius: 14px;
+  border-radius:var(--radius-card);
 }
 .heading {
   display: flex;
@@ -70,7 +70,7 @@
   max-width: 100%;
   padding: 8px 12px;
   border: 1px solid #eae5ed;
-  border-radius: 8px;
+  border-radius:var(--radius-control);
   background: #fff;
   color: #756e7c;
   font-size: 11px;

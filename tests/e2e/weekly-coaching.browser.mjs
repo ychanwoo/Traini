@@ -18,7 +18,7 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
     await scenario("reset");
     if (await p.evaluate(() => document.location.pathname) === (path ?? "/coaching-regression")) await tab.reload();
     else await tab.goto(`${base}${path ?? "/coaching-regression"}`);
-    if (path !== "/today") await show(review(), "비교 기준보다 러닝 거리가 늘었어요.");
+    if (!path || path === "/coaching-regression") await show(review(), "비교 기준보다 러닝 거리가 늘었어요.");
     // Review and plan load independently. Wait for the fresh reset plan too,
     // before touching forms whose identity changes when that read completes.
     if (!path || path === "/today" || path === "/coaching-regression") await p.getByRole("button",{name:"오늘의 훈련 완료",exact:true}).waitFor({state:"visible"});
@@ -47,8 +47,13 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       await reset("/today");
       for(const label of ["오늘 어땠나요?","완료·건너뜀 수정","훈련 결과·피드백 기록","지난 훈련 기록·수정"]) assert.equal(await p.getByText(label,{exact:true}).count(),0,label);
       const note=p.getByRole("region",{name:"주간 체감 강도와 메모",exact:true});
+      assert.equal(await note.getByRole("textbox",{name:/주간 메모/}).count(),0);
+      await note.locator("summary").click();
       await note.getByRole("combobox",{name:"주간 체감 강도 · RPE",exact:true}).selectOption("6");
       await note.getByRole("textbox",{name:/주간 메모/}).fill("이번 주에는 다리가 무거웠어요");
+      await note.locator("summary").click();
+      await note.locator("summary").click();
+      assert.equal(await note.getByRole("textbox",{name:/주간 메모/}).evaluate(e=>e.value),"이번 주에는 다리가 무거웠어요");
       await note.getByRole("button",{name:"주간 피드백 저장",exact:true}).click();
       await show(note,"저장했어요. 이 주의 리뷰 생성에 반영돼요.");
       let counts=await diagnostic();
@@ -57,12 +62,15 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       assert.equal(counts.weeklyFeedbackRequests[0].startsOn,"2026-10-05");
       assert.equal(counts.weeklyFeedbackRequests[0].rpe,6);
       await tab.reload();
+      await note.locator("summary").click();
       await note.getByRole("textbox",{name:/주간 메모/}).waitFor({state:"visible"});
       assert.equal(await note.getByRole("textbox",{name:/주간 메모/}).evaluate(e=>e.value),"이번 주에는 다리가 무거웠어요");
       await review().getByRole("combobox",{name:"리뷰 주간 선택",exact:true}).selectOption("2026-09-28");
+      await note.locator("summary").click();
       await note.getByRole("textbox",{name:/주간 메모/}).waitFor({state:"visible"});
       assert.equal(await note.getByRole("textbox",{name:/주간 메모/}).evaluate(e=>e.value),"");
       await review().getByRole("combobox",{name:"리뷰 주간 선택",exact:true}).selectOption("2026-10-05");
+      await note.locator("summary").click();
       await note.getByRole("textbox",{name:/주간 메모/}).waitFor({state:"visible"});
       assert.equal(await note.getByRole("textbox",{name:/주간 메모/}).evaluate(e=>e.value),"이번 주에는 다리가 무거웠어요");
       for(const width of [320,375,430,768]) {
@@ -76,6 +84,8 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       for(const mode of ["save-error","save-conflict","save-lost"]) {
         await reset("/today");
         const note=p.getByRole("region",{name:"주간 체감 강도와 메모",exact:true});
+      assert.equal(await note.getByRole("textbox",{name:/주간 메모/}).count(),0);
+      await note.locator("summary").click();
         await note.getByRole("textbox",{name:/주간 메모/}).fill("실패해도 유지할 주간 메모");
         await scenario(mode);
         await note.getByRole("button",{name:"주간 피드백 저장",exact:true}).click();
@@ -142,7 +152,7 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       await diagnostic();
     },
     async metricStates() {
-      await reset("/today");
+      await reset("/coaching-regression");
       const card=p.getByRole("region",{name:"이번 주 러닝 기록",exact:true});
       await show(card,"15");
       await scenario("partial");
@@ -230,6 +240,10 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       await reset();
       const card = p.getByRole("region", {name:"주간 마감",exact:true});
       await scenario("closeout-sunday");
+      await show(card,"못한 훈련은 다음 주에 몰아서 보충하지 않아요.");
+      await card.getByText("마감은 무엇을 바꾸나요?",{exact:true}).click();
+      await show(card,/완료·휴식·회복을 확정하지 않아요/);
+      await card.getByText("마감은 무엇을 바꾸나요?",{exact:true}).click();
       await show(card,"2026-10-12 – 2026-10-18 · America/Los_Angeles");
       await show(card,/2026-10-19부터 7일/);
       const close = card.getByRole("button",{name:"주간 마감 확인",exact:true});
@@ -241,7 +255,7 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       await tab.reload();
       await show(card,/이 주의 기록으로 마감을 확인했어요/);
       await scenario("closeout-monday");
-      await show(card,/완료된 지난주 기록을 확인해 주세요/);
+      await show(card,/지난주 리뷰는 마감 없이도 만들 수 있어요/);
       await show(card,"2026-10-12 – 2026-10-18 · America/Los_Angeles");
       await scenario("closeout-stale");
       await show(card,/마감 이후 기록·목표·피드백이 바뀌었어요/);
@@ -339,18 +353,20 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       assert.equal(counts.feedbackRequests[0].outcome, "skipped");
     },
     async importedHistory() {
-      await reset("/today");
+      await reset("/schedule");
       await p.getByText("주간 기록 자세히",{exact:true}).click();
       const summary = p.getByRole("region", {name: "주간 러닝 요약", exact: true});
       await show(summary, "분석·업로드가 완료된 FIT 기록 기준");
       await show(summary, /15/);
-      await summary.getByRole("button", {name: "지난주", exact: true}).click();
+      await p.getByRole("button", {name: "지난주 보기", exact: true}).click();
+      await p.getByText("주간 기록 자세히",{exact:true}).click();
       await show(summary, "지난주 러닝 2개를 불러왔어요.");
       await scenario("summary-error");
       await summary.getByRole("button", {name: "주간 기록 새로고침", exact: true}).click();
       await summary.getByRole("alert").waitFor({state: "visible"});
       await show(summary, "분석·업로드가 완료된 FIT 기록 기준");
-      await summary.getByRole("button", {name: "이번 주", exact: true}).click();
+      await p.getByRole("button", {name: "이번 주 보기", exact: true}).click();
+      await p.getByText("주간 기록 자세히",{exact:true}).click();
       await summary.getByRole("alert").waitFor({state: "visible"});
       assert.equal(await summary.getByText("분석·업로드가 완료된 FIT 기록 기준", {exact: true}).count(), 0, "Do not retain a different week's data");
       await scenario("normal");
@@ -434,8 +450,8 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
         }
         await scenario("normal");
         await tab.reload();
-        if (mode === "save-lost") await show(p, "훈련 완료됨 ✓");
-        else await show(p, "오늘의 훈련 완료");
+        if (mode === "save-lost") await show(p, "훈련 완료됨");
+        else await show(p, "밀어서 훈련 완료");
       }
     },
     async responsive() {

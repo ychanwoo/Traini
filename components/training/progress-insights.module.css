@@ -34,7 +34,7 @@
   width: 32px;
   height: 32px;
   border: 1px solid #eae5ed;
-  border-radius: 8px;
+  border-radius:var(--radius-control);
   background: #fff;
   color: #827888;
   cursor: pointer;
@@ -52,7 +52,7 @@
   padding: 18px;
   min-width: 0;
   border: 1px solid #eae5ed;
-  border-radius: 14px;
+  border-radius:var(--radius-card);
   background: #fff;
   overflow-wrap: anywhere;
 }
@@ -114,7 +114,7 @@
   margin-top: 8px;
   padding: 12px 8px;
   border: 1px solid #eae5ed;
-  border-radius: 8px;
+  border-radius:var(--radius-control);
   background: #fff;
   color: #302a34;
   font-size: 12px;
