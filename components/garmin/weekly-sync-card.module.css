@@ -1,9 +1,9 @@
-.card { margin-top:20px; padding:18px; border:1px solid #eae5ed; border-radius:14px; background:#fff; }
+.card { margin-top:20px; padding:18px; border:1px solid #eae5ed; border-radius:var(--radius-card); background:#fff; }
 .heading { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
 .heading h2 { margin:0; color:#302a34; font-size:14px; line-height:20px; font-weight:600; letter-spacing:-.03em; }
 .heading p { display:flex; flex-wrap:wrap; gap:4px 8px; margin:5px 0 0; color:#756e7c; font-size:11px; line-height:17px; }
 .heading p span { color:#948b9b; font-size:10px; }
-.badge { display:inline-flex; flex:none; align-items:center; gap:5px; min-height:24px; padding:3px 7px; border-radius:6px; background:#f6f4f7; color:#827888; font-size:10px; line-height:16px; font-weight:500; }
+.badge { display:inline-flex; flex:none; align-items:center; gap:5px; min-height:24px; padding:3px 7px; border-radius:var(--radius-detail); background:#f6f4f7; color:#827888; font-size:10px; line-height:16px; font-weight:500; }
 .badge svg { width:12px; height:12px; }
 .dot { width:5px; height:5px; border-radius:50%; background:#b2a5bc; }
 .pending { color:#705184; background:#f6f1f8; }
@@ -26,7 +26,7 @@
 .status { min-height:32px; margin:12px 0 10px; }
 .status p { margin:0; color:#827888; font-size:11px; line-height:17px; overflow-wrap:anywhere; }
 .status .failed,.counts .failed { color:#ad4f57; }
-.button { display:flex; width:100%; min-height:42px; justify-content:center; align-items:center; gap:7px; padding:10px 12px; border:1px solid #6b21a8; border-radius:9px; background:#6b21a8; color:#fff; font-size:12px; line-height:20px; font-weight:600; cursor:pointer; transition:background .15s; }
+.button { display:flex; width:100%; min-height:42px; justify-content:center; align-items:center; gap:7px; padding:10px 12px; border:1px solid #6b21a8; border-radius:var(--radius-control); background:#6b21a8; color:#fff; font-size:12px; line-height:20px; font-weight:600; cursor:pointer; transition:background .15s; }
 .button:hover:not(:disabled) { background:#591c8c; }
 .button svg { width:15px; height:15px; }
 .button:disabled { cursor:default; color:#94879e; background:#f3eef6; border-color:#ece4f0; }
@@ -38,7 +38,7 @@
 .reconnect { margin-top:14px; padding-top:12px; border-top:1px solid #f0ecf2; color:#756e7c; font-size:11px; line-height:18px; }
 .reconnect summary { cursor:pointer; }
 .reconnect p { margin:10px 0; }
-.reconnect code { display:block; padding:10px; border-radius:6px; background:#f7f5f8; color:#51445b; overflow-wrap:anywhere; font-size:10px; }
+.reconnect code { display:block; padding:10px; border-radius:var(--radius-detail); background:#f7f5f8; color:#51445b; overflow-wrap:anywhere; font-size:10px; }
 .spinning { animation:turn 1.2s linear infinite; }
 @keyframes turn { to { transform:rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .spinning { animation:none; } .button { transition:none; } }

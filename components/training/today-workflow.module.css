@@ -4,11 +4,11 @@
 .steps span { color:#6b21a8; font-family:"JetBrains Mono",monospace; font-size:10px; }
 .group { margin-top:24px; scroll-margin-top:20px; min-width:0; }
 .step { display:flex; align-items:center; gap:8px; margin:0 0 10px; color:#514957; font-size:12px; font-weight:600; }
-.number { display:inline-grid; place-items:center; width:20px; height:20px; border:1px solid #e7ddec; border-radius:6px; color:#6b21a8; font-size:10px; font-weight:500; }
+.number { display:inline-grid; place-items:center; width:20px; height:20px; border:1px solid #e7ddec; border-radius:var(--radius-detail); color:#6b21a8; font-size:10px; font-weight:500; }
 .hint { margin:6px 0 0; color:#827888; font-size:11px; line-height:18px; overflow-wrap:anywhere; }
-.panel { margin-top:16px; padding:16px; border:1px solid #eae5ed; border-radius:14px; background:#fff; min-width:0; }
+.panel { margin-top:16px; padding:16px; border:1px solid #eae5ed; border-radius:var(--radius-card); background:#fff; min-width:0; }
 .title { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:0; color:#302a34; font-size:13px; font-weight:600; line-height:20px; }
-.badge { padding:1px 6px; border-radius:4px; background:#f5f2f7; color:#827888; font-size:10px; font-weight:400; }
+.badge { padding:1px 6px; border-radius:var(--radius-detail); background:#f5f2f7; color:#827888; font-size:10px; font-weight:400; }
 .details { margin-top:12px; font-size:11px; color:#6b21a8; }
 .details summary { cursor:pointer; padding-block:6px; }
 .period { margin:8px 0 0; color:#756e7c; font-family:"JetBrains Mono",monospace; font-size:10px; }

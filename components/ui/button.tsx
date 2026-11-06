@@ -13,7 +13,7 @@ const styles = {
 export function Button({ className = "", variant = "primary", ...props }: ButtonProps) {
   return (
     <button
-      className={`flex h-[52px] w-full items-center justify-center rounded-2xl px-5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`}
+      className={`flex h-[52px] w-full items-center justify-center rounded-[var(--radius-control)] px-5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`}
       {...props}
     />
   );

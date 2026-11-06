@@ -35,7 +35,7 @@
   max-width: 100%;
   min-width: 0;
   border: 1px solid #e1dee8;
-  border-radius: 8px;
+  border-radius:var(--radius-control);
   padding: 9px 10px;
   background: #fff;
   color: #37313f;
@@ -59,7 +59,7 @@
 }
 .fields button {
   border: 1px solid #dcd7e5;
-  border-radius: 8px;
+  border-radius:var(--radius-control);
   padding: 10px 12px;
   background: #f2eff6;
   color: #51485e;
