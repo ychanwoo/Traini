@@ -7,6 +7,7 @@ test('main tabs share card radii and preserve the mobile frame', async ({ page }
   const importCard = page.getByRole('region', { name: 'Garmin 주간 기록 가져오기', exact: true });
   await expect(importCard).toHaveCSS('border-radius', '8px');
   await expect(importCard.getByRole('button', { name: /가져오기$/, exact: false })).toHaveCSS('border-radius', '6px');
+  await expect(page.getByRole('button', { name: '오늘의 훈련 완료', exact: true }).locator('..')).toHaveCSS('border-radius', '999px');
   await page.getByRole('combobox', { name: 'Test scenario', exact: true }).selectOption('race-preparation');
   for (const path of ['/today', '/schedule', '/roadmap', '/my']) {
     await page.goto(path);

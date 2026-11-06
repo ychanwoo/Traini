@@ -1,8 +1,21 @@
-.completed,
-.completed:disabled {
-  background: #d8cddf;
-  color: #786783;
-  box-shadow: none;
-  cursor: default;
-  opacity: 1;
+.track { position:relative; height:52px; margin-top:24px; border:1px solid #ded1e8; border-radius:var(--radius-pill); background:#f3edf7; overflow:hidden; transition:border-color .22s ease, box-shadow .22s ease, background .22s ease; }
+.label { position:relative; z-index:1; display:flex; align-items:center; justify-content:center; height:100%; padding:0 42px; gap:7px; color:#6d4b83; font-size:12px; font-weight:500; letter-spacing:.01em; pointer-events:none; opacity:clamp(0, calc(1 - var(--slide-progress, 0) * 2.5), 1); transform:translateX(calc(var(--slide-progress, 0) * -8px)); transition:opacity .18s ease, transform .28s ease; }
+.handle { position:absolute; left:0; top:0; display:flex; align-items:center; justify-content:flex-end; height:100%; padding:0 21px 0 0; border:0; border-radius:var(--radius-pill); background:rgb(107 33 168 / calc(.20 + var(--slide-progress, 0) * .10)); color:#6b21a8; cursor:grab; touch-action:pan-y; user-select:none; transition:width .38s cubic-bezier(.22,.8,.25,1), background .22s ease, box-shadow .22s ease; }
+.handle svg { flex-shrink:0; transition:transform .18s ease; }
+.handle:active { cursor:grabbing; }
+.handle:focus-visible { outline:2px solid #302a34; outline-offset:-3px; }
+.dragging { transition:background .15s ease, box-shadow .15s ease; }
+.active { border-color:#c5aed5; }
+.active .handle svg { transform:translateX(2px); }
+.handle:disabled { cursor:default; background:rgba(137,112,155,.22); color:#81728e; }
+.completed { border-color:#e2dce8; background:#eee9f2; }
+.completed .label { color:#665274; font-weight:600; opacity:1; transform:none; }
+.checkEnter { animation:check-appear .24s ease-out both; }
+@keyframes check-appear { from { opacity:0; transform:scale(.8); } to { opacity:1; transform:scale(1); } }
+@media (prefers-reduced-motion:reduce) {
+  .track, .label, .handle, .handle svg { transition:none; }
+  .label, .active .handle svg { transform:none; }
+  .checkEnter { animation:none; }
 }
+
+.atEnd { padding-right:14px; }

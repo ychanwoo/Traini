@@ -450,8 +450,8 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
         }
         await scenario("normal");
         await tab.reload();
-        if (mode === "save-lost") await show(p, "훈련 완료됨 ✓");
-        else await show(p, "오늘의 훈련 완료");
+        if (mode === "save-lost") await show(p, "훈련 완료됨");
+        else await show(p, "밀어서 훈련 완료");
       }
     },
     async responsive() {
