@@ -182,6 +182,9 @@ export function WeeklySyncCard({ detailed = false, initialSelection = "auto" }: 
   const failureCount = (counts?.failed ?? 0) + (current?.parsing?.failed ?? 0) + (upload?.failed ?? 0);
   const busy = running || requesting;
   const succeeded = current?.version === 2 && current.status === "succeeded";
+  const connectionConfirmed = !checking && !error && snapshot?.available && !snapshot.notice
+    && (job?.status === "succeeded" || job?.status === "partial")
+    && job.errorCode !== "auth_required" && job.errorCode !== "connection";
   const jobMessage = job?.errorCode ? messages[job.errorCode] : null;
   const notice = snapshot?.notice === "local_only" ? "Mac에서 실행 중인 Traini에서 가져올 수 있어요."
     : snapshot?.notice === "setup_required" ? "Mac에 Garmin 수집기를 먼저 설치해 주세요."
@@ -194,7 +197,7 @@ export function WeeklySyncCard({ detailed = false, initialSelection = "auto" }: 
     <div className={styles.heading}>
       <div><h2>{weekLabel} 러닝</h2><p>{snapshot ? periodLabel(snapshot.period.start, snapshot.period.end) : "월요일부터 일요일까지"}<span>{timezoneLabel}</span></p></div>
       <span className={`${styles.badge} ${busy ? styles.pending : succeeded ? styles.complete : ""}`}>
-        {busy ? <RefreshCw className={styles.spinning} aria-hidden="true" /> : succeeded ? <Check aria-hidden="true" /> : <span className={styles.dot} />}
+        {busy ? <RefreshCw className={styles.spinning} aria-hidden="true" /> : succeeded ? <Check aria-hidden="true" /> : <span className={`${styles.dot} ${connectionConfirmed ? styles.connectedDot : ""}`} role="img" aria-label={connectionConfirmed ? "최근 Garmin 가져오기에서 연결 확인" : "Garmin 연결 미확인"} />}
         {busy ? "가져오는 중" : succeeded ? "가져옴" : "Garmin"}
       </span>
     </div>
