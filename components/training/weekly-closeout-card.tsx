@@ -139,8 +139,8 @@ export function WeeklyCloseoutCard() {
           {!!data.incompleteActivities && <p className={styles.error}>거리·시간 누락 기록 {data.incompleteActivities}개</p>}
           <p className={styles.closeoutGuide}>
             {data.early
-              ? "이번 주 훈련을 마쳤다면 기록을 가져온 뒤 마감해 주세요."
-              : "완료된 지난주 기록을 확인해 주세요. 지난주 리뷰는 마감 확인 없이도 생성할 수 있어요."}
+              ? "마지막 러닝을 가져온 뒤 마감해 주세요."
+              : "지난주 리뷰는 마감 없이도 만들 수 있어요."}
           </p>
           <Link className={styles.link} href="/garmin-connect">
             Garmin 기록 가져오기·확인
@@ -181,11 +181,14 @@ export function WeeklyCloseoutCard() {
               </button>
             </>
           )}
-          <p className={styles.help}>
-            미확인 훈련은 미확인으로 남겨요. 마감은 완료·휴식·회복을 확정하지
-            않고, 빠진 훈련을 다음 주에 몰아서 보충하지 않아요. AI 호출과 기존
-            일정 변경은 없어요.
+          <p className={styles.caution}>
+            <strong>주의</strong>
+            못한 훈련은 다음 주에 몰아서 보충하지 않아요.
           </p>
+          <details className={styles.details}>
+            <summary>마감은 무엇을 바꾸나요?</summary>
+            <p>기록 확인만 저장해요. 미확인 훈련과 기존 일정은 유지되며, 완료·휴식·회복을 확정하지 않아요. AI 호출은 없어요.</p>
+          </details>
         </>
       )}
     </section>

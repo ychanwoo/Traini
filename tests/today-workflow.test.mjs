@@ -35,7 +35,7 @@ test("loading, authorization/read failure, pending and failed generation remain 
     const html=render("current",state);assert.match(html,/훈련계획 생성 중/);assert.match(html,/disabled/);
   }
   const invalid=render("next",{data:{inputsChanged:true,generationError:"invalid_output"}});
-  assert.match(invalid,/기존 계획은 유지돼요/);assert.match(invalid,/수행하기 전에 현재 상태/);
+  assert.match(invalid,/기존 계획은 유지돼요/);assert.match(invalid,/훈련 전 계획을 재검토/);
 });
 
 test("weekly comparison uses adjacent complete weeks and never treats absent activity as rest",()=>{

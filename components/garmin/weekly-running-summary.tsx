@@ -25,8 +25,8 @@ async function loadSummary(week: WeekSelection, signal: AbortSignal): Promise<Ru
   return response.json() as Promise<RunningSummary>;
 }
 
-export function WeeklyRunningSummary({ detailed = false, initialWeek = "current" }: {
-  detailed?: boolean; initialWeek?: WeekSelection;
+export function WeeklyRunningSummary({ detailed = false, initialWeek = "current", showWeekSelector = true }: {
+  detailed?: boolean; initialWeek?: WeekSelection; showWeekSelector?: boolean;
 }) {
   const [week, setWeek] = useState<WeekSelection>(initialWeek);
   const [revision, setRevision] = useState(0);
@@ -74,10 +74,10 @@ export function WeeklyRunningSummary({ detailed = false, initialWeek = "current"
     <header className={styles.header}>
       <h2>주간 러닝</h2>
       <div className={styles.actions}>
-        <div className={styles.switch} role="group" aria-label="조회할 주간">
+        {showWeekSelector && <div className={styles.switch} role="group" aria-label="조회할 주간">
           <button type="button" aria-pressed={week === "current"} onClick={() => selectWeek("current")}>이번 주</button>
           <button type="button" aria-pressed={week === "previous"} onClick={() => selectWeek("previous")}>지난주</button>
-        </div>
+        </div>}
         <button type="button" className={styles.refresh} aria-label="주간 기록 새로고침" disabled={state.status === "loading"} onClick={refresh}>
           <RefreshCw aria-hidden="true" />
         </button>

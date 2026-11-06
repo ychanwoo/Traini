@@ -1,9 +1,11 @@
 "use client";
 import Link from "next/link";
+import { WeeklyRunningSummary } from "@/components/garmin/weekly-running-summary";
 import { weeklyDistance } from "@/lib/training/weekly-distance";
 import { recordedDay } from "@/lib/training/recorded-day";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Footprints,
@@ -23,7 +25,7 @@ import { TrainingWeatherCard } from "./training-weather-card";
 import { PrescriptionCard } from "./prescription-card";
 import { CoachingDetail } from "./coaching-detail";
 import { coachingText, coachingCopy } from "@/lib/training/coaching-copy";
-import { coachingSentences } from "@/lib/training/coaching-presentation";
+import { coachingLead } from "@/lib/training/coaching-presentation";
 import flow from "./today-workflow.module.css";
 import styles from "./training.module.css";
 const formatRaceTime = (seconds: number) =>
@@ -117,6 +119,8 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
   const today = state.data?.period.today;
   const workout = state.data?.plan?.workouts.find((w) => w.date === today);
   const race = state.data?.races?.find((r) => r.date === today);
+  const rationale = coachingText(state.data?.plan?.summary ?? "").replace(/\s+/g, " ").trim();
+  const rationaleLead = coachingLead(rationale, 120);
   return (
     <>
       <section className="card mt-4 p-6">
@@ -146,10 +150,10 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
           <>
             <div className="mt-7 grid grid-cols-2 items-end gap-3">
               <div>
-                <p className="eyebrow">DISTANCE</p>
-                <p className="mono mt-1 text-3xl font-semibold">
+                <p className={flow.distanceLabel}>DISTANCE</p>
+                <p className="mono mt-1 text-[22px] leading-7 font-semibold">
                   {workout.distanceKm.toFixed(1)}
-                  <span className="ml-2 font-sans text-sm font-medium">km</span>
+                  <span className="ml-1 font-sans text-xs font-medium">km</span>
                 </p>
               </div>
               <div>
@@ -217,13 +221,13 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
         {state.data?.plan && (
           <details className={styles.details}>
             <summary>이번 주 계획 근거</summary>
-            {concise ? <>
-              <dl className={flow.reasonMetrics}>
-                <div><dt>주간 계획 거리</dt><dd>{state.data.plan.targetDistanceKm.toFixed(1)} km</dd></div>
-                <div><dt>러닝 · 휴식</dt><dd>{state.data.plan.workouts.filter(w=>w.kind!=="rest").length}일 · {state.data.plan.workouts.filter(w=>w.kind==="rest").length}일</dd></div>
-              </dl>
-              <ul className={flow.reasonList}>{coachingSentences(coachingText(state.data.plan.summary)).map((text,i)=><li key={i}>{text}</li>)}</ul>
-            </> : <p>{coachingText(state.data.plan.summary)}</p>}
+            {concise ? <div className={flow.rationale}>
+              <p>{rationaleLead}</p>
+              {rationaleLead !== rationale && <details className={flow.rationaleFull}>
+                <summary>전체 설명 읽기</summary>
+                <p>{rationale}</p>
+              </details>}
+            </div> : <p>{coachingText(state.data.plan.summary)}</p>}
           </details>
         )}
       </section>
@@ -277,6 +281,24 @@ function ScheduleWeek({
   week: PlanWeek | "previous";
   setWeek: (v: PlanWeek | "previous") => void;
 }) {
+  const [recordsOpen, setRecordsOpen] = useState(false);
+  const recordsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (!recordsOpen) return;
+    // Wait until the expanded content is mounted, and only move on opening.
+    const frame = requestAnimationFrame(() => {
+      const card = recordsRef.current;
+      if (!card?.open) return;
+      const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      const container = card.closest<HTMLElement>(".app-tab-content");
+      if (container) {
+        container.scrollTo({ top: container.scrollTop + card.getBoundingClientRect().top - container.getBoundingClientRect().top - 12, behavior });
+      } else {
+        card.scrollIntoView({ behavior, block: "start" });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [recordsOpen]);
   const state = useWeeklyPlan(week),
     data = state.data,
     plan = data?.plan;
@@ -389,6 +411,18 @@ function ScheduleWeek({
             );
           })}
         </section>
+      )}
+      {week !== "next" && (
+        <details ref={recordsRef} className={styles.weeklyRecords} onToggle={event => setRecordsOpen(event.currentTarget.open)}>
+          <summary>
+            <span className={styles.weeklyRecordsHeading}>
+              <span>주간 기록 자세히</span>
+              <span className={styles.weeklyRecordsHint}>요일별 거리와 페이스 · 저장된 활동</span>
+            </span>
+            <ChevronDown className={styles.weeklyRecordsChevron} aria-hidden="true" size={16} />
+          </summary>
+          {recordsOpen && <WeeklyRunningSummary detailed initialWeek={week} showWeekSelector={false} />}
+        </details>
       )}
     </main>
   );

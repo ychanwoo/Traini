@@ -23,7 +23,7 @@ export function PlanManagement({ week }: { week: "current" | "next" }) {
       ? "한 주의 기록과 리뷰를 확인한 뒤 준비해요."
       : "오늘의 훈련이 아직 없다면 여기서 준비해요.";
   const actionHint = pending
-    ? "완료되면 저장된 계획에 반영돼요. 화면을 다시 열어도 확인할 수 있어요."
+    ? "생성 중이에요. 나중에 다시 열어도 확인할 수 있어요."
     : existing
       ? "완료한 훈련은 유지하고 남은 일정만 재검토해요."
       : "목표·러닝 기록·현재 컨디션으로 계획을 만들어요.";
@@ -79,8 +79,8 @@ export function PlanManagement({ week }: { week: "current" | "next" }) {
           </p>
         )}
         {data?.inputsChanged && (
-          <p className={styles.error}>
-            입력이 바뀌었어요. 기존 처방을 수행하기 전에 현재 상태에 맞는지 확인해 주세요.
+          <p className={styles.caution}>
+            조건이 바뀌었어요. 훈련 전 계획을 재검토해 주세요.
           </p>
         )}
       </div>
