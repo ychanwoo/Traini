@@ -147,8 +147,9 @@ export function WeeklyCloseoutCard() {
           </Link>
           {data.closeout?.fresh ? (
             <p className={styles.note}>
-              이 주의 기록으로 마감을 확인했어요. 리뷰와 계획 생성은 각각 직접
-              실행해 주세요.
+              이 주의 기록으로 마감을 확인했어요.{" "}
+              <br />
+              리뷰와 계획 생성은 각각 직접 실행해 주세요.
             </p>
           ) : (
             <>
