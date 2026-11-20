@@ -1,4 +1,5 @@
 "use client";
+import { WorkflowLoading } from "@/components/layout/workflow-loading";
 import { runningPeriod } from "@/lib/garmin/running-summary";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -67,6 +68,7 @@ function isCurrentJob(job: CollectionJob | null | undefined, snapshot: Collectio
 export function WeeklySyncCard({ detailed = false, initialSelection = "auto" }: { detailed?: boolean; initialSelection?: "auto" | "current" | "previous" }) {
   const [selection, setSelection] = useState<"auto" | "current" | "previous">(initialSelection);
   const [snapshot, setSnapshot] = useState<CollectionSnapshot | null>(null);
+  const [followingImport, setFollowingImport] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
@@ -75,7 +77,12 @@ export function WeeklySyncCard({ detailed = false, initialSelection = "auto" }: 
   const notified = useRef<string | null>(null);
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const next = await requestSnapshot("GET", signal, selection);
-    if (mounted.current) { setSnapshot(next); setError(null); if (next.notice === "collection_period") setSelection("auto"); }
+    if (mounted.current && !signal?.aborted) {
+      if (next.job?.status !== "running") setFollowingImport(false);
+      setSnapshot(next);
+      setError(null);
+      if (next.notice === "collection_period") setSelection("auto");
+    }
     return next;
   }, [selection]);
 
@@ -145,7 +152,12 @@ export function WeeklySyncCard({ detailed = false, initialSelection = "auto" }: 
     const controller = new AbortController();
     const poll = async () => {
       try { await refresh(controller.signal); }
-      catch { if (!cancelled) setError("연결이 잠시 끊겼어요. 가져오기 상태를 다시 확인하고 있어요."); }
+      catch {
+        if (!cancelled) {
+          setFollowingImport(false);
+          setError("연결이 잠시 끊겼어요. 가져오기 상태를 다시 확인하고 있어요.");
+        }
+      }
       if (!cancelled) timer = setTimeout(() => void poll(), 2_000);
     };
     timer = setTimeout(() => void poll(), 1_500);
@@ -159,13 +171,21 @@ export function WeeklySyncCard({ detailed = false, initialSelection = "auto" }: 
     setError(null);
     try {
       const next = await requestSnapshot("POST", undefined, selection);
-      if (mounted.current) setSnapshot(next);
+      if (mounted.current) {
+        setFollowingImport(next.job?.status === "running");
+        setSnapshot(next);
+      }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "다시 시도해 주세요.";
       // The request may have reached the worker even when the response was lost.
       try {
         const next = await requestSnapshot("GET", undefined, selection);
-        if (mounted.current) { setSnapshot(next); setError(next.job?.status === "running" ? null : message); }
+        if (mounted.current) {
+          const stillRunning = next.job?.status === "running";
+          setFollowingImport(stillRunning);
+          setSnapshot(next);
+          setError(stillRunning ? null : message);
+        }
       } catch { if (mounted.current) setError(message); }
     } finally {
       inFlight.current = false;
@@ -194,6 +214,10 @@ export function WeeklySyncCard({ detailed = false, initialSelection = "auto" }: 
   const timezoneLabel = snapshot?.period.timezone === "America/Los_Angeles" ? "태평양 시간 기준" : snapshot?.period.timezone.replaceAll("_", " ").split("/").pop();
 
   return <section className={styles.card} aria-label="Garmin 주간 기록 가져오기">
+    {(requesting || (followingImport && running)) && <WorkflowLoading title="Garmin 기록 가져오는 중"
+      detail={running && job?.stage === "parsing" ? "FIT 파일에서 러닝 기록을 읽고 있어요."
+        : running && job?.stage === "uploading" ? "분석한 러닝 기록을 저장하고 있어요."
+        : "Garmin에서 선택한 주의 러닝을 확인하고 있어요."} />}
     <div className={styles.heading}>
       <div><h2>{weekLabel} 러닝</h2><p>{snapshot ? periodLabel(snapshot.period.start, snapshot.period.end) : "월요일부터 일요일까지"}<span>{timezoneLabel}</span></p></div>
       <span className={`${styles.badge} ${busy ? styles.pending : succeeded ? styles.complete : ""}`}>
@@ -216,11 +240,10 @@ export function WeeklySyncCard({ detailed = false, initialSelection = "auto" }: 
       <div><dt>실패</dt><dd className={failureCount ? styles.failed : undefined}>{failureCount}<small>개</small></dd></div>
     </dl>}
     <div aria-live="polite" aria-atomic="true" className={styles.status}>
-      {busy ? <p>{job?.stage === "authenticating" ? "Garmin 연결을 확인하고 있어요."
+      {error ? <p role="alert" className={styles.failed}>{error}</p> : busy ? <p>{job?.stage === "authenticating" ? "Garmin 연결을 확인하고 있어요."
         : job?.stage === "parsing" ? `FIT 파일을 분석하고 있어요. ${(job.parsing?.processed ?? 0) + (job.parsing?.skipped ?? 0)}/${job.parsing?.found ?? 0}개 확인`
         : job?.stage === "uploading" ? "분석된 기록을 저장하고 있어요. 완료 후 주간 요약을 갱신해요."
         : `${weekLabel} 러닝 기록을 확인하고 있어요.`}</p>
-        : error ? <p role="alert" className={styles.failed}>{error}</p>
         : notice ? <p>{notice}</p>
         : jobMessage ? <p className={styles.failed}>{jobMessage}</p>
         : succeeded ? <p>{counts?.found === 0 ? `${weekLabel}에 기록된 러닝이 없어요.` : `러닝 ${upload ? upload.inserted + upload.updated + upload.unchanged : 0}개를 저장·확인했어요. 주간 요약에 반영돼요.`}</p>
