@@ -1,4 +1,5 @@
 "use client";
+import { WorkflowLoading } from "@/components/layout/workflow-loading";
 import Link from "next/link";
 import { useWeeklyPlan } from "./use-weekly-plan";
 import { planErrorMessage } from "@/lib/training/plan-errors";
@@ -58,6 +59,7 @@ export function PlanManagement({ week }: { week: "current" | "next" }) {
       aria-label={`${label} 계획 관리`}
       aria-busy={pending}
     >
+      {busy && <WorkflowLoading title={label + " 훈련계획 생성 중"} detail="목표와 최근 기록에 맞춰 훈련을 구성하고 있어요." />}
       <h2 className={flow.title}>
         {!data ? `${label} 계획 확인` : existing ? `${label} 계획 조정` : `${label} 계획 만들기`}
         {existing && <span className={flow.badge}>선택</span>}

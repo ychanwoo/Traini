@@ -1,4 +1,5 @@
 "use client";
+import { WorkflowLoading } from "@/components/layout/workflow-loading";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestJson, ReadRequestGate } from "@/lib/http/client-request";
 import { addCalendarDays } from "@/lib/garmin/running-summary";
@@ -137,6 +138,7 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
       aria-label="주간 훈련 리뷰"
       aria-busy={busy || generating}
     >
+      {busy && <WorkflowLoading title="주간 리뷰 작성 중" detail="한 주의 러닝 기록과 피드백을 살펴보고 있어요." />}
       <div className={styles.heading}>
         <h2>주간 훈련 리뷰</h2>
       </div>
