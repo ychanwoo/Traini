@@ -1,0 +1,35 @@
+.screen[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(100%, 430px);
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  padding: 20px;
+  border: 0;
+  outline: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: rgba(250, 247, 252, .84);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  color: #382940;
+  text-align: center;
+}
+.screen::backdrop { background: transparent; }
+.content { display: grid; justify-items: center; }
+.spinner {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 18px;
+  border: 2px solid #ddd3e5;
+  border-top-color: #71289e;
+  border-radius: 50%;
+  animation: rotate .95s linear infinite;
+}
+.content h2 { font-size: 16px; font-weight: 600; line-height: 1.5; }
+.content p { margin-top: 6px; font-size: 13px; line-height: 1.6; color: #65576d; }
+@keyframes rotate { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
