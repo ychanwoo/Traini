@@ -7,6 +7,7 @@ function render(week, overrides = {}) {
   const data = {period:{start:"2026-10-19",end:"2026-10-25"},plan:{id:"saved"},inputsChanged:false,generating:false,generationError:null,...overrides.data};
   const state = {data,loading:false,error:null,busy:false,completing:false,generate:()=>{throw new Error("Rendering must never generate");},...overrides,data:overrides.data === null ? null : data};
   const load=typescriptLoader({
+    "./workflow-loading.module.css": { default: {} },
     "./use-weekly-plan":{useWeeklyPlan:selected=>{assert.equal(selected,week);return state;}},
     "./training.module.css":{default:{}},"./today-workflow.module.css":{default:{}},
     "next/link":{default:({children,href})=>createElement("a",{href},children)},

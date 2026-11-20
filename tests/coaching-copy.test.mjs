@@ -176,6 +176,9 @@ function renderReview(data) {
       },
       "@/lib/training/coaching-presentation": typescriptLoader()("lib/training/coaching-presentation.ts"),
       "@/lib/training/review-presentation": typescriptLoader()("lib/training/review-presentation.ts"),
+      "@/components/layout/workflow-loading": typescriptLoader({
+        "./workflow-loading.module.css": { default: {} },
+      })("components/layout/workflow-loading.tsx"),
       "./weekly-feedback-form": {WeeklyFeedbackForm:()=>null},
       "./coaching-detail": typescriptLoader({"./training.module.css": {default: {}}})("components/training/coaching-detail.tsx"),
       "react/jsx-runtime": jsxRuntime,
