@@ -34,14 +34,16 @@ const limitationLabels: Record<string, string> = {
   limited_history: "평소 훈련량을 비교할 이전 주 기록이 충분하지 않아요.",
   no_recorded_activities: "이 주에 확인된 러닝 기록이 없어요.",
 };
-export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
-  const [start, setStart] = useState<string | undefined>(),
+export function WeeklyReviewCard({ compact = false, initialWeek, closeoutRevision }: { compact?: boolean; initialWeek?: string; closeoutRevision?: string }) {
+  const [start, setStart] = useState<string | undefined>(initialWeek),
     [data, setData] = useState<ReviewState | null>(null),
     [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true);
   const [readError, setReadError] = useState<string | null>(null);
   const [weeklyNoteEditing,setWeeklyNoteEditing]=useState(false);
+  const [expectedNoteVersion, setExpectedNoteVersion] = useState(0);
+  const requiredCloseout = useRef(closeoutRevision);
   const read = useRef(new ReadRequestGate()),
     action = useRef<AbortController | null>(null),
     inFlight = useRef(false);
@@ -55,6 +57,11 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
         { signal: c.signal },
       );
       if (!c.signal.aborted) {
+        if ((start && body.period.startsOn !== start) ||
+            (requiredCloseout.current && body.closeout?.revision !== requiredCloseout.current) ||
+            (body.weeklyFeedback?.version ?? 0) < expectedNoteVersion)
+          throw new Error("이 주의 최신 기록을 확인하지 못했어요. 다시 확인해 주세요.");
+        requiredCloseout.current = undefined;
         setData(body);
         setReadError(null);
         setLoading(false);
@@ -69,7 +76,7 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
     } finally {
       read.current.finish(c);
     }
-  }, [start]);
+  }, [start, expectedNoteVersion]);
   const generating = !!data?.generating;
   useEffect(() => {
     const reads = read.current;
@@ -92,8 +99,9 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
     };
   }, [refresh, generating]);
   useEffect(() => () => action.current?.abort(), []);
+  const awaitingNote = expectedNoteVersion > (data?.weeklyFeedback?.version ?? 0);
   async function generate() {
-    if (inFlight.current || !data) return;
+    if (inFlight.current || !data || awaitingNote || weeklyNoteEditing) return;
     inFlight.current = true;
     read.current.abort();
     setBusy(true);
@@ -148,8 +156,10 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
           <select
             aria-label="리뷰 주간 선택"
             value={data.period.startsOn}
-            disabled={busy || generating}
+            disabled={busy || generating || awaitingNote}
             onChange={(e) => {
+              read.current.abort();
+              setExpectedNoteVersion(0);
               setStart(e.target.value);
               setData(null);
               setLoading(true);
@@ -169,7 +179,7 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
       )}
       <div aria-live="polite">
         {loading && (
-          <p className={styles.note}>
+          <p role="status" className={styles.note}>
             완료·마감된 주의 계획과 러닝 기록을 확인하고 있어요.
           </p>
         )}
@@ -178,7 +188,8 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
             {displayError}
           </p>
         )}
-        {!data && !loading && (
+        {awaitingNote && !readError && <p role="status" className={styles.note}>저장한 피드백을 확인하고 있어요.</p>}
+        {((!data && !loading) || (awaitingNote && readError)) && (
           <button className={styles.planAction} onClick={() => void refresh()}>
             다시 확인
           </button>
@@ -356,9 +367,16 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
         {compact && data && <WeeklyFeedbackForm
           key={data.period.startsOn}
           startsOn={data.period.startsOn} note={data.weeklyFeedback ?? null}
-          pending={busy || generating}
+          pending={busy || generating || awaitingNote}
           onEditingChange={setWeeklyNoteEditing}
-          onSaved={()=>{void refresh();window.dispatchEvent(new Event(EVENT));}}
+          onSaved={version => {
+            if (version !== undefined) {
+              read.current.abort();
+              setStart(data.period.startsOn);
+              setExpectedNoteVersion(version);
+            }
+            window.dispatchEvent(new Event(EVENT));
+          }}
         />}
         {compact && data && metrics && (
           <div className={styles.reviewContent}>
@@ -395,7 +413,7 @@ export function WeeklyReviewCard({ compact = false }: { compact?: boolean }) {
             type="button"
             className={styles.planAction}
             disabled={
-              busy ||
+              busy || awaitingNote ||
               generating || weeklyNoteEditing ||
               (data.closeout !== null && data.closeout !== undefined && !data.closeout.fresh) ||
               (!metrics?.hasPlan && !metrics?.activityCount)

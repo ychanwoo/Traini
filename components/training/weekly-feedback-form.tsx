@@ -5,7 +5,7 @@ import { requestJson } from "@/lib/http/client-request";
 import type { WeeklyFeedbackNote } from "@/lib/training/weekly-feedback";
 import styles from "./workout-feedback.module.css";
 export function WeeklyFeedbackForm({ startsOn, note, pending, onSaved, onEditingChange }: {
-  startsOn:string; note:WeeklyFeedbackNote|null; pending:boolean; onSaved:()=>void; onEditingChange:(dirty:boolean)=>void;
+  startsOn:string; note:WeeklyFeedbackNote|null; pending:boolean; onSaved:(version?:number)=>void; onEditingChange:(dirty:boolean)=>void;
 }) {
   const [rpe,setRpe]=useState(note?.rpe?.toString() ?? "");
   const [memo,setMemo]=useState(note?.memo ?? "");
@@ -33,7 +33,7 @@ export function WeeklyFeedbackForm({ startsOn, note, pending, onSaved, onEditing
       const result=await requestJson<{note:WeeklyFeedbackNote}>("/api/training/weekly-feedback",{method:"POST",body:{...body,requestId:retry.current!.requestId},timeoutMs:25000});
       if(!result.note || !Number.isSafeInteger(result.note.version) || result.note.version<1) throw Error("저장 결과를 확인하지 못했어요.");
       if(!active.current) {window.dispatchEvent(new Event("traini:plan-changed"));return;}
-      setSaved(result.note);setMessage("저장했어요. 이 주의 리뷰 생성에 반영돼요.");onSaved();
+      setSaved(result.note);setMessage("저장했어요. 이 주의 리뷰 생성에 반영돼요.");onSaved(result.note.version);
     } catch(error) {
       if(!active.current) return;
       onSaved();

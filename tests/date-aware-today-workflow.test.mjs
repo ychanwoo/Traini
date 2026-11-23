@@ -25,7 +25,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 function render(instant) {
   const stub = () => null;
   const load = typescriptLoader({
-    react: { ...React, useEffect: () => {}, useState: () => [new Date(instant), () => {}] },
+    react: { ...React, useEffect: () => {}, useState: initial => [initial === null ? new Date(instant) : initial, () => {}] },
     './use-weekly-plan': { useWeeklyPlan: () => ({data:{period:{timezone:'America/Los_Angeles'}}}) },
     '@/components/garmin/current-running-metrics': {CurrentRunningMetrics:stub},
     '@/components/garmin/weekly-sync-card': {WeeklySyncCard:({initialSelection})=>React.createElement('div',{'data-import':initialSelection})},
