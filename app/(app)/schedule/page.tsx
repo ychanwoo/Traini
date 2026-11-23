@@ -1,2 +1,11 @@
 import { TrainiScreen } from "@/components/traini-screen";
-export default function SchedulePage() { return <TrainiScreen screen="schedule" />; }
+import { scheduleWeek } from "@/lib/training/schedule-week";
+
+export default async function SchedulePage({ searchParams }: {
+  searchParams: Promise<{ start?: string | string[] }>;
+}) {
+  const { start } = await searchParams;
+  const week = scheduleWeek(typeof start === "string" ? start : undefined,
+    process.env.TRAINI_TIMEZONE ?? "America/Los_Angeles");
+  return <TrainiScreen screen="schedule" scheduleWeek={week} />;
+}

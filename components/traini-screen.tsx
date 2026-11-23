@@ -15,7 +15,7 @@ import { Activity, ArrowLeft, ArrowLeftRight, BarChart3, BedDouble, CalendarDays
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Screen = "splash" | "login" | "garmin" | "analysis" | "goal" | "schedule" | "today" | "my" | "roadmap" | "my-goals" | "privacy" | "support";
-type Props = { screen: Screen };
+type Props = { screen: Screen; scheduleWeek?: "previous" | "current" | "next" };
 
 const iconMap: Record<string, LucideIcon> = { arrow_back:ArrowLeft, chevron_left:ChevronLeft, chevron_right:ChevronRight, settings:Settings, footprints:Footprints, today:CalendarDays, calendar_month:CalendarDays, calendar_today:CalendarDays, route:Route, person:UserRound, directions_run:PersonStanding, bar_chart:BarChart3, favorite:HeartPulse, bedtime:BedDouble, dark_mode:Moon, swap_horiz:ArrowLeftRight, shield:ShieldCheck, info:Info, trending_up:TrendingUp, speed:Gauge, light_mode:Sun, ecg_heart:Activity, block:Circle, check_circle:Circle, bolt:Footprints, event_repeat:CalendarDays, rebase_edit:Activity, insights:BarChart3, mail:Mail };
 const Icon = ({ children, filled = false }: { children: string; filled?: boolean }) => { const Glyph = iconMap[children] ?? Circle; return <Glyph aria-hidden="true" strokeWidth={filled ? 2.4 : 1.65} />; };
@@ -59,8 +59,8 @@ function Analysis() { return <div className="app-frame"><Topbar back /><RunningP
 
 function Goal() { return <div className="app-frame"><Topbar back step="3 / 3" /><GoalSettings onboarding /></div>; }
 
-function Schedule() {
-  return <div className="app-frame"><Topbar back /><WeeklySchedule /></div>;
+function Schedule({ week }: { week?: Props["scheduleWeek"] }) {
+  return <div className="app-frame"><Topbar back /><WeeklySchedule initialWeek={week} /></div>;
 }
 
 function Today() {
@@ -143,4 +143,4 @@ function MyPage() {
 
 function Roadmap() { return <TrainingRoadmap />; }
 
-export function TrainiScreen({ screen }: Props) { const content = { splash:<Splash/>, login:<AdminLogin/>, garmin:<Garmin/>, analysis:<Analysis/>, goal:<Goal/>, schedule:<Schedule/>, today:<Today/>, my:<MyPage/>, roadmap:<Roadmap/>, "my-goals":<MyGoals/>, privacy:<Privacy/>, support:<Support/> }; return content[screen]; }
+export function TrainiScreen({ screen, scheduleWeek }: Props) { const content = { splash:<Splash/>, login:<AdminLogin/>, garmin:<Garmin/>, analysis:<Analysis/>, goal:<Goal/>, schedule:<Schedule key={scheduleWeek} week={scheduleWeek}/>, today:<Today/>, my:<MyPage/>, roadmap:<Roadmap/>, "my-goals":<MyGoals/>, privacy:<Privacy/>, support:<Support/> }; return content[screen]; }

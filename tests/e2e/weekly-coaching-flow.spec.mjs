@@ -89,6 +89,38 @@ test("saved optional feedback must be reflected in the review before generation"
   await expect(generate).toBeEnabled();
 });
 
+for (const [day, date, week, start, heading] of [
+  ["Sunday", "2026-10-18", "next", "2026-10-19", "10.19 – 10.25"],
+  ["Wednesday", "2026-10-14", "current", "2026-10-12", "10.12 – 10.18"],
+]) {
+  test(day + " opens the saved schedule week only after success", async ({ page, request }) => {
+    await page.clock.setFixedTime(new Date(date + "T19:00:00Z"));
+    await request.post("/__test/control", { data: { scenario: "empty" } });
+    let attempts = 0;
+    const save = gate();
+    await page.route("**/api/training/generate", async route => {
+      expect(route.request().postDataJSON().week).toBe(week);
+      if (++attempts === 1) return route.fulfill({ status: 503, json: { error: "계획 저장 실패" } });
+      await save.wait;
+      await request.post("/__test/control", { data: { scenario: "normal" } });
+      const response = await request.get("/api/training/plan?week=" + week);
+      await route.fulfill({ json: await response.json() });
+    });
+    await page.goto("/today");
+    const button = page.locator("#today-next").getByRole("button", { name: /만들기/ });
+    await button.click();
+    await expect(page.locator("#today-next").getByRole("alert")).toHaveText("계획 저장 실패");
+    await expect(page).toHaveURL(/\/today$/);
+    await button.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page).toHaveURL(/\/today$/);
+    save.release();
+    await expect(page).toHaveURL(new RegExp("/schedule\\?start=" + start + "$"));
+    await expect(page.locator(".schedule-week")).toContainText(heading);
+    expect(attempts).toBe(2);
+  });
+}
+
 test("step four waits for a new read of the correct plan week after saving a review", async ({ page, request }) => {
   await request.post("/__test/control", { data: { scenario: "stale" } });
   await page.clock.setFixedTime(new Date("2026-10-18T19:00:00Z"));

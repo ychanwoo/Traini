@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useWeeklyPlan } from "./use-weekly-plan";
+import { useRouter } from "next/navigation";
 import { todayWorkflow } from "@/lib/training/today-workflow";
 import { WeeklySyncCard } from "@/components/garmin/weekly-sync-card";
 import { TodayPlan } from "./weekly-plan-view";
@@ -24,6 +25,7 @@ function CloseoutAndReview({ onReviewSaved }: { onReviewSaved: () => void }) {
 }
 
 export function TodayWorkflow() {
+  const router = useRouter();
   const [planRefresh, setPlanRefresh] = useState(0);
   const { data } = useWeeklyPlan("current");
   const [now, setNow] = useState<Date | null>(null);
@@ -61,7 +63,7 @@ export function TodayWorkflow() {
     </section>
     <section id="today-next" className={styles.group} aria-label="훈련 계획 준비 단계">
       <h2 className={styles.step}><span className={styles.number}>4</span>{flow ? title : "계획 준비"}</h2>
-      {flow && <PlanManagement key={`${flow.today}:${flow.planWeek}:${planRefresh}`} expectedStart={planRefresh ? flow.planStart : undefined} week={flow.planWeek} />}
+      {flow && <PlanManagement key={`${flow.today}:${flow.planWeek}:${planRefresh}`} expectedStart={planRefresh ? flow.planStart : undefined} week={flow.planWeek} onSaved={start => router.push(`/schedule?start=${start}`)} />}
     </section>
   </div>;
 }

@@ -7,7 +7,7 @@ import styles from "./training.module.css";
 import flow from "./today-workflow.module.css";
 
 /** Explicit generation controls; viewing a session never generates a plan. */
-export function PlanManagement({ week, expectedStart }: { expectedStart?: string; week: "current" | "next" }) {
+export function PlanManagement({ week, onSaved, expectedStart }: { expectedStart?: string; week: "current" | "next"; onSaved?: (start: string) => void }) {
   const state = useWeeklyPlan(week, expectedStart);
   const { data, loading, error, busy } = state;
   const label = week === "current" ? "이번 주" : "다음 주";
@@ -41,7 +41,9 @@ export function PlanManagement({ week, expectedStart }: { expectedStart?: string
             type="button"
             className={styles.planAction}
             disabled={pending || state.completing || loading}
-            onClick={() => void state.generate()}
+            onClick={async () => {
+              if (await state.generate()) onSaved?.(data.period.start);
+            }}
           >
             {pending ? "훈련계획 생성 중…" : action}
           </button>

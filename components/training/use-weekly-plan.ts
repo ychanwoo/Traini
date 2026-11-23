@@ -118,7 +118,10 @@ export function useWeeklyPlan(week: PlanWeek | "previous", expectedStart?: strin
         const result = await request<PlanState>("generate", controller.signal, {
           week,
         });
-        if (!controller.signal.aborted) setData(result);
+        if (controller.signal.aborted) return false;
+        if (!result.plan || result.plan.startsOn !== data?.period.start)
+          throw new Error("대상 주의 저장된 계획을 확인하지 못했어요. 다시 확인해 주세요.");
+        setData(result);
       } else if (kind === "feedback")
         await request("feedback", controller.signal, feedback);
       else if (kind === "match")
