@@ -7,8 +7,8 @@ import styles from "./training.module.css";
 import flow from "./today-workflow.module.css";
 
 /** Explicit generation controls; viewing a session never generates a plan. */
-export function PlanManagement({ week }: { week: "current" | "next" }) {
-  const state = useWeeklyPlan(week);
+export function PlanManagement({ week, expectedStart }: { expectedStart?: string; week: "current" | "next" }) {
+  const state = useWeeklyPlan(week, expectedStart);
   const { data, loading, error, busy } = state;
   const label = week === "current" ? "이번 주" : "다음 주";
   const existing = !!data?.plan;
@@ -71,8 +71,11 @@ export function PlanManagement({ week }: { week: "current" | "next" }) {
       )}
       <p className={flow.hint}>{hint}</p>
       <div aria-live="polite">
+        {expectedStart && !data && (
+          <button type="button" className={styles.planAction} disabled>{action}</button>
+        )}
         {loading && !data && (
-          <p className={flow.hint}>저장된 계획을 확인하고 있어요.</p>
+          <p role="status" className={flow.hint}>{expectedStart ? "리뷰가 저장됐어요. 계획 주간을 확인하고 있어요." : "저장된 계획을 확인하고 있어요."}</p>
         )}
         {error && <p className={styles.error} role="alert">{error}</p>}
         {!error && !pending && data?.generationError && (

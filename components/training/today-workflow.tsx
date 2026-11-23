@@ -8,7 +8,7 @@ import { WeeklyCloseoutCard } from "./weekly-closeout-card";
 import { WeeklyReviewCard } from "./weekly-review-card";
 import { PlanManagement } from "./plan-management";
 import styles from "./today-workflow.module.css";
-function CloseoutAndReview() {
+function CloseoutAndReview({ onReviewSaved }: { onReviewSaved: () => void }) {
   const [closing, setClosing] = useState(false);
   const [selection, setSelection] = useState<{ week?: string; revision?: string; attempt: number }>({ attempt: 0 });
   return <>
@@ -18,12 +18,13 @@ function CloseoutAndReview() {
     }} />
     {closing && <p className={styles.hint} role="status">마감한 주의 기록을 확인하고 있어요.</p>}
     <div hidden={closing} inert={closing}>
-      <WeeklyReviewCard key={selection.attempt} initialWeek={selection.week} closeoutRevision={selection.revision} compact />
+      <WeeklyReviewCard key={selection.attempt} initialWeek={selection.week} closeoutRevision={selection.revision} onReviewSaved={onReviewSaved} compact />
     </div>
   </>;
 }
 
 export function TodayWorkflow() {
+  const [planRefresh, setPlanRefresh] = useState(0);
   const { data } = useWeeklyPlan("current");
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -53,11 +54,14 @@ export function TodayWorkflow() {
     <section id="today-review" className={styles.group} aria-label="주간 마감과 리뷰 단계">
       <h2 className={styles.step}><span className={styles.number}>3</span>한 주를 마쳤을 때</h2>
       <p className={styles.hint}>일요일: 마감 후 리뷰 · 월요일부터: 지난주 리뷰</p>
-      <CloseoutAndReview key={flow?.today ?? "loading"} />
+      <CloseoutAndReview key={flow?.today ?? "loading"} onReviewSaved={() => {
+        setNow(new Date());
+        setPlanRefresh(sequence => sequence + 1);
+      }} />
     </section>
     <section id="today-next" className={styles.group} aria-label="훈련 계획 준비 단계">
       <h2 className={styles.step}><span className={styles.number}>4</span>{flow ? title : "계획 준비"}</h2>
-      {flow && <PlanManagement key={`${flow.today}:${flow.planWeek}`} week={flow.planWeek} />}
+      {flow && <PlanManagement key={`${flow.today}:${flow.planWeek}:${planRefresh}`} expectedStart={planRefresh ? flow.planStart : undefined} week={flow.planWeek} />}
     </section>
   </div>;
 }

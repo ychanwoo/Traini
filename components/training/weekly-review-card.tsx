@@ -34,7 +34,7 @@ const limitationLabels: Record<string, string> = {
   limited_history: "평소 훈련량을 비교할 이전 주 기록이 충분하지 않아요.",
   no_recorded_activities: "이 주에 확인된 러닝 기록이 없어요.",
 };
-export function WeeklyReviewCard({ compact = false, initialWeek, closeoutRevision }: { compact?: boolean; initialWeek?: string; closeoutRevision?: string }) {
+export function WeeklyReviewCard({ compact = false, initialWeek, closeoutRevision, onReviewSaved }: { compact?: boolean; initialWeek?: string; closeoutRevision?: string; onReviewSaved?: () => void }) {
   const [start, setStart] = useState<string | undefined>(initialWeek),
     [data, setData] = useState<ReviewState | null>(null),
     [error, setError] = useState<string | null>(null),
@@ -117,6 +117,7 @@ export function WeeklyReviewCard({ compact = false, initialWeek, closeoutRevisio
       });
       if (!c.signal.aborted) {
         setData(body);
+        onReviewSaved?.();
         window.dispatchEvent(new Event(EVENT));
       }
     } catch (e) {

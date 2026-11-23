@@ -88,3 +88,40 @@ test("saved optional feedback must be reflected in the review before generation"
   await review.getByRole("button", { name: "다시 확인" }).click();
   await expect(generate).toBeEnabled();
 });
+
+test("step four waits for a new read of the correct plan week after saving a review", async ({ page, request }) => {
+  await request.post("/__test/control", { data: { scenario: "stale" } });
+  await page.clock.setFixedTime(new Date("2026-10-18T19:00:00Z"));
+  let saved = false, wrongWeek = true, generations = 0;
+  const reading = gate();
+  await page.route("**/api/training/review**", async route => {
+    const response = await route.fetch();
+    if (route.request().method() === "POST") saved = true;
+    return route.fulfill({ response });
+  });
+  await page.route("**/api/training/plan?week=next", async route => {
+    if (!saved) return route.continue();
+    await reading.wait;
+    const response = await request.get("/api/training/plan?week=" + (wrongWeek ? "current" : "next"));
+    return route.fulfill({ json: await response.json() });
+  });
+  await page.route("**/api/training/generate", route => { generations++; return route.abort(); });
+  await page.goto("/today");
+  const step = page.locator("#today-next");
+  await step.locator("summary").click();
+  await expect(step.getByRole("button", { name: /다시 조정/ })).toBeEnabled();
+  await page.getByRole("button", { name: "최신 기록으로 리뷰 업데이트" }).click();
+  await expect(step.getByRole("status")).toContainText("계획 주간");
+  const locked = step.getByRole("button", { name: /만들기/ });
+  await expect(locked).toBeDisabled();
+  await locked.evaluate(button => button.click());
+  reading.release();
+  await expect(step.getByRole("alert")).toContainText("아직 반영되지");
+  await expect(locked).toBeDisabled();
+  wrongWeek = false;
+  await step.getByRole("button", { name: "다시 확인" }).click();
+  await expect(step).toContainText("2026-10-19 – 2026-10-25");
+  await step.locator("summary").click();
+  await expect(step.getByRole("button", { name: /다시 조정/ })).toBeEnabled();
+  expect(generations).toBe(0);
+});
