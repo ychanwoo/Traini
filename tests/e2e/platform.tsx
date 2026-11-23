@@ -9,7 +9,7 @@ export function Image({ unoptimized: _unoptimized, ...props }: ImgHTMLAttributes
   return <img {...props} alt={props.alt ?? ""} />;
 }
 export const usePathname = () => useSyncExternalStore(listener => { window.addEventListener("popstate",listener);return () => window.removeEventListener("popstate",listener); }, () => window.location.pathname, () => "/schedule");
-const fixtureRouter = {back: () => window.history.back(), replace: (url: string) => {window.history.replaceState(null,"",url);window.dispatchEvent(new PopStateEvent("popstate"));}};
+const fixtureRouter = {push: (url: string) => {window.history.pushState(null,"",url);window.dispatchEvent(new PopStateEvent("popstate"));}, back: () => window.history.back(), replace: (url: string) => {window.history.replaceState(null,"",url);window.dispatchEvent(new PopStateEvent("popstate"));}};
 export const useRouter = () => fixtureRouter;
 export const getSupabaseBrowserClient = () => ({
   auth: {

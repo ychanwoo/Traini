@@ -65,7 +65,7 @@ export function reviewView(state, start, buildCoachingFeedback) {
       limitations: ["recovery_unavailable"],
     },
   };
-  const result = { period: { startsOn: selected, endsOn: addDays(selected, 6), timezone: "America/Los_Angeles" }, latestStartsOn: latest, closeout: shifted && state.closed ? {closedAt: "2026-10-18T21:00:00Z", revision: "1".repeat(32),fresh: !state.closeoutStale} : null, generating: false, generationError: null, metrics, review };
+  const result = { period: { startsOn: selected, endsOn: addDays(selected, 6), timezone: "America/Los_Angeles" }, latestStartsOn: latest, closeout: shifted && state.closed ? {closedAt: "2026-10-18T21:00:00Z", revision: state.closedRevision,fresh: !state.closeoutStale} : null, generating: false, generationError: null, metrics, review };
   result.weeklyFeedback=state.weeklyNotes[selected] ?? null;
   if(result.review && result.weeklyFeedback) result.review.fresh=false;
   result.previousWeek = {startsOn:addDays(selected,-7),endsOn:addDays(selected,-1),actualKm:42,activityCount:5,distanceComplete:true};

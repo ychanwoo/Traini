@@ -13,6 +13,7 @@ export type PlanState = {
   generationError: string | null;
   inputsChanged: boolean;
 };
+import { addCalendarDays } from "@/lib/garmin/running-summary";
 import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
 const EVENT = "traini:plan-changed";
 async function request<T>(
@@ -31,7 +32,7 @@ async function request<T>(
     timeoutMs: path === "generate" ? 240_000 : 25_000,
   });
 }
-export function useWeeklyPlan(week: PlanWeek | "previous") {
+export function useWeeklyPlan(week: PlanWeek | "previous", expectedStart?: string) {
   const [data, setData] = useState<PlanState | null>(null),
     [error, setError] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
@@ -51,6 +52,10 @@ export function useWeeklyPlan(week: PlanWeek | "previous") {
         controller.signal,
       );
       if (!controller.signal.aborted) {
+        if (expectedStart && (result.period.start !== expectedStart ||
+            result.period.end !== addCalendarDays(expectedStart, 6))) {
+          throw new Error("계획 주간이 아직 반영되지 않았어요. 다시 확인해 주세요.");
+        }
         setData(result);
         setLoading(false);
         setReadError(null);
@@ -65,7 +70,7 @@ export function useWeeklyPlan(week: PlanWeek | "previous") {
     } finally {
       read.current.finish(controller);
     }
-  }, [week]);
+  }, [week, expectedStart]);
   const generating = Boolean(data?.generating);
   useEffect(() => {
     const reads = read.current;
@@ -113,7 +118,10 @@ export function useWeeklyPlan(week: PlanWeek | "previous") {
         const result = await request<PlanState>("generate", controller.signal, {
           week,
         });
-        if (!controller.signal.aborted) setData(result);
+        if (controller.signal.aborted) return false;
+        if (!result.plan || result.plan.startsOn !== data?.period.start)
+          throw new Error("대상 주의 저장된 계획을 확인하지 못했어요. 다시 확인해 주세요.");
+        setData(result);
       } else if (kind === "feedback")
         await request("feedback", controller.signal, feedback);
       else if (kind === "match")

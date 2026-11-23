@@ -427,7 +427,7 @@ function ScheduleWeek({
     </main>
   );
 }
-export function WeeklySchedule() {
-  const [week, setWeek] = useState<PlanWeek | "previous">("current");
+export function WeeklySchedule({ initialWeek = "current" }: { initialWeek?: PlanWeek | "previous" } = {}) {
+  const [week, setWeek] = useState<PlanWeek | "previous">(initialWeek);
   return <ScheduleWeek key={week} week={week} setWeek={setWeek} />;
 }

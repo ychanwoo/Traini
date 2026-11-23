@@ -4,6 +4,7 @@ import { WeeklySyncCard } from "../../components/garmin/weekly-sync-card";
 import { CurrentRunningMetrics } from "../../components/garmin/current-running-metrics";
 import { WeeklyCloseoutCard } from "../../components/training/weekly-closeout-card";
 import { WeeklyReviewCard } from "../../components/training/weekly-review-card";
+import { scheduleWeek } from "../../lib/training/schedule-week";
 import { TodayWorkflow } from "../../components/training/today-workflow";
 import { RunningProgressAnalysis, TrainingRoadmap, MyProgressSummary } from "../../components/training/progress-insights";
 import { usePathname } from "./platform";
@@ -40,7 +41,7 @@ function Harness() {
     <div className="app-frame app-tab-shell">
       <AppTabHeader />
       <div className="app-tab-content">
-        {pathname === "/auth-refresh" ? <AuthGuard><MyProgressSummary /></AuthGuard> : pathname.startsWith("/login") ? <p>Fixture login</p> : pathname === "/garmin-connect" ? <div className="page"><WeeklySyncCard detailed /><WeeklyRunningSummary detailed /></div> : pathname === "/coaching-regression" ? <div className="page"><CurrentRunningMetrics /><TodayPlan /><WeeklyCloseoutCard /><WeeklyReviewCard /><details className="card mt-4 p-4"><summary>주간 기록 자세히</summary><WeeklyRunningSummary /></details><WeeklySyncCard /></div> : pathname === "/today" ? <div className="page"><TodayWorkflow /></div> : pathname === "/my" ? <div className="page"><MyProgressSummary /></div> : pathname === "/running-analysis" ? <RunningProgressAnalysis /> : pathname === "/roadmap" ? <TrainingRoadmap /> : <WeeklySchedule />}
+        {pathname === "/auth-refresh" ? <AuthGuard><MyProgressSummary /></AuthGuard> : pathname.startsWith("/login") ? <p>Fixture login</p> : pathname === "/garmin-connect" ? <div className="page"><WeeklySyncCard detailed /><WeeklyRunningSummary detailed /></div> : pathname === "/coaching-regression" ? <div className="page"><CurrentRunningMetrics /><TodayPlan /><WeeklyCloseoutCard /><WeeklyReviewCard /><details className="card mt-4 p-4"><summary>주간 기록 자세히</summary><WeeklyRunningSummary /></details><WeeklySyncCard /></div> : pathname === "/today" ? <div className="page"><TodayWorkflow /></div> : pathname === "/my" ? <div className="page"><MyProgressSummary /></div> : pathname === "/running-analysis" ? <RunningProgressAnalysis /> : pathname === "/roadmap" ? <TrainingRoadmap /> : <WeeklySchedule initialWeek={scheduleWeek(new URLSearchParams(location.search).get("start") ?? undefined, "America/Los_Angeles")} />}
       </div>
       <BottomNavigation />
     </div>

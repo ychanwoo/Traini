@@ -25,7 +25,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 function render(instant) {
   const stub = () => null;
   const load = typescriptLoader({
-    react: { ...React, useEffect: () => {}, useState: () => [new Date(instant), () => {}] },
+    'next/navigation': { useRouter: () => ({push: () => assert.fail('Rendering must not navigate')}) },
+    react: { ...React, useEffect: () => {}, useState: initial => [initial === null ? new Date(instant) : initial, () => {}] },
     './use-weekly-plan': { useWeeklyPlan: () => ({data:{period:{timezone:'America/Los_Angeles'}}}) },
     '@/components/garmin/current-running-metrics': {CurrentRunningMetrics:stub},
     '@/components/garmin/weekly-sync-card': {WeeklySyncCard:({initialSelection})=>React.createElement('div',{'data-import':initialSelection})},
@@ -44,4 +45,10 @@ test('four-step Today composition uses Sunday defaults and moves current plannin
   assert.equal((weekday.match(/data-plan="current"/g)||[]).length,1);
   assert.ok(weekday.indexOf('data-plan="current"')>weekday.indexOf('id="today-next"'));
   for(const html of [sunday,weekday]) for(const id of ['today-import','today-session','today-review','today-next']) assert.match(html,new RegExp(`id="${id}"`));
+});
+
+test('a saved Monday stays selected across midnight in the training timezone', () => {
+  const { scheduleWeek } = typescriptLoader()('lib/training/schedule-week.ts');
+  assert.equal(scheduleWeek('2026-11-02', 'America/Los_Angeles', new Date('2026-11-02T07:59:59Z')), 'next');
+  assert.equal(scheduleWeek('2026-11-02', 'America/Los_Angeles', new Date('2026-11-02T08:00:00Z')), 'current');
 });

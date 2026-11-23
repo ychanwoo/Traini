@@ -5,7 +5,10 @@ import { requestJson, ReadRequestGate } from "@/lib/http/client-request";
 import { IMPORT_FINISHED_EVENT } from "@/lib/garmin/collection";
 import type { CloseoutState } from "@/lib/training/week-closeout";
 import styles from "./training.module.css";
-export function WeeklyCloseoutCard() {
+export function WeeklyCloseoutCard({ onStart, onFinish }: {
+  onStart?: () => void;
+  onFinish?: (week?: string, revision?: string) => void;
+} = {}) {
   const [data, setData] = useState<CloseoutState | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,10 +64,12 @@ export function WeeklyCloseoutCard() {
     if (!data || !confirmed || inFlight.current) return;
     inFlight.current = true;
     read.current.abort();
+    onStart?.();
     setBusy(true);
     setError(null);
     const c = new AbortController();
     action.current = c;
+    let confirmedWeek: string | undefined = data.startsOn;
     try {
       const next = await requestJson<CloseoutState>("/api/training/closeout", {
         method: "POST",
@@ -81,6 +86,16 @@ export function WeeklyCloseoutCard() {
         window.dispatchEvent(new Event("traini:plan-changed"));
       }
     } catch (e) {
+      // A lost POST response can still mean the closeout was saved.
+      if (!c.signal.aborted) {
+        try {
+          const latest = await requestJson<CloseoutState>("/api/training/closeout", { signal: c.signal });
+          if (!c.signal.aborted) setData(latest);
+          if (!latest.closeout?.fresh || latest.startsOn !== data.startsOn) confirmedWeek = undefined;
+        } catch {
+          // Keep the review gated until the selected week can be verified.
+        }
+      }
       if (!c.signal.aborted)
         setError(
           e instanceof Error ? e.message : "저장 여부를 먼저 확인해 주세요.",
@@ -88,6 +103,7 @@ export function WeeklyCloseoutCard() {
     } finally {
       inFlight.current = false;
       if (!c.signal.aborted) {
+        onFinish?.(confirmedWeek, data.early ? data.revision : undefined);
         setBusy(false);
         void refresh();
       }
