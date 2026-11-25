@@ -53,3 +53,24 @@ test('saving a race preserves training preferences and editing condition preserv
   expect(goal.races[0]).toEqual({...race,name:'Coastal half'});
   expect(goal.condition.feeling).toBe('normal');
 });
+
+test('switching races recalculates the remaining preparation phases', async ({page})=>{
+  await page.setViewportSize({width:320,height:720});
+  await page.route('**/api/training/progress', async route=>{
+    const response=await route.fetch(),data=await response.json();
+    const race={id:'a',name:'봄 풀코스',distance:'FULL',date:'2027-03-14',priority:'primary',targetTimeSeconds:14400,targetPaceSecondsPerKm:341,
+      daysUntil:100,phase:'preparation',taperDays:14,recoveryDays:14,taperStart:'2027-02-28',taperEnd:'2027-03-13',recoveryStart:'2027-03-15',recoveryEnd:'2027-03-28'};
+    data.asOfDate='2026-12-04';
+    data.races=[race,{...race,id:'b',name:'겨울 하프',distance:'HALF',priority:'supporting',date:'2026-12-10',daysUntil:6,phase:'taper',taperStart:'2026-12-03',taperEnd:'2026-12-09',recoveryStart:'2026-12-11',recoveryEnd:'2026-12-17'}];
+    await route.fulfill({response,json:data});
+  });
+  await page.goto('/roadmap');
+  const timeline=page.locator('ol');
+  await expect(timeline).toContainText('급수·보급');
+  await expect(timeline).toContainText('겨울 하프');
+  await page.getByRole('combobox',{name:'대회 선택'}).selectOption('b');
+  await expect(timeline.locator('li')).toHaveCount(2);
+  await expect(timeline.locator('[aria-current="step"]')).toContainText('테이퍼');
+  await expect(timeline).toContainText('2026-12-10');
+  await expect(timeline).not.toContainText('기초 지구력');
+});
