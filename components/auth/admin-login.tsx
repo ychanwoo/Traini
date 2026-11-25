@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { safeDestination } from "@/lib/auth/redirect";
-import { ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AdminSessionError, verifyAdminSession } from "@/lib/supabase/admin-session";
@@ -65,18 +64,16 @@ export function AdminLogin() {
   return <div className="app-frame"><main className="admin-login">
     <div className="login-logo-window"><Image alt="Traini" src="/images/brand/traini-logo.png" width={88} height={48} unoptimized /></div>
     <section className="admin-login-intro">
-      <span className="admin-login-label">PERSONAL TRAINING</span>
       <h1>나의 목표에 맞춘,<br />이번 주의 한 걸음</h1>
       <p>쌓아온 러닝 기록을 돌아보고<br />다음 훈련을 준비하는 나만의 공간.</p>
     </section>
     <div className="admin-login-image"><Image alt="러닝화" src="/images/login-running-shoes.jpg" width={238} height={238} unoptimized priority /></div>
     <div className="admin-login-actions">
-      <p className="admin-login-access"><ShieldCheck aria-hidden="true" />관리자 전용 공간</p>
       <button className="auth-button auth-button-google" onClick={() => void signIn()} disabled={busy} aria-busy={busy}>
         <span className="auth-button-content"><Image src="/icons/google.svg" alt="" aria-hidden="true" width={18} height={18} unoptimized /><span>{busy ? "로그인 확인 중…" : "Google로 계속하기"}</span></span>
       </button>
       {authError && <p className="auth-error" role="alert">{authError}</p>}
-      <p className="admin-login-note">등록된 Google 계정으로 로그인해 주세요.</p>
+      <p className="admin-login-note">등록된 관리자 Google 계정으로 로그인해 주세요.</p>
     </div>
   </main></div>;
 }
