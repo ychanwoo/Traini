@@ -270,7 +270,7 @@ export function WeeklySyncCard({ detailed = false, initialSelection = "auto" }: 
       {busy ? <RefreshCw className={styles.spinning} aria-hidden="true" /> : <ArrowDownToLine aria-hidden="true" />}
       {checking ? "상태 확인 중" : busy ? `${weekLabel} 기록 가져오는 중` : `${weekLabel} 가져오기`}
     </button>
-    {currentWeek && <div className={styles.footer}>
+    {detailed && currentWeek && <div className={styles.footer}>
       <button type="button" disabled={busy || checking} onClick={() => {setChecking(true);setSnapshot(null);setSelection(weekLabel === "이번 주" ? "previous" : "current");}}>{weekLabel === "이번 주" ? "지난주 기록 보기" : "이번 주 기록 보기"}</button>
       <span>이번 주는 오늘까지 수집해요. 주간 마감은 일요일에 확인해 주세요.</span>
     </div>}

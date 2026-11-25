@@ -38,7 +38,7 @@ export function TodayWorkflow() {
   }, []);
   const flow = data && now ? todayWorkflow(data.period.timezone, now) : null;
   const title = flow?.planWeek === "next" ? "다음 주 준비" : "이번 주 남은 훈련";
-  const steps = [["today-import", "기록 가져오기"], ["today-session", "훈련·결과 기록"], ["today-review", "마감·리뷰"], ["today-next", flow ? title : "계획 준비"]];
+  const steps = [["today-import", "기록 가져오기"], ["today-session", "훈련 확인"], ["today-review", "마감·리뷰"], ["today-next", flow ? title : "계획 준비"]];
   return <div className={styles.surface} data-coaching-surface>
     <nav className={styles.guide} aria-label="오늘 탭 사용 순서">
       <ol className={styles.steps}>{steps.map(([id, title], i) => <li key={id}><a href={`#${id}`}><span>{String(i + 1).padStart(2, "0")}</span>{title}</a></li>)}</ol>
@@ -49,7 +49,7 @@ export function TodayWorkflow() {
       {flow?.planWeek === "current" && <p className={styles.hint}>이번 주 러닝도 있다면 함께 가져와 주세요.</p>}
     </section>
     <section id="today-session" className={styles.group} aria-label="오늘 훈련 단계">
-      <h2 className={styles.step}><span className={styles.number}>2</span>오늘 훈련·결과 기록</h2>
+      <h2 className={styles.step}><span className={styles.number}>2</span>오늘 훈련 확인</h2>
       <TodayPlan concise />
       {flow?.planWeek === "next" && <PlanManagement week="current" />}
     </section>

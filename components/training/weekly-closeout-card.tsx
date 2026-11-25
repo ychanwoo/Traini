@@ -202,10 +202,6 @@ export function WeeklyCloseoutCard({ onStart, onFinish }: {
             <strong>주의</strong>
             못한 훈련은 다음 주에 몰아서 보충하지 않아요.
           </p>
-          <details className={styles.details}>
-            <summary>마감은 무엇을 바꾸나요?</summary>
-            <p>기록 확인만 저장해요. 미확인 훈련과 기존 일정은 유지되며, 완료·휴식·회복을 확정하지 않아요. AI 호출은 없어요.</p>
-          </details>
         </>
       )}
     </section>

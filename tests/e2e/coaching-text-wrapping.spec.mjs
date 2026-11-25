@@ -49,8 +49,8 @@ for (const width of [320, 375, 430]) {
     });
     expect(splits).toEqual([]);
     await list.screenshot({ path: testInfo.outputPath('coaching-guidance.png') });
+    await page.goto('/coaching-regression');
     await page.getByText('이번 주 계획 근거', { exact: true }).click();
-    await page.getByText('전체 설명 읽기', { exact: true }).click();
     const full = page.getByText(rationale, { exact: true });
     await expect(full).toBeVisible();
     expect(await full.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);

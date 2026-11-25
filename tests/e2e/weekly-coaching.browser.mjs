@@ -21,7 +21,7 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
     if (!path || path === "/coaching-regression") await show(review(), "비교 기준보다 러닝 거리가 늘었어요.");
     // Review and plan load independently. Wait for the fresh reset plan too,
     // before touching forms whose identity changes when that read completes.
-    if (!path || path === "/today" || path === "/coaching-regression") await p.getByRole("button",{name:"오늘의 훈련 완료",exact:true}).waitFor({state:"visible"});
+    if (!path || path === "/today" || path === "/coaching-regression") await p.getByRole("heading",{name:"이지런",exact:true}).first().waitFor({state:"visible"});
     else await p.getByRole("region",{name:"주간 훈련 일정",exact:true}).locator("article").first().getByText("이지런",{exact:true}).waitFor({state:"visible"});
   };
   const diagnostic = async () => {
@@ -241,9 +241,7 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
       const card = p.getByRole("region", {name:"주간 마감",exact:true});
       await scenario("closeout-sunday");
       await show(card,"못한 훈련은 다음 주에 몰아서 보충하지 않아요.");
-      await card.getByText("마감은 무엇을 바꾸나요?",{exact:true}).click();
-      await show(card,/완료·휴식·회복을 확정하지 않아요/);
-      await card.getByText("마감은 무엇을 바꾸나요?",{exact:true}).click();
+      assert.equal(await card.getByText("마감은 무엇을 바꾸나요?",{exact:true}).count(),0);
       await show(card,"2026-10-12 – 2026-10-18 · America/Los_Angeles");
       await show(card,/2026-10-19부터 7일/);
       const close = card.getByRole("button",{name:"주간 마감 확인",exact:true});
@@ -450,8 +448,8 @@ export function coachingScenarios(tab, viewport, base = "http://127.0.0.1:3027")
         }
         await scenario("normal");
         await tab.reload();
-        if (mode === "save-lost") await show(p, "훈련 완료됨");
-        else await show(p, "밀어서 훈련 완료");
+        if (mode === "save-lost") await show(p, "직접 완료로 표시했어요.");
+        else await show(p, "훈련 결과·피드백 기록");
       }
     },
     async responsive() {

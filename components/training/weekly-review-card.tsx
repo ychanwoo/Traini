@@ -23,17 +23,6 @@ const painLabels: Record<string, string> = {
   pain: "통증",
 };
 const EVENT = "traini:plan-changed";
-const limitationLabels: Record<string, string> = {
-  activity_absence_unknown: "기록 없는 날의 수행 여부는 확인할 수 없어요.",
-  recovery_unavailable:
-    "수면·HRV는 없으며, 피드백 미입력을 정상 회복으로 판단하지 않아요.",
-  no_plan: "저장된 계획이 없어 계획 대비 수행률은 계산하지 않았어요.",
-  unconfirmed_sessions:
-    "직접 완료 표시와 수행 미확인 훈련은 Garmin 기록으로 확인한 훈련과 구분했어요.",
-  missing_metrics: "일부 활동에 거리나 시간이 없어 합계가 부분적일 수 있어요.",
-  limited_history: "평소 훈련량을 비교할 이전 주 기록이 충분하지 않아요.",
-  no_recorded_activities: "이 주에 확인된 러닝 기록이 없어요.",
-};
 export function WeeklyReviewCard({ compact = false, initialWeek, closeoutRevision, onReviewSaved }: { compact?: boolean; initialWeek?: string; closeoutRevision?: string; onReviewSaved?: () => void }) {
   const [start, setStart] = useState<string | undefined>(initialWeek),
     [data, setData] = useState<ReviewState | null>(null),
@@ -343,12 +332,6 @@ export function WeeklyReviewCard({ compact = false, initialWeek, closeoutRevisio
                 {coachingText(review.content.nextWeek.rationale)}
               </p>
             </details>
-            <details className={styles.details}>
-              <summary>평가 범위와 제한</summary>
-              {review.content.limitations.map((k) => (
-                <p key={k}>{limitationLabels[k] ?? k}</p>
-              ))}
-            </details>
             {review.fresh && data?.period.startsOn !== data.latestStartsOn && (
               <p className={styles.note}>
                 이전 주 리뷰예요. 계획에는 최근 완료·마감된 주의 최신
@@ -391,12 +374,6 @@ export function WeeklyReviewCard({ compact = false, initialWeek, closeoutRevisio
             ) : <p className={styles.note}>{review ? "기록이 바뀌었어요. 리뷰를 갱신한 뒤 다음 계획을 확인해 주세요." : "리뷰를 생성하면 다음 훈련 방향을 확인할 수 있어요."}</p>}
             {data.coaching?.condition && /통증|러닝 제한|몸 상태 이상/.test(data.coaching.condition) && <p className={styles.caution}><strong>컨디션 확인</strong>{coachingLead(data.coaching.condition,150)}</p>}
             {data.coaching?.reflections.filter(item=>item.status === "conflict").map(item=><p key={item.week} className={styles.caution}>{item.week === "current" ? "이번 주" : "다음 주"} 계획이 현재 제한과 달라요. 수행 전 확인해 주세요.</p>)}
-            <details className={styles.details}>
-              <summary>평가 범위와 제한</summary>
-              <p>기록 없는 날은 휴식·회복 완료로 판단하지 않아요. 거리 변화만으로 체력이나 피로를 확정하지 않아요.</p>
-              <p>{review ? "저장된 AI 리뷰와 확인된 기록을 참고해요. 기존 일정은 자동으로 변경되지 않아요." : "현재 비교는 기록으로 계산한 결과이며 AI가 생성한 리뷰는 아니에요."}</p>
-              {review?.content.limitations.map(key=><p key={key}>{limitationLabels[key] ?? key}</p>)}
-            </details>
           </div>
         )}
         {data &&
