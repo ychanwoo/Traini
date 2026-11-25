@@ -31,12 +31,12 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border: 1px solid #eae5ed;
   border-radius:var(--radius-control);
   background: #fff;
-  color: #827888;
+  color: var(--muted);
   cursor: pointer;
 }
 .refresh:disabled {
@@ -60,7 +60,7 @@
 .error {
   font-size: 11px;
   line-height: 1.7;
-  color: #827888;
+  color: var(--muted);
   margin: 10px 0 0;
   overflow-wrap: anywhere;
 }
@@ -70,7 +70,9 @@
 .metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 12px;
+  gap: 16px 12px;
+  border-block: 1px solid var(--line);
+  padding-block: 14px;
   margin: 18px 0 8px;
   min-width: 0;
 }
@@ -78,25 +80,25 @@
   min-width: 0;
 }
 .metrics dt {
-  font-size: 10px;
-  color: #827888;
+  font-size: 11px;
+  color: var(--muted);
   line-height: 1.5;
 }
 .metrics dd {
   font-family: "JetBrains Mono", monospace;
   font-size: 17px;
-  letter-spacing: -0.04em;
-  margin: 7px 0 0;
+  font-variant-numeric: tabular-nums;
+  margin: 4px 0 0;
   overflow-wrap: anywhere;
 }
 .metrics small {
   font-family: inherit;
-  font-size: 10px;
-  color: #827888;
+  font-size: 11px;
+  color: var(--muted);
 }
 .metrics p {
-  font-size: 10px;
-  color: #827888;
+  font-size: 11px;
+  color: var(--muted);
   margin: 6px 0 0;
   line-height: 1.6;
 }
@@ -173,8 +175,8 @@
   border-color: #6b21a8;
 }
 .timeline p {
-  font-size: 10px;
-  color: #827888;
+  font-size: 11px;
+  color: var(--muted);
   margin: 0;
 }
 .timeline h3 {
@@ -183,7 +185,7 @@
   margin: 6px 0;
 }
 .timeline small {
-  font-size: 10px;
+  font-size: 11px;
   color: #6b21a8;
 }
 .chart {
@@ -200,15 +202,15 @@
 }
 .chart span {
   font-family: "JetBrains Mono", monospace;
-  font-size: 9px;
+  font-size: 10px;
   color: #6f6278;
   min-height: 16px;
   overflow-wrap: anywhere;
   text-align: center;
 }
 .chart small {
-  font-size: 9px;
-  color: #827888;
+  font-size: 10px;
+  color: var(--muted);
   margin-top: 8px;
 }
 .track {
@@ -252,7 +254,7 @@
   overflow-wrap: anywhere;
 }
 .list strong {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
 }
 .list p {
@@ -274,6 +276,6 @@
   }
   .chart span,
   .chart small {
-    font-size: 8px;
+    font-size: 10px;
   }
 }

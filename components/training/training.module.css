@@ -25,7 +25,7 @@
   height: 32px;
   border: 1px solid #eae5ed;
   border-radius:var(--radius-control);
-  color: #827888;
+  color: var(--muted);
   background: #fff;
   cursor: pointer;
 }
@@ -35,7 +35,7 @@
 }
 .note,
 .help {
-  color: #827888;
+  color: var(--muted);
   font-size: 11px;
   line-height: 18px;
   overflow-wrap: anywhere;
@@ -58,7 +58,7 @@
   margin: 14px 0;
 }
 .metrics dt {
-  color: #827888;
+  color: var(--muted);
   font-size: 10px;
 }
 .metrics dd {
@@ -68,7 +68,7 @@
   color: #302a34;
 }
 .metrics small {
-  color: #948b9b;
+  color: var(--muted);
   font-size: 10px;
 }
 .issues,
@@ -122,7 +122,7 @@
 }
 .details small {
   flex-basis: 100%;
-  color: #948b9b;
+  color: var(--muted);
   font-size: 10px;
 }
 .fields {
@@ -168,11 +168,11 @@
 }
 .days button {
   min-width: 0;
-  height: 36px;
+  min-height: 44px;
   border: 1px solid #e9e3ed;
   border-radius:var(--radius-control);
   background: #fff;
-  color: #827888;
+  color: var(--muted);
   font-size: 11px;
   cursor: pointer;
 }
@@ -288,7 +288,7 @@
 }
 .matchChoices small {
   display: block;
-  color: #827888;
+  color: var(--muted);
   font-size: 10px;
   white-space: normal;
 }
@@ -333,7 +333,7 @@
   justify-content: space-between;
   gap: 10px;
   margin-top: 14px;
-  color: #827888;
+  color: var(--muted);
   font-size: 11px;
 }
 .reviewWeek select {

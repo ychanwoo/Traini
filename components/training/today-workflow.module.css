@@ -16,12 +16,12 @@
 
 /* Today uses a restrained editorial palette; shared screens retain their theme. */
 .surface { --coach-ink:#302a34; --coach-muted:#62586a; --coach-accent:#6b21a8; --coach-line:#e5dfea; color:var(--coach-ink); }
-.surface .guide { border-color:var(--coach-line); padding:14px 0; margin-bottom:28px; }
-.surface .steps a { color:var(--coach-ink); font-size:11px; line-height:18px; }
+.surface .guide { border-color:var(--coach-line); padding:4px 0; margin-bottom:24px; }
+.surface .steps a { min-height:52px; justify-content:center; gap:2px; color:var(--coach-ink); font-size:12px; line-height:18px; }
 .surface .steps span { color:var(--coach-accent); font-size:11px; }
 .surface .group { margin-top:32px; }
-.surface .step { color:var(--coach-ink); font-size:14px; margin-bottom:12px; }
-.surface .number { border:0; border-radius:0; width:auto; height:auto; margin-right:3px; color:var(--coach-accent); font-size:12px; font-variant-numeric:tabular-nums; }
+.surface .step { color:var(--coach-ink); font-size:15px; margin-bottom:12px; }
+.surface .number { border:0; width:24px; height:24px; flex:none; background:#f5eff9; border-radius:var(--radius-detail); color:var(--coach-accent); font-size:12px; font-variant-numeric:tabular-nums; }
 .surface .hint { color:var(--coach-muted); font-size:12px; line-height:20px; margin-top:9px; }
 .surface .panel { border-color:var(--coach-line); border-radius:var(--radius-card); padding:18px 16px; }
 .surface .title { font-size:14px; color:var(--coach-ink); }
