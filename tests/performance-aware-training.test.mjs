@@ -306,3 +306,44 @@ test("a changed latest structure cannot reuse an older successful trend envelope
   c.currentWeek.sessions = [latest];
   assert.equal(performanceEvidence(c).trends.length, 0);
 });
+
+test("repeated easier efforts adjust pace, stable comfortable runs adjust distance, and repeated strain lowers both", () => {
+  function easyBound(hrs, rpes) {
+    const c = context("continuous", [300,300,300,300], hrs, rpes);
+    const policy = planPolicy(c, "next");
+    policy.maxRunKm = 16;
+    policy.maxWeekKm = 45;
+    policy.minEasyPace = 305;
+    policy.volumeBaseline.noVolumeProgression = false;
+    return refinePrescription(c, policy).policy.prescription.bounds.find(b => b.kind === "easy");
+  }
+  const progress = easyBound([145,145,139,140], [4,4,3,3]);
+  assert.ok(progress.minPace < 305);
+  assert.equal(progress.maxDistanceKm, 8);
+  const stable = easyBound([145,145,145,145], [3,3,3,3]);
+  assert.equal(stable.minPace, 305);
+  assert.equal(stable.maxDistanceKm, 8.4);
+  const strain = easyBound([145,145,152,153], [4,4,6,6]);
+  assert.ok(strain.minPace >= 306);
+  assert.equal(strain.maxDistanceKm, 7.6);
+  const missing = easyBound([null,null,null,null], [3,3,3,3]);
+  assert.ok(missing.minPace >= 305);
+});
+
+test("a shorter-than-planned continuous run cannot support progression even with low HR and RPE", () => {
+  const c = context("continuous", [300,300,300,300], [145,145,139,139], [4,4,3,3]);
+  c.workoutFeedback.at(-1).plannedDistanceKm = 12;
+  const trend = performanceEvidence(c).trends[0];
+  assert.equal(trend.direction, "maintain");
+  assert.equal(trend.stableEffort, false);
+});
+
+test("repeated Garmin-confirmed short sessions adjust only the corresponding distance bound", () => {
+  const c = context("continuous");
+  const policy = planPolicy(c, "next");
+  policy.maxRunKm = 16;
+  const sessions = [1, 2].map(n => ({date:`2026-10-2${n}`, kind:"easy", completion:"garmin", actualKm:4, plannedKm:8}));
+  const result = refinePrescription(c, policy, {sessions});
+  assert.equal(result.guidance.rules.bounds.find(b=>b.kind==="easy").maxDistanceKm, 4);
+  assert.ok(result.guidance.rules.bounds.find(b=>b.kind==="long").maxDistanceKm > 4);
+});

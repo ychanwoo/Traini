@@ -154,6 +154,7 @@ export function PrescriptionCard({ week = "next", compact = false }: { week?: Pl
                   {b.kind === "threshold" && !data.guidance.rules.tempoPaceKnown
                     ? "지속주 구간의 페이스 근거가 부족해 체감 강도로 안내"
                     : `${pace(b.minPace)}보다 빠르게 배치하지 않아요`}
+                  {b.adjustment && <small className={styles.help}> · {b.adjustment}</small>}
                 </p>
               ))}
               {data.guidance.rules.intervals.map((o) => (

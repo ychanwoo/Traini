@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { WeeklyRunningSummary } from "@/components/garmin/weekly-running-summary";
 import { weeklyDistance } from "@/lib/training/weekly-distance";
 import { recordedDay } from "@/lib/training/recorded-day";
@@ -20,12 +19,10 @@ import { isoWeekday } from "@/lib/training/weekly-plan";
 import { useWeeklyPlan } from "./use-weekly-plan";
 import { WorkoutMatchDetails } from "./workout-match-details";
 import { WorkoutFeedbackForm } from "./workout-feedback-form";
-import { TrainingCompleteButton } from "./training-complete-button";
 import { TrainingWeatherCard } from "./training-weather-card";
 import { PrescriptionCard } from "./prescription-card";
 import { CoachingDetail } from "./coaching-detail";
-import { coachingText, coachingCopy } from "@/lib/training/coaching-copy";
-import { coachingLead } from "@/lib/training/coaching-presentation";
+import { coachingText } from "@/lib/training/coaching-copy";
 import flow from "./today-workflow.module.css";
 import styles from "./training.module.css";
 const formatRaceTime = (seconds: number) =>
@@ -105,7 +102,6 @@ function PlanFeedback({
           다시 확인
         </button>
       )}
-      {data?.plan?.review && <details className={styles.details}><summary>계획에 사용한 리뷰</summary><p className={styles.note}>{data.plan.review.startsOn} {coachingCopy.appliedReview}</p></details>}
       {!readOnly && data?.inputsChanged && (
         <p className={styles.note}>
           입력이 바뀌어 계획 재검토가 필요해요. 업데이트 전에는 이전 처방을 그대로 수행하지 마세요. 완료한 훈련은 유지돼요.
@@ -119,8 +115,6 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
   const today = state.data?.period.today;
   const workout = state.data?.plan?.workouts.find((w) => w.date === today);
   const race = state.data?.races?.find((r) => r.date === today);
-  const rationale = coachingText(state.data?.plan?.summary ?? "").replace(/\s+/g, " ").trim();
-  const rationaleLead = coachingLead(rationale, 120);
   return (
     <>
       <section className="card mt-4 p-6">
@@ -136,7 +130,6 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
                   : "훈련을 불러오지 못했어요"))}
         </h2>
         <PlanFeedback state={state} readOnly={concise} />
-        <Link className={styles.link} href="/my/goals#current-condition">오늘 컨디션 확인·수정</Link>
         {race && (
           <p className={styles.note}>
             {race.distance} ·{" "}
@@ -171,6 +164,14 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
                 </p>
               </div>
             </div>
+            {concise && (workout.kind === "interval" || workout.kind === "threshold") &&
+              workout.steps.filter(s => s.kind === "repeats" || s.kind === "steady").map((s, i) => (
+                <p className={styles.note} key={i}>
+                  {s.distanceMeters >= 1000 ? `${s.distanceMeters / 1000}km` : `${s.distanceMeters}m`}
+                  {s.repetitions > 1 && ` × ${s.repetitions}회`} · {formatPlanPace(s.paceSecondsPerKm)}
+                  {s.recoveryMeters > 0 && ` · 회복 ${s.recoveryMeters}m`}
+                </p>
+              ))}
             {!concise && <CoachingDetail text={workout.purpose} label="훈련 목적·실행 기준 전체" />}
             {!concise && <SessionSteps steps={workout.steps} />}
             {workout.kind !== "rest" && (
@@ -178,15 +179,6 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
                 key={workout.id}
                 workout={workout}
                 timezone={state.data!.period.timezone}
-              />
-            )}
-            {workout.kind !== "rest" && workout.status !== "skipped" && (
-              <TrainingCompleteButton
-                completed={workout.completed}
-                pending={
-                  state.completing || state.busy || state.data?.generating
-                }
-                onComplete={() => void state.complete(workout.id)}
               />
             )}
             {!concise && <WorkoutMatchDetails
@@ -206,7 +198,7 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
               pending={state.completing || state.busy || !!state.data?.generating}
               onSave={state.feedback}
             />}
-            {workout.completed && (
+            {!concise && workout.completed && (
               <p className={styles.note}>
                 {workout.matching?.state === "unavailable"
                   ? "저장된 완료 상태예요. Garmin 연결 상태는 다시 확인해 주세요."
@@ -218,16 +210,10 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
           </>
         )}
         {!concise && <PrescriptionCard week="current" compact />}
-        {state.data?.plan && (
+        {!concise && state.data?.plan && (
           <details className={styles.details}>
             <summary>이번 주 계획 근거</summary>
-            {concise ? <div className={flow.rationale}>
-              <p>{rationaleLead}</p>
-              {rationaleLead !== rationale && <details className={flow.rationaleFull}>
-                <summary>전체 설명 읽기</summary>
-                <p>{rationale}</p>
-              </details>}
-            </div> : <p>{coachingText(state.data.plan.summary)}</p>}
+            <p>{coachingText(state.data.plan.summary)}</p>
           </details>
         )}
       </section>
@@ -235,7 +221,7 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
     </>
   );
 }
-function PastWorkoutFeedback() {
+export function PastWorkoutFeedback() {
   const [open, setOpen] = useState(false);
   return (
     <details className={styles.details} onToggle={(event) => setOpen(event.currentTarget.open)}>
@@ -249,7 +235,7 @@ function PastWorkoutFeedbackFields() {
   const [selected, setSelected] = useState("");
   const state = useWeeklyPlan(week);
   const data = state.data;
-  const workouts = data?.plan?.workouts.filter(w => w.date < data.period.today && w.kind !== "rest") ?? [];
+  const workouts = data?.plan?.workouts.filter(w => w.date <= data.period.today && w.kind !== "rest") ?? [];
   const workout = workouts.find(w => w.id === selected) ?? workouts[0];
   return (
     <section aria-label="지난 훈련 기록">

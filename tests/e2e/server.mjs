@@ -61,6 +61,7 @@ const server = createServer(async (req, res) => {
       if (state.scenario === "unauthorized") return send(401, {error: "Unauthorized"});
       if (state.scenario === "forbidden") return send(403, {error: "Forbidden"});
       if (state.scenario === "malformed") { res.writeHead(200, {"Content-Type": "text/html"}); return res.end("<html>Unavailable</html>"); }
+      if (url.pathname === "/api/chatgpt/connection" && req.method === "GET") return send(200, {connected:false,models:[]});
       if(url.pathname === "/api/admin/session") return send(state.scenario === "auth-check-failed" ? 503 : 200, {authenticated:state.scenario !== "auth-check-failed"});
       if(url.pathname === "/api/garmin/sync") {
         const current=runningPeriod("America/Los_Angeles","current");
@@ -152,7 +153,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/images/brand/traini-logo.png") {
       res.writeHead(200, {"Content-Type": "image/png"}); return res.end(await readFile(path.join(root, "public/images/brand/traini-logo.png")));
     }
-    if (["/", "/coaching-regression", "/schedule", "/today", "/my", "/roadmap", "/running-analysis", "/garmin-connect", "/auth-refresh", "/login"].includes(url.pathname)) { res.writeHead(200, {"Content-Type": "text/html"}); return res.end(html.replace("<body>", `<body data-scenario="${state.scenario}">`)); }
+    if (["/", "/coaching-regression", "/schedule", "/today", "/my", "/roadmap", "/running-analysis", "/my/goals", "/my/training", "/garmin-connect", "/auth-refresh", "/login"].includes(url.pathname)) { res.writeHead(200, {"Content-Type": "text/html"}); return res.end(html.replace("<body>", `<body data-scenario="${state.scenario}">`)); }
     send(404, {error: "Not found"});
   } catch { if (!res.headersSent) send(500, {error: "Fixture request failed"}); else res.end(); }
 });

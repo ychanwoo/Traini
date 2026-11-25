@@ -7,7 +7,8 @@ import { WeeklySyncCard } from "@/components/garmin/weekly-sync-card";
 import { WeeklyRunningSummary } from "@/components/garmin/weekly-running-summary";
 import { WeeklySchedule } from "@/components/training/weekly-plan-view";
 import { GoalSettings } from "@/components/training/goal-settings";
-import { TrainingContextCard } from "@/components/training/training-context-card";
+import { ChatGPTConnectionCard } from "@/components/chatgpt/chatgpt-connection-card";
+import { PrescriptionCard } from "@/components/training/prescription-card";
 import { RunningProgressAnalysis, TrainingRoadmap, MyProgressSummary } from "@/components/training/progress-insights";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -32,7 +33,7 @@ function Topbar({ back = false, step, settings = false }: { back?: boolean; step
 }
 
 const Label = ({ children }: { children: React.ReactNode }) => <p className="eyebrow">{children}</p>;
-const mySettingRoutes: Record<string, string> = { "내 목표 및 대회": "/my/goals", "Garmin 연결 관리": "/garmin-connect", "데이터 및 개인정보": "/my/privacy", "고객 지원": "/my/support" };
+const mySettingRoutes: Record<string, string> = { "내 목표 및 대회": "/my/goals", "연결 설정": "/garmin-connect", "컨디션과 훈련 요일": "/my/training", "데이터 및 개인정보": "/my/privacy", "고객 지원": "/my/support" };
 
 function Splash() {
   const router = useRouter();
@@ -47,11 +48,12 @@ function Splash() {
 
 function Garmin() {
   return <div className="app-frame"><Topbar back /><main className="garmin-sync-page">
-    <header><p>데이터 관리</p><h1>Garmin 러닝 기록</h1><span>최근 러닝을 가져오고 다음 훈련을 준비해요.</span></header>
+    <header><p>데이터 관리</p><h1>연결 설정</h1><span>Garmin 기록과 ChatGPT 연결을 관리해요.</span></header>
     <WeeklySyncCard detailed />
     <WeeklyRunningSummary detailed initialWeek="current" />
-    <TrainingContextCard />
     <p className="garmin-sync-note">워치를 Garmin Connect 앱과 먼저 동기화해 주세요.<br />수집한 원본 파일은 Mac에 보관됩니다.</p>
+    <ChatGPTConnectionCard />
+    <PrescriptionCard />
   </main></div>;
 }
 
@@ -78,7 +80,7 @@ function Privacy() { const rows = [["수집하는 데이터", "프로필, 훈련
 function Support() { const faqs = [["훈련 일정은 언제 바뀌나요?", "매주 리뷰 후 다음 1~2주 플랜이 새로 발행돼요."], ["날씨 보정은 어떻게 적용되나요?", "기온·체감온도·습도·바람을 참고해 페이스 또는 운동 강도를 안내해요. 원래 훈련 처방은 유지돼요."], ["Garmin 연결은 왜 필요한가요?", "실제 활동과 회복 상태를 훈련 계획에 반영하기 위해 필요해요."]]; return <div className="page app-frame settings-page"><section className="settings-title"><Label>SUPPORT</Label><h1>고객 지원</h1><p>Traini 이용 중 궁금한 점을 빠르게 확인해 보세요.</p></section><section className="support-faq">{faqs.map(([q, a]) => <details key={q}><summary>{q}<Icon>chevron_right</Icon></summary><p>{a}</p></details>)}</section><a className="support-contact" href="mailto:support@traini.app"><Icon>mail</Icon><span><b>문의하기</b><small>support@traini.app</small></span><Icon>chevron_right</Icon></a><p className="support-version">Traini · Version 0.1.0</p></div>; }
 
 function MyPage() {
-  const rows = ["내 목표 및 대회", "Garmin 연결 관리", "알림 설정", "데이터 및 개인정보", "고객 지원"];
+  const rows = ["내 목표 및 대회", "컨디션과 훈련 요일", "연결 설정", "알림 설정", "데이터 및 개인정보", "고객 지원"];
   const router = useRouter();
   const uploadRef = useRef<HTMLInputElement>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);

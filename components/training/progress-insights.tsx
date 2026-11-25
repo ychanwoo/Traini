@@ -5,6 +5,7 @@ import { CoachingDetail } from "./coaching-detail";
 import { useProgress } from "./use-progress";
 import { RefreshCw, ArrowRight } from "lucide-react";
 import { distanceLabel, paceLabel } from "@/lib/garmin/running-summary";
+import { raceRoadmap } from "@/lib/training/race-roadmap";
 import { timeText } from "@/lib/training/goal";
 import type { ProgressInsights } from "@/lib/training/progress";
 import { coachingCopy } from "@/lib/training/coaching-copy";
@@ -411,44 +412,24 @@ export function TrainingRoadmap() {
                     </p>
                   )}
                 </details>
-                <ol className={styles.timeline}>
-                  {[
-                    {
-                      label: "대회 준비",
-                      date: `테이퍼 시작 전 · ${race.taperStart}부터 테이퍼`,
-                      key: "preparation",
-                    },
-                    {
-                      label: "테이퍼",
-                      date: `${race.taperStart} – ${race.taperEnd}`,
-                      key: "taper",
-                    },
-                    { label: "대회", date: race.date, key: "race_day" },
-                    {
-                      label: "회복·복귀 확인",
-                      date: `${race.recoveryStart}부터 · ${race.recoveryEnd} 이후 상태 재확인`,
-                      key: "recovery",
-                    },
-                  ].map((s) => (
-                    <li
-                      key={s.key}
-                      aria-current={race.phase === s.key ? "step" : undefined}
-                    >
-                      <span />
-                      <div>
-                        <p>{s.date}</p>
-                        <h3>{s.label}</h3>
-                        {race.phase === s.key && (
-                          <small>현재 표시 단계 · 완료 판정 아님</small>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-                <p className={styles.note}>
-                  대회 당일은 별도 일정으로 표시하며, 추가 훈련을 뜻하지 않아요.
-                  회복 기간은 의학적 회복 완료 예측이 아니에요.
-                </p>
+                {race.daysUntil >= 0 && <>
+                  <h3 className={styles.roadmapTitle}>대회까지의 준비 흐름</h3>
+                  <p className={styles.note}>예상 준비 단계예요. 날짜별 훈련은 주간 계획에서 확정해요.</p>
+                  <ol className={styles.timeline}>
+                    {raceRoadmap(race, data).map(block => (
+                      <li key={block.start} aria-current={block.start === data.asOfDate ? "step" : undefined}>
+                        <span aria-hidden="true" />
+                        <div>
+                          <p>{block.start}{block.start !== block.end && ` – ${block.end}`}</p>
+                          <h3>{block.label}</h3>
+                          {block.start === data.asOfDate && <small>현재 단계</small>}
+                          <p>{block.description}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </>}
+                <Link href="/schedule" className={styles.link}>확정된 주간 일정 <ArrowRight aria-hidden="true" /></Link>
               </section>
             </>
           ) : (
@@ -481,19 +462,7 @@ export function TrainingRoadmap() {
           <Link href="/my/goals" className={styles.link}>
             여러 대회 목표 관리 <ArrowRight aria-hidden="true" />
           </Link>
-          <section className={styles.card}>
-            <h2>실제 기록으로 보는 준비 현황</h2>
-            <Metrics data={data} />
-            <p className={styles.note}>
-              실제 훈련 거리·페이스는 현재 컨디션을 반영한 주간 계획에서 확인해 주세요.
-            </p>
-            <Link href="/schedule" className={styles.link}>
-              이번 주 훈련 보기 <ArrowRight aria-hidden="true" />
-            </Link>
-            <Link href="/running-analysis" className={styles.link}>
-              러닝 기록 분석 <ArrowRight aria-hidden="true" />
-            </Link>
-          </section>
+
         </>
       )}
     </main>

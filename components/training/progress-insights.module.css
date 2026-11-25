@@ -279,3 +279,6 @@
     font-size: 10px;
   }
 }
+
+.roadmapTitle { margin: 20px 0 0; font-size: 14px; font-weight: 600; }
+.timeline h3 ~ p { margin-top: 4px; line-height: 1.65; font-size: 12px; }
