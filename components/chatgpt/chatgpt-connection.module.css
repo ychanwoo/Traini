@@ -20,7 +20,7 @@
 }
 .heading span {
   flex-shrink: 0;
-  color: #827888;
+  color: var(--muted);
   font-size: 10px;
 }
 .note,
@@ -32,11 +32,11 @@
 }
 .note {
   margin: 10px 0 0;
-  color: #827888;
+  color: var(--muted);
 }
 .footnote {
   margin: 12px 0 0;
-  color: #948b9b;
+  color: var(--muted);
   font-size: 10px;
 }
 .error {
@@ -51,7 +51,7 @@
   overflow-wrap: anywhere;
 }
 .account small {
-  color: #827888;
+  color: var(--muted);
   font-size: 10px;
 }
 .actions {

@@ -25,7 +25,7 @@ const Brand = () => <span className="brand-mini"><Image src="/images/brand/train
 function Topbar({ back = false, step, settings = false }: { back?: boolean; step?: string; settings?: boolean }) {
   const router = useRouter();
   return <header className="topbar grid grid-cols-3">
-    <div>{back ? <button aria-label="Back" className="icon-button" onClick={() => router.back()}><Icon>arrow_back</Icon></button> : null}</div>
+    <div>{back ? <button aria-label="뒤로가기" className="icon-button" onClick={() => router.back()}><Icon>arrow_back</Icon></button> : null}</div>
     <div className="justify-self-center"><Brand /></div>
     <div className="justify-self-end">{step ? <span className="text-[10px] font-semibold text-[#756e7c]">{step}</span> : settings ? <button aria-label="Settings" className="icon-button"><Icon>settings</Icon></button> : null}</div>
   </header>;
@@ -39,7 +39,7 @@ function Splash() {
   useEffect(() => { const timer = window.setTimeout(() => router.push("/login"), 1800); return () => window.clearTimeout(timer); }, [router]);
   return <div className="splash-grid app-frame flex min-h-dvh flex-col items-center px-7 text-center" onClick={() => router.push("/login")}>
     <div className="splash-logo-window mt-[17vh]"><Image alt="Traini AI Running Coach" src="/images/brand/traini-logo.png" width={195} height={106} unoptimized /></div>
-    <div className="mt-6 h-8 w-16 border-t-[3px] border-[#dfd1eb] pt-2"><div className="mx-auto h-6 w-6 animate-spin rounded-full border-[2px] border-[#ddcceb] border-t-[#8c55b8]" /></div>
+    <div className="mt-6 h-8 w-16 border-t-[3px] border-[#dfd1eb] pt-2"><div className="mx-auto h-6 w-6 motion-safe:animate-spin rounded-full border-[2px] border-[#ddcceb] border-t-[#8c55b8]" /></div>
     <p className="mt-7 text-[14px] font-semibold leading-6 tracking-[-.04em] text-[#4e4654]">오늘의 컨디션에 맞춘,<br />가장 좋은 한 걸음</p>
   </div>;
 }
