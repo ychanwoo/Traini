@@ -11,7 +11,7 @@ import type { TrainingContext } from "./context";
 import type { PlanPolicy, PlanContent } from "./weekly-plan";
 import type { ReviewMetrics } from "./weekly-review";
 import type { RunningSummary } from "@/lib/garmin/running-summary";
-type Bound = { kind: string; minPace: number; maxDistanceKm: number };
+type Bound = { kind: string; minPace: number; maxDistanceKm: number; adjustment?: string };
 export type PrescriptionRules = {
   version: 1;
   performance?: ReturnType<typeof performanceEvidence>;
@@ -90,6 +90,10 @@ export function refinePrescription(
   const easyPace =
     median(easy.map((s) => s.paceSecondsPerKm!)) ??
     Math.ceil(policy.minEasyPace / 0.98);
+  const usualEasyRuns = easy.filter(s => s.distanceMeters! < 12000 && s.evidence?.lapsComplete);
+  const usualEasyKm = new Set(usualEasyRuns.map(s => s.trainingDate)).size >= 3
+    ? median(usualEasyRuns.map(s => s.distanceMeters! / 1000))
+    : null;
   const easyKm =
     median(
       easy
@@ -320,7 +324,8 @@ export function refinePrescription(
     {
       kind: "easy",
       minPace: Math.max(policy.minEasyPace, Math.floor(easyPace * 0.98)),
-      maxDistanceKm: policy.maxRunKm,
+      maxDistanceKm: usualEasyKm === null ? policy.maxRunKm : Math.min(policy.maxRunKm, Math.ceil(usualEasyKm * 11) / 10),
+      adjustment: usualEasyKm === null ? undefined : "최근 일반 러닝의 거리 중앙값을 참고했어요.",
     },
     {
       kind: "long",
@@ -347,19 +352,54 @@ export function refinePrescription(
       if (observed !== null) bound.minPace = Math.max(bound.minPace, Math.ceil(observed));
     }
   }
-  // Trends may tighten observed envelopes, never bypass volume/symptom/race caps.
+  // Update one axis from observed sessions, never from a previously generated plan.
+  const canProgress = !noProgression && !unresolved && !(fresh && condition?.feeling === "tired");
   for (const trend of performance.trends) {
-    if (trend.referencePace === null) continue;
-    const kinds = trend.kind === "continuous" ? ["easy", "recovery"] : trend.kind === "long" ? ["long"] : trend.kind === "sustained" ? ["threshold"] : ["interval"];
-    for (const bound of bounds.filter(b => kinds.includes(b.kind))) {
-      if (trend.kind !== "interval") bound.minPace = Math.max(bound.minPace, Math.floor(trend.referencePace * (trend.direction === "supported_progress" && !noProgression ? .98 : 1)));
+    const kind = trend.kind === "continuous" ? "easy" : trend.kind === "sustained" ? "threshold" : trend.kind;
+    const bound = bounds.find(b => b.kind === kind);
+    if (!bound) continue;
+    const advance = canProgress && trend.direction === "supported_progress" &&
+      (kind !== "easy" || trend.comfortable);
+    const extend = canProgress && trend.direction === "maintain" && trend.comfortable &&
+      trend.stableEffort && (kind === "easy" || kind === "long");
+    if (kind !== "interval") {
+      if (advance) {
+        const floor = kind === "long" ? original.minEasyPace : policy.minHardPace;
+        bound.minPace = Math.max(floor, Math.ceil(bound.minPace * 0.98), Math.ceil(trend.referencePace * 0.975));
+        if (kind === "easy") policy.minEasyPace = Math.min(policy.minEasyPace, bound.minPace);
+      } else {
+        bound.minPace = Math.max(bound.minPace, Math.ceil(trend.referencePace * (trend.repeatedStrain ? 1.02 : 1)));
+      }
+    }
+    if (kind === "easy") {
+      const recovery = bounds.find(b => b.kind === "recovery")!;
+      recovery.minPace = Math.max(recovery.minPace, bound.minPace, Math.ceil(trend.referencePace));
+    }
+    if (advance || extend || trend.repeatedStrain) {
+      const distanceFactor = trend.repeatedStrain ? 0.95 : extend ? 1.05 : 1;
+      bound.maxDistanceKm = Math.min(bound.maxDistanceKm,
+        Math.max(0.5, Math.floor(trend.recentSessionKm * distanceFactor * 10) / 10));
+      bound.adjustment = trend.repeatedStrain ? "비슷한 훈련 두 번에서 심박과 체감 부담이 함께 올라 최근 수행량보다 낮게 제한해요."
+        : advance ? "비교 가능한 훈련에서 부담 대비 수행이 좋아져 거리 증가 없이 속도만 소폭 검토해요."
+        : "편안한 강도가 반복돼 페이스를 유지하고 거리만 조금 늘릴 수 있어요.";
+    } else if (!bound.adjustment) {
+      bound.adjustment = "거리나 속도를 늘릴 만한 반복 기록이 충분하지 않아 기존 범위를 참고해요.";
     }
     if (trend.kind === "interval") for (const option of intervals.filter(o => o.meters === trend.repeatMeters)) {
-      option.minPace = Math.max(option.minPace, Math.floor(trend.referencePace * (trend.direction === "supported_progress" && !noProgression ? .98 : 1)));
+      option.minPace = advance
+        ? Math.max(policy.minHardPace, Math.ceil(option.minPace * 0.98), Math.ceil(trend.referencePace * 0.975))
+        : Math.max(option.minPace, Math.ceil(trend.referencePace * (trend.repeatedStrain ? 1.02 : 1)));
       // Pace is the only progression axis here; preserve repetitions and recovery.
       option.maxRepetitions = Math.min(option.maxRepetitions, option.observedRepetitions);
       if (trend.recoveryMeters !== null) option.minRecoveryMeters = Math.max(option.minRecoveryMeters, Math.ceil(trend.recoveryMeters));
       if (trend.recoveryPace !== null) option.minRecoveryPace = Math.max(option.minRecoveryPace ?? 0, Math.ceil(trend.recoveryPace));
+    }
+  }
+  for (const bound of bounds) {
+    const short = confirmed.filter(s => s.kind === bound.kind && s.actualKm !== null && s.plannedKm > 0 && s.actualKm < s.plannedKm * 0.8);
+    if (short.length >= 2) {
+      bound.maxDistanceKm = Math.min(bound.maxDistanceKm, Math.max(0.5, median(short.map(s => s.actualKm!))!));
+      bound.adjustment = "같은 종류의 훈련을 두 번 이상 짧게 마쳐 실제 수행 거리로 조정했어요.";
     }
   }
   if (performance.trends.some(t => t.direction === "supported_progress")) {

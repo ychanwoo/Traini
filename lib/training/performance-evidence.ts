@@ -69,11 +69,12 @@ export function performanceEvidence(
     const feedback = (context.workoutFeedback ?? []).filter(
       (f) => f.date === s.trainingDate && f.outcome === "completed",
     );
-    const assessment =
+    const matchedReport =
       sessions.filter((x) => x.trainingDate === s.trainingDate).length === 1 &&
       feedback.length === 1
-        ? feedback[0].assessment
+        ? feedback[0]
         : null;
+    const assessment = matchedReport?.assessment;
     const rpe = assessment?.rpe;
     return [
       {
@@ -85,6 +86,9 @@ export function performanceEvidence(
             : "continuous",
         distanceMeters: distance,
         durationSeconds: duration,
+        totalKm: s.distanceMeters / 1000,
+        cutShort: positive(matchedReport?.plannedDistanceKm) &&
+          s.distanceMeters < matchedReport.plannedDistanceKm * 800,
         pace: (duration / distance) * 1000,
         averageHeartRate: hr,
         rpe: typeof rpe === "number" && rpe >= 1 && rpe <= 10 ? rpe : null,
@@ -164,7 +168,7 @@ export function performanceEvidence(
     const improved =
       recent.every(
         (o) =>
-          o.distanceMeters >=
+          !o.cutShort && o.distanceMeters >=
           median(older.map((x) => x.distanceMeters))! * 0.98,
       ) &&
       paceChangePercent <= -2 &&
@@ -179,6 +183,13 @@ export function performanceEvidence(
           o.averageHeartRate! <= before.averageHeartRate! + 2 &&
           o.rpe! <= before.rpe!,
       );
+    const steadyPace = recent.every(o => !o.cutShort && Math.abs(o.pace / before.pace - 1) <= 0.015);
+    const easierAtSamePace = steadyPace && before.averageHeartRate !== null && before.rpe !== null &&
+      recent.every(o => o.averageHeartRate !== null && o.averageHeartRate <= before.averageHeartRate! - 4 &&
+        o.rpe !== null && o.rpe <= before.rpe! - 1 && o.rpe <= 4);
+    const repeatedStrain = before.averageHeartRate !== null && before.rpe !== null &&
+      recent.every(o => o.averageHeartRate !== null && o.averageHeartRate >= before.averageHeartRate! + 5 &&
+        o.rpe !== null && o.rpe >= before.rpe! + 1 && o.pace >= before.pace * 0.99);
     const strain =
       adverse ||
       (hrChange !== null &&
@@ -188,7 +199,7 @@ export function performanceEvidence(
         paceChangePercent >= -1);
     const direction = strain
       ? ("hold" as const)
-      : improved
+      : improved || easierAtSamePace
         ? ("supported_progress" as const)
         : ("maintain" as const);
     return [
@@ -206,16 +217,25 @@ export function performanceEvidence(
         rpeChange,
         direction,
         referencePace: after.pace,
+        recentSessionKm: median(recent.map(o => o.totalKm))!,
+        repeatedStrain,
+        comfortable: recent.every(o => o.rpe !== null && o.rpe <= 4 && !o.adverse),
+        stableEffort: steadyPace && hrChange !== null && Math.abs(hrChange) <= 2 &&
+          rpeChange !== null && Math.abs(rpeChange) <= 1,
         recoveryMeters: latest.recoveryMeters,
         recoveryPace: latest.recoveryPace,
         reason: strain
           ? "higher_reported_or_measured_effort"
-          : improved
+          : easierAtSamePace
+            ? "repeated_lower_effort_at_similar_pace"
+            : improved
             ? "repeated_faster_work_at_comparable_effort"
             : "no_supported_progression",
         explanation: strain
           ? "비슷한 구성에서 부담 신호가 있어 강도 증가는 보류해요. 피로나 부상으로 단정하지 않아요."
-          : improved
+          : easierAtSamePace
+            ? "비슷한 거리와 페이스에서 심박과 체감 강도가 함께 낮아진 기록이 반복됐어요."
+            : improved
             ? "비슷한 구성에서 심박·체감 강도를 높이지 않고 빨라진 기록이 반복됐어요. 거리와 반복을 함께 늘리지 않고 페이스만 소폭 검토해요."
             : "비교 기록은 있지만 향상을 확정할 근거가 충분하지 않아 최근 수행 수준을 참고해요.",
       },

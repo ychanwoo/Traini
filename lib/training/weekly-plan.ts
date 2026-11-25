@@ -315,19 +315,26 @@ export function finalizePlanPolicy(policy: PlanPolicy, protectedDates: string[] 
   const eligible = policy.dates.filter((date) =>
     policy.trainingDays.includes(isoWeekday(date)) && !blockedDates.includes(date),
   );
-  const capacity = eligible.reduce((sum, date) => {
-    const cap = floorKm(Math.min(policy.maxRunKm,
-      policy.prescription?.bounds.find((b) => b.kind === "easy")?.maxDistanceKm ?? policy.maxRunKm,
-      policy.prescription?.dayLimits.find((d) => d.date === date)?.maxDistanceKm ?? policy.maxRunKm));
-    return sum + (cap >= 0.5 ? cap : 0);
-  }, 0);
+  const easyCap = policy.prescription?.bounds.find(b => b.kind === "easy")?.maxDistanceKm ?? policy.maxRunKm;
+  const longCap = policy.prescription?.bounds.find(b => b.kind === "long")?.maxDistanceKm ?? easyCap;
+  let easyCapacity = 0;
+  let longAllowance = 0;
+  for (const date of eligible) {
+    const daily = Math.min(policy.maxRunKm, policy.prescription?.dayLimits.find(d => d.date === date)?.maxDistanceKm ?? policy.maxRunKm);
+    const easy = floorKm(Math.min(daily, easyCap));
+    easyCapacity += easy >= 0.5 ? easy : 0;
+    if (policy.prescription?.allowedLongRunDates.includes(date)) {
+      longAllowance = Math.max(longAllowance, floorKm(Math.min(daily, longCap)) - easy);
+    }
+  }
+  const capacity = easyCapacity + longAllowance;
   const maxWeekKm = floorKm(Math.max(0, Math.min(policy.maxWeekKm, capacity)));
   const maxRunKm = floorKm(Math.min(policy.maxRunKm, maxWeekKm));
   const canRun = maxRunKm >= 0.5 && capacity >= 0.5;
   return {
     ...policy, blockedDates, maxWeekKm, maxRunKm,
     minWeekKm: !canRun || policy.allowAllRest ? 0 : Math.min(
-      maxWeekKm, Math.ceil((policy.minWeekKm - 1e-9) * 10) / 10,
+      floorKm(easyCapacity), maxWeekKm, Math.ceil((policy.minWeekKm - 1e-9) * 10) / 10,
     ),
     maxHardSessions: canRun && eligible.some((d) => !policy.easyOnlyDates.includes(d)) ? policy.maxHardSessions : 0,
     prescription: policy.prescription ? {
