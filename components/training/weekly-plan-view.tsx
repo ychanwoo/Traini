@@ -221,7 +221,7 @@ export function TodayPlan({ concise = false }: { concise?: boolean }) {
     </>
   );
 }
-function PastWorkoutFeedback() {
+export function PastWorkoutFeedback() {
   const [open, setOpen] = useState(false);
   return (
     <details className={styles.details} onToggle={(event) => setOpen(event.currentTarget.open)}>
@@ -235,7 +235,7 @@ function PastWorkoutFeedbackFields() {
   const [selected, setSelected] = useState("");
   const state = useWeeklyPlan(week);
   const data = state.data;
-  const workouts = data?.plan?.workouts.filter(w => w.date < data.period.today && w.kind !== "rest") ?? [];
+  const workouts = data?.plan?.workouts.filter(w => w.date <= data.period.today && w.kind !== "rest") ?? [];
   const workout = workouts.find(w => w.id === selected) ?? workouts[0];
   return (
     <section aria-label="지난 훈련 기록">

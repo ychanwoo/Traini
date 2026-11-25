@@ -22,7 +22,7 @@ Progress focus/timer reads are coalesced, not repeatedly aborted. Changes to goa
 
 ## Updating condition and plans
 
-Use **마이 → 내 목표 및 대회 → 최근 컨디션**, or Today's **오늘 컨디션 확인·수정** link. Saving condition is a self-report and does not diagnose recovery or rewrite historical feedback. The existing explicit plan update action applies current inputs and preserves protected sessions; no view or background refresh calls inference.
+Use **마이 → 컨디션과 훈련 요일 → 최근 컨디션**. Saving condition is a self-report and does not diagnose recovery or rewrite historical feedback. The existing explicit plan update action applies current inputs and preserves protected sessions; no view or background refresh calls inference.
 
 ## Verification
 

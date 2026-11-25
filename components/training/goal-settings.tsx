@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ChatGPTConnectionCard } from "@/components/chatgpt/chatgpt-connection-card";
 import { Info } from "lucide-react";
 import {
   GoalValidationError,
@@ -17,8 +16,7 @@ import {
   TrainingRequestError,
   trainingRequest,
 } from "@/lib/training/client";
-import { TrainingContextCard, issueLabel } from "./training-context-card";
-import { PrescriptionCard } from "./prescription-card";
+import { issueLabel } from "./training-context-card";
 import { RaceGoalsEditor } from "./race-goals-editor";
 import styles from "./training.module.css";
 type SavedGoal = {
@@ -29,7 +27,7 @@ type SavedGoal = {
   revision: string;
 };
 const weekdays = ["월", "화", "수", "목", "금", "토", "일"];
-export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
+export function GoalSettings({ onboarding = false, preferences = false }: { onboarding?: boolean; preferences?: boolean }) {
   const [loaded, setLoaded] = useState<SavedGoal | null>(null);
   const [goal, setGoal] = useState<TrainingGoal | null>(null);
   const [raceTimes, setRaceTimes] = useState<Record<string, string>>({});
@@ -144,11 +142,11 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
   }
   const unavailable = loading || !goal || saving;
   return (
-    <div className="page app-frame settings-page">
+    <div className={preferences ? "settings-page" : "page app-frame settings-page"}>
       <section className="settings-title">
-        <p className="eyebrow">GOAL & RACE</p>
-        <h1>{onboarding ? "나의 훈련 목표" : "내 목표 및 대회"}</h1>
-        <p>목표 기간과 달릴 수 있는 요일을 알려주세요.</p>
+        <p className="eyebrow">{preferences ? "TRAINING" : "GOAL & RACE"}</p>
+        <h1>{preferences ? "컨디션과 훈련 요일" : onboarding ? "나의 훈련 목표" : "내 목표 및 대회"}</h1>
+        <p>{preferences ? "현재 상태와 달릴 수 있는 요일을 설정해요." : "대회 날짜와 거리, 목표 기록을 설정해요."}</p>
       </section>
       {loading && (
         <p className={styles.note} role="status">
@@ -171,7 +169,7 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
       )}
       <form onSubmit={(event) => void save(event)} noValidate>
         <fieldset disabled={unavailable} className={styles.fields}>
-          <RaceGoalsEditor
+          {!preferences && <RaceGoalsEditor
             races={goal?.races ?? []}
             times={raceTimes}
             today={loaded?.today ?? ""}
@@ -199,7 +197,8 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
               setMessage(null);
               setIssues([]);
             }}
-          />
+          />}
+          {(preferences || onboarding) && <>
           <label className={`settings-field ${styles.select}`}>
             최근 컨디션 (직접 입력)
             <select
@@ -308,14 +307,15 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
               ))}
             </select>
           </label>
-          <section className="goal-hint">
+          </>}
+          {!preferences && <section className="goal-hint">
             <Info aria-hidden="true" />
             <p>
               여러 대회의 준비·대회일·회복 구간과 실제 러닝 기록을 함께
               반영해요. 목표 기록 달성을 보장하거나 미입력 컨디션을 추정하지
               않아요.
             </p>
-          </section>
+          </section>}
         </fieldset>
         <div aria-live="polite">
           {issues.length > 0 && (
@@ -334,7 +334,7 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
           )}
           {saved && (
             <p className={styles.note} role="status">
-              목표를 저장했어요. 훈련 입력 데이터에 반영했어요.
+              {preferences ? "훈련 설정을 저장했어요." : "대회 목표를 저장했어요."}
             </p>
           )}
         </div>
@@ -343,12 +343,9 @@ export function GoalSettings({ onboarding = false }: { onboarding?: boolean }) {
           className="primary-button mt-7"
           disabled={unavailable}
         >
-          {saving ? "저장 중…" : "목표 저장하기"}
+          {saving ? "저장 중…" : preferences ? "훈련 설정 저장하기" : "목표 저장하기"}
         </button>
       </form>
-      {!onboarding && <ChatGPTConnectionCard />}
-      <PrescriptionCard />
-      <TrainingContextCard settings />
     </div>
   );
 }

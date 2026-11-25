@@ -50,8 +50,8 @@ export function PlanManagement({ week, onSaved, expectedStart }: { expectedStart
           <p className={flow.hint}>{actionHint}</p>
         </>
       )}
-      <Link className={styles.link} href="/my/goals">
-        목표·컨디션 및 ChatGPT 연결 확인
+      <Link className={styles.link} href="/garmin-connect">
+        연결 설정 확인
       </Link>
     </>
   );

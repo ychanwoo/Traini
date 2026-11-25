@@ -11,3 +11,45 @@ test('Today and Schedule show actions appropriate to the selected screen', async
   await expect(page.locator('.schedule-row')).toHaveCount(7);
   await expect(page.getByText('계획에 사용한 리뷰')).toHaveCount(0);
 });
+
+test('goal and connection settings have separate responsibilities on a small screen', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto('/my/goals');
+  await expect(page.getByRole('button', { name: '목표 저장하기' })).toBeVisible();
+  await expect(page.getByLabel('최근 컨디션', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '훈련 처방 기준' })).toHaveCount(0);
+  await page.goto('/garmin-connect');
+  await expect(page.getByRole('heading', { name: '연결 설정' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Garmin 주간 기록 가져오기' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /ChatGPT/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '훈련 처방 기준' })).toBeVisible();
+  await expect(page.getByText('훈련 준비 데이터', { exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('saving a race preserves training preferences and editing condition preserves that race', async ({ page }) => {
+  const race = {id:'10000000-0000-4000-8000-000000000001',name:'Spring half',priority:'primary',distance:'HALF',date:'2027-03-01',targetTimeSeconds:6000};
+  let goal = {races:[race], condition:null, raceName:race.name, targetDistance:'HALF',targetDate:race.date,targetTimeSeconds:6000,trainingDays:[1,3,7],longRunDay:7};
+  let saves = 0;
+  await page.route('**/api/training/goal', async route => {
+    if (route.request().method() === 'PUT') {
+      const {expectedRevision,...next}=route.request().postDataJSON();
+      expect(expectedRevision).toBe(String(saves).padStart(32,'0'));
+      goal=next;
+      saves++;
+    }
+    return route.fulfill({json:{goal,revision:String(saves).padStart(32,'0'),today:'2026-11-25',issues:[],timezone:'America/Los_Angeles'}});
+  });
+  await page.goto('/my/goals');
+  await page.getByLabel('대회 1 이름').fill('Coastal half');
+  await page.getByRole('button',{name:'목표 저장하기'}).click();
+  await expect.poll(()=>saves).toBe(1);
+  expect(goal.trainingDays).toEqual([1,3,7]);
+  await page.goto('/my/training');
+  await expect(page.getByLabel('대회 1 이름')).toHaveCount(0);
+  await page.getByLabel('최근 컨디션',{exact:true}).selectOption('normal');
+  await page.getByRole('button',{name:'훈련 설정 저장하기'}).click();
+  await expect.poll(()=>saves).toBe(2);
+  expect(goal.races[0]).toEqual({...race,name:'Coastal half'});
+  expect(goal.condition.feeling).toBe('normal');
+});

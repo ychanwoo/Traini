@@ -4,11 +4,11 @@ Traini builds a weekly plan from the verified administrator's saved goal, availa
 
 ## Use
 
-Set the target date, distance, available days and long-run day in **내 목표 및 대회**. Complete ChatGPT connection there. In **오늘** generate the current week's remaining training, or use the next-week arrow in **일정** and generate next week. Registered race dates are separate calendar events rather than ordinary prescribed runs. Preparation, taper and post-race recovery rules consider all registered races; the application does not confirm participation or recovery from the calendar alone. The configured `TRAINI_TIMEZONE` is authoritative, including at midnight and DST boundaries.
+Set race dates, distances and time goals in **마이 → 내 목표 및 대회**. Set availability and your long-run day in **컨디션과 훈련 요일**. Open **연결 설정** to connect ChatGPT and see the current prescription criteria. In **오늘** generate the current week's remaining training, or use the next-week arrow in **일정** and generate next week. Registered race dates are separate calendar events rather than ordinary prescribed runs. Preparation, taper and post-race recovery rules consider all registered races; the application does not confirm participation or recovery from the calendar alone. The configured `TRAINI_TIMEZONE` is authoritative, including at midnight and DST boundaries.
 
 For unchanged input, repeat clicks or retries return the saved week without another AI request. When goals, the reported baseline or measured activity/lap evidence changes, an explicit update action regenerates pending training transactionally. Completed workouts and past dates are preserved, including their IDs and completion timestamps. A failed update preserves the prior plan. Importing Garmin activities alone does not regenerate a plan or consume ChatGPT usage.
 
-Today displays the saved workout for today's training date. Schedule also supports late feedback and explicit completion/skip corrections for eligible training dates. Garmin-confirmed completion and manual completion remain distinct; neither an absent record nor a calendar rollover automatically completes a session. See [workout feedback](workout-feedback.md) and [Garmin matching](garmin-workout-matching.md).
+Today displays the saved workout for today's training date. Open **마이 → 컨디션과 훈련 요일 → 지난 훈련 기록·수정** for late feedback and completion or skip corrections. Garmin-confirmed completion and manual completion remain distinct; neither an absent record nor a calendar rollover automatically completes a session. See [workout feedback](workout-feedback.md) and [Garmin matching](garmin-workout-matching.md).
 
 ## Input and output safeguards
 

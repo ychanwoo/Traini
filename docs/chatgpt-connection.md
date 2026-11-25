@@ -8,7 +8,7 @@ It does not reuse the Codex app's credentials, ask for a ChatGPT password, or re
 
 1. Start Traini with `npm run dev` (or the existing port 3017 command).
 2. Sign in with the existing administrator Google account.
-3. Open `/my/goals`, then choose **ChatGPT 연결 준비**.
+3. Open `/garmin-connect`, then choose **ChatGPT 연결 준비**.
 4. Choose **Continue with ChatGPT**. Complete login and review the requested permissions on OpenAI's page yourself within 10 minutes.
 5. Return to Traini. The card polls the local connection status. Successful identity validation is followed by a request for the account's visible model catalog.
 6. If an embedded browser repeatedly reports `invalid_state` before the callback, use **승인 링크 복사** and paste the link into Safari or Chrome on the same Mac. This is a diagnostic retry in a regular browser, not proof of the cause. Do not reuse an expired attempt. After reloading Traini, **연결 이어하기** restores an unexpired flow only while its local listener is alive.

@@ -1,3 +1,5 @@
+import TrainingPreferencesPage from "../../app/(app)/my/training/page";
+import { TrainiScreen } from "../../components/traini-screen";
 import { AuthGuard } from "../../components/auth/auth-guard";
 import { ProgressProvider } from "../../components/training/use-progress";
 import { WeeklySyncCard } from "../../components/garmin/weekly-sync-card";
@@ -41,7 +43,7 @@ function Harness() {
     <div className="app-frame app-tab-shell">
       <AppTabHeader />
       <div className="app-tab-content">
-        {pathname === "/auth-refresh" ? <AuthGuard><MyProgressSummary /></AuthGuard> : pathname.startsWith("/login") ? <p>Fixture login</p> : pathname === "/garmin-connect" ? <div className="page"><WeeklySyncCard detailed /><WeeklyRunningSummary detailed /></div> : pathname === "/coaching-regression" ? <div className="page"><CurrentRunningMetrics /><TodayPlan /><WeeklyCloseoutCard /><WeeklyReviewCard /><details className="card mt-4 p-4"><summary>주간 기록 자세히</summary><WeeklyRunningSummary /></details><WeeklySyncCard /></div> : pathname === "/today" ? <div className="page"><TodayWorkflow /></div> : pathname === "/my" ? <div className="page"><MyProgressSummary /></div> : pathname === "/running-analysis" ? <RunningProgressAnalysis /> : pathname === "/roadmap" ? <TrainingRoadmap /> : <WeeklySchedule initialWeek={scheduleWeek(new URLSearchParams(location.search).get("start") ?? undefined, "America/Los_Angeles")} />}
+        {pathname === "/auth-refresh" ? <AuthGuard><MyProgressSummary /></AuthGuard> : pathname.startsWith("/login") ? <p>Fixture login</p> : pathname === "/garmin-connect" ? <TrainiScreen screen="garmin" /> : pathname === "/my/training" ? <TrainingPreferencesPage /> : pathname === "/my/goals" ? <TrainiScreen screen="my-goals" /> : pathname === "/coaching-regression" ? <div className="page"><CurrentRunningMetrics /><TodayPlan /><WeeklyCloseoutCard /><WeeklyReviewCard /><details className="card mt-4 p-4"><summary>주간 기록 자세히</summary><WeeklyRunningSummary /></details><WeeklySyncCard /></div> : pathname === "/today" ? <div className="page"><TodayWorkflow /></div> : pathname === "/my" ? <div className="page"><MyProgressSummary /></div> : pathname === "/running-analysis" ? <RunningProgressAnalysis /> : pathname === "/roadmap" ? <TrainingRoadmap /> : <WeeklySchedule initialWeek={scheduleWeek(new URLSearchParams(location.search).get("start") ?? undefined, "America/Los_Angeles")} />}
       </div>
       <BottomNavigation />
     </div>
